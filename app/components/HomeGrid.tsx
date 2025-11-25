@@ -1,0 +1,175 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+
+type VideoItem = {
+  videoID: string;
+  videos_title: string;
+  thumbnail: string;
+  channelName: string;
+  numOfViews: string;
+  timeAgo: string;
+  channelProfilePicture?: string;
+};
+
+type Section = {
+  sectionName: string;
+  sectionData: VideoItem[];
+};
+
+function formatTitle(title: string) {
+  return title
+    .trim()
+    .toLowerCase()
+    .replace(/[!@#$%^&*()+={}\[\]|\\:;"'<>,.?/]+/g, "")
+    .replace(/\s+/g, "-");
+}
+
+export default function HomeInitialGrid() {
+  const [sections, setSections] = useState<Section[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/homepage", {
+          method: "GET",
+        });
+
+        const json = await res.json();
+
+        if (!res.ok || !json.ok) {
+          throw new Error(json.error || "Failed to load home feed.");
+        }
+
+        if (!cancelled) {
+          setSections(json.data || []);
+        }
+      } catch (err) {
+        console.error("HomeInitialGrid load error:", err);
+        if (!cancelled) {
+          setError("Unable to load videos right now.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6">
+        <div className="h-8 w-48 rounded bg-neutral-800/70 mb-4" />
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div
+              key={i}
+              className="animate-pulse rounded-md overflow-hidden bg-neutral-900"
+            >
+              <div className="aspect-video bg-neutral-800" />
+              <div className="p-3 space-y-2">
+                <div className="h-3.5 w-3/4 bg-neutral-800 rounded" />
+                <div className="h-3 w-1/2 bg-neutral-800 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 sm:p-6">
+        <p className="text-sm text-red-400">{error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 sm:p-6 space-y-8">
+      {sections.map((section) => (
+        <section key={section.sectionName} className="space-y-3">
+          {/* Section title */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg sm:text-xl font-extrabold text-white">
+              {section.sectionName}
+            </h2>
+          </div>
+
+          {/* Video grid (YouTube-style) */}
+          <div className="grid gap-4 md:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            {section.sectionData.map((video) => (
+              <Link
+                key={video.videoID}
+                href={`/videos/watch/${video.videoID}/${formatTitle(
+                  video.videos_title
+                )}`}
+                className="cursor-pointer group overflow-hidden"
+              >
+                {/* Thumbnail */}
+                <div className="relative rounded-md aspect-video overflow-hidden">
+                  <Image
+                    src={video.thumbnail}
+                    alt={video.videos_title}
+                    fill
+                    unoptimized
+                    loading="lazy"
+                    sizes="(max-width: 640px) 100vw,
+                           (max-width: 1024px) 50vw,
+                           25vw"
+                    className="object-contain bg-black object-top group-hover:scale-105 transition-transform duration-200"
+                  />
+                </div>
+
+                {/* Meta row: avatar + text */}
+                <div className="p-3 flex gap-3">
+                  {video.channelProfilePicture && (
+                    <div className="relative h-9 w-9 rounded-full overflow-hidden bg-neutral-800 flex-shrink-0">
+                      <Image
+                        src={video.channelProfilePicture}
+                        alt={video.channelName}
+                        fill
+                        unoptimized
+                        loading="lazy"
+                        sizes="36px"
+                        className="object-cover"
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-extrabold text-white line-clamp-2 mb-1">
+                      {video.videos_title}
+                    </h3>
+                    <p className="text-xs text-neutral-400 line-clamp-1">
+                      {video.channelName}
+                    </p>
+                    <p className="mt-0.5 text-xs text-neutral-500">
+                      {video.numOfViews} views · {video.timeAgo}
+                    </p>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}

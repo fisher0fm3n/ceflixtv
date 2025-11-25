@@ -18,6 +18,7 @@ import wordinthestreet from "./assets/images/homepage/wordinthestreet.webp";
 import trueto from "./assets/images/homepage/trueto.png";
 
 import RowSlider from "./components/RowSlider";
+import InitialHomeGrid from "./components/HomeGrid";
 
 const SLIDES: Slide[] = [
   {
@@ -98,9 +99,9 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!initialized) return; // ⏳ wait until we know
-    if (!token) {
-      router.push("/login?next=/");
-    }
+    // if (!token) {
+    //   router.push("/login?next=/");
+    // }
   }, [initialized, token, router]);
 
   if (!initialized) {
@@ -112,17 +113,14 @@ export default function HomePage() {
     );
   }
 
-  if (!token) {
-    // While redirecting, render nothing (or a small spinner)
-    return null;
-  }
+  // if (!token) {
+  //   // While redirecting, render nothing (or a small spinner)
+  //   return null;
+  // }
 
   return (
-    <main className="bg-black text-white min-h-screen mb-[10rem]">
-      <HeroSlider slides={SLIDES} autoAdvanceMs={8000} />
-      <div className="mt-[-5rem]">
-        <RowSlider title="Featured on Ceflix+" items={FEATURED_SHOWS} />
-      </div>
+    <main className="bg-neutral-950 text-white min-h-screen mb-[10rem]">
+      <InitialHomeGrid />
 
       {/* <h1 className="text-xl font-semibold h-[300rem]">
         Welcome, {user?.fname || user?.username || "User"} 👋

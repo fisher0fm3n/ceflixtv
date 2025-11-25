@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useEffect } from "react"; // 👈 add useEffect
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, Transition, Dialog } from "@headlessui/react";
@@ -20,12 +20,21 @@ function cx(...cls: (string | false | null | undefined)[]) {
   return cls.filter(Boolean).join(" ");
 }
 
-export default function MainNav() {
+type MainNavProps = {
+  onToggleSideNav?: () => void; // toggles sidebar
+  sideCollapsed?: boolean;
+};
+
+export default function MainNav({
+  onToggleSideNav,
+  sideCollapsed,
+}: MainNavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, token, logout, initialized } = useAuth();
 
-  if (pathname.startsWith("/login") || pathname.startsWith("/player")) return null;
+  if (pathname.startsWith("/login"))
+    return null;
 
   const loggedIn = Boolean(token && user);
   const displayName =
@@ -33,14 +42,16 @@ export default function MainNav() {
       ? `${user.fname} ${user.lname}`
       : user?.username || "Profile";
 
-  const [searchOpen, setSearchOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // 👇 track scroll to switch between faded + solid
+  const handleToggleSide = () => {
+    if (onToggleSideNav) onToggleSideNav();
+  };
+
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 80);
-    onScroll(); // initial
+    onScroll();
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -49,67 +60,84 @@ export default function MainNav() {
     <header
       className={cx(
         "fixed w-full top-0 z-40 transition-colors duration-400",
-        scrolled ? "bg-neutral-950/40 backdrop-blur" : ""
+        "bg-neutral-950/40 backdrop-blur"
       )}
     >
-      <div className="mx-auto px-4 sm:px-[5rem]">
-        <div className="h-16 flex items-center justify-between">
-          {/* LEFT: Brand + desktop nav */}
-          <div className="flex items-center gap-3">
-            {/* Mobile hamburger */}
+      <div className="px-4 sm:px-6 lg:px-8">
+        <div className="h-16 flex items-center gap-4">
+          {/* LEFT: menu + brand */}
+          <div className="flex items-center gap-3 shrink-0 min-w-0">
+            {/* Mobile hamburger -> opens mobile nav sheet */}
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden inline-flex items-center justify-center rounded-md p-2 text-white/90 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
+              className="lg:hidden inline-flex items-center justify-center rounded-md p-2 text-white/90 hover:bg-white/10"
               aria-label="Open navigation"
             >
               <Bars3Icon className="h-6 w-6" />
             </button>
 
-            {/* Brand (you can replace with a logo image) */}
-            <Link href="/" className="flex items-center gap-2">
-              <Image
-                src={logo}
-                alt="Kingschat logo"
-                className="w-[5.4rem] mx-auto"
-              />
-            </Link>
-
-            {/* Desktop nav links */}
-            <nav className="hidden lg:flex items-center gap-2 ml-4 text-sm">
-              <NavLink href="/" active={pathname === "/"}>
-                Home
-              </NavLink>
-              <NavLink href="/shows" active={pathname.startsWith("/shows")}>
-                Shows
-              </NavLink>
-              <NavLink href="/movies" active={pathname.startsWith("/movies")}>
-                Movies
-              </NavLink>
-              <NavLink href="/my-list" active={pathname.startsWith("/my-list")}>
-                My List
-              </NavLink>
-            </nav>
-          </div>
-
-          {/* RIGHT: search + auth/profile */}
-          <div className="flex items-center gap-3">
-            {/* Search icon (hook up to your search page later) */}
+            {/* Desktop sidebar toggle */}
             <button
               type="button"
-              onClick={() => setSearchOpen((v) => !v)}
-              className="inline-flex items-center justify-center rounded-full p-2 text-white/90 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
+              onClick={handleToggleSide}
+              className="hidden lg:inline-flex items-center justify-center rounded-md p-2 mr-1 text-white/90 hover:bg-white/10"
+              aria-label="Toggle sidebar"
+            >
+              <Bars3Icon
+                className={cx(
+                  "h-6 w-6 transition-transform"
+                  // sideCollapsed ? "rotate-180" : ""
+                )}
+              />
+            </button>
+
+            {/* Brand */}
+            <Link href="/" className="flex items-center gap-2 shrink-0">
+              <Image
+                src={logo}
+                alt="Ceflix+"
+                className="w-[5.4rem] h-auto"
+                priority
+              />
+            </Link>
+          </div>
+
+          {/* CENTER: big search bar */}
+          <div className="flex-1 flex justify-center">
+            <div className="hidden md:flex items-center gap-2 w-full max-w-3xl px-4 py-2 rounded-sm bg-neutral-900 border border-neutral-800">
+              <MagnifyingGlassIcon className="h-5 w-5 text-neutral-400" />
+              <input
+                type="text"
+                placeholder="Search Ceflix"
+                className="flex-1 bg-transparent text-sm text-white placeholder-neutral-400 focus:outline-none"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const q = (e.currentTarget as HTMLInputElement).value.trim();
+                    if (q) router.push(`/search?q=${encodeURIComponent(q)}`);
+                  }
+                }}
+              />
+            </div>
+
+            {/* Mobile search: simple icon, goes to /search */}
+            <button
+              type="button"
+              className="md:hidden inline-flex items-center justify-center rounded-full p-2 text-white/90 hover:bg-white/10"
               aria-label="Search"
+              onClick={() => router.push("/search")}
             >
               <MagnifyingGlassIcon className="h-5 w-5" />
             </button>
+          </div>
 
-            {/* Auth section */}
+          {/* RIGHT: auth/profile */}
+          <div className="flex items-center gap-3 shrink-0">
             {initialized && loggedIn ? (
               <>
                 {/* Desktop profile dropdown */}
                 <Menu as="div" className="relative hidden lg:block">
-                  <Menu.Button className="inline-flex h-9 items-center gap-2 rounded-full bg-white/10 px-2 pr-3 text-sm text-white hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/20">
+                  <Menu.Button className="inline-flex h-9 items-center gap-2 rounded-full bg-white/10 px-2 pr-3 text-sm text-white hover:bg-white/15">
                     <ProfileAvatar src={user?.profile_pic} />
                     <span className="max-w-[120px] truncate">
                       {displayName}
@@ -164,7 +192,7 @@ export default function MainNav() {
                 <button
                   type="button"
                   onClick={() => setMobileOpen(true)}
-                  className="lg:hidden inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/20 overflow-hidden"
+                  className="lg:hidden inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/15 overflow-hidden"
                   aria-label="Open profile"
                 >
                   <ProfileAvatar src={user?.profile_pic} />
@@ -192,28 +220,7 @@ export default function MainNav() {
         </div>
       </div>
 
-      {/* Simple top search bar row (optional) */}
-      {searchOpen && (
-        <div className="border-t border-white/10 bg-neutral-900/80">
-          <div className="mx-auto max-w-2xl px-4 sm:px-6 py-3">
-            <input
-              autoFocus
-              type="text"
-              placeholder="Search Ceflix"
-              className="w-full rounded-md bg-neutral-800/80 border border-neutral-700/80 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-500"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  const q = (e.currentTarget as HTMLInputElement).value.trim();
-                  if (q) router.push(`/search?q=${encodeURIComponent(q)}`);
-                  setSearchOpen(false);
-                }
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* MOBILE NAV SHEET (hamburger + profile combined) */}
+      {/* MOBILE NAV SHEET */}
       <Transition show={mobileOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -262,20 +269,23 @@ export default function MainNav() {
                   <MobileRow href="/" onClick={() => setMobileOpen(false)}>
                     Home
                   </MobileRow>
+                  <MobileRow href="/anime" onClick={() => setMobileOpen(false)}>
+                    Anime
+                  </MobileRow>
                   <MobileRow href="/shows" onClick={() => setMobileOpen(false)}>
-                    Shows
+                    Short Drama
                   </MobileRow>
                   <MobileRow
-                    href="/movies"
+                    href="/trending"
                     onClick={() => setMobileOpen(false)}
                   >
-                    Movies
+                    Trending
                   </MobileRow>
                   <MobileRow
-                    href="/my-list"
+                    href="/categories"
                     onClick={() => setMobileOpen(false)}
                   >
-                    My List
+                    Category
                   </MobileRow>
 
                   <hr className="border-white/10 my-2" />
@@ -364,7 +374,7 @@ function NavLink({
       className={cx(
         "px-3 py-1.5 rounded-full transition text-sm",
         active
-          ? "font-[900] text-white"
+          ? "font-semibold text-white bg-neutral-800"
           : "text-neutral-200 hover:bg-white/10"
       )}
     >
@@ -432,7 +442,6 @@ function ProfileAvatar({
   if (src) {
     return (
       <div className={className}>
-        {/* if your API already gives a full URL, leave it as is */}
         <img src={src} alt="" className="h-full w-full object-cover" />
       </div>
     );

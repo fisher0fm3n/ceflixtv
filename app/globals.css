@@ -28,7 +28,7 @@
 html, body {
   font-family: "Avenir", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   overflow-x: hidden!important;
-  background-color: #000000;
+  background-color: #0a0a0a;
 }
 
 /* Allow hover cards to extend outside the row */
@@ -109,4 +109,34 @@ html, body {
 .ceflix-player.plyr--hide-controls + .player-title-bar {
   opacity: 0;
   pointer-events: none;
+}
+
+.plyr {
+  height: 100%;
+}
+
+:root {
+  --plyr-color-main: #c81e1e;
+}
+
+.plyr--full-ui input[type=range] {
+  color: #c81e1e;
+}
+
+.plyr__control--overlaid {
+  background: rgba(200,30,30, .8);
+}
+
+.plyr--video .plyr__control.plyr__tab-focus,
+.plyr--video .plyr__control:hover,
+.plyr--video .plyr__control[aria-expanded=true] {
+  background: #c81e1e;
+}
+
+.plyr__control.plyr__tab-focus {
+  box-shadow: 0 0 0 5px rgba(200,30,30, .5);
+}
+
+.plyr__menu__container .plyr__control[role=menuitemradio][aria-checked=true]::before {
+  background: #c81e1e;
 }
