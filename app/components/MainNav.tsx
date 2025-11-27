@@ -117,7 +117,7 @@ export default function MainNav({
           {/* CENTER: big search bar */}
           {/* CENTER: big search bar */}
           <div className="flex-1 flex justify-end lg:justify-center">
-            <div className="hidden sm:flex items-center gap-2 w-full max-w-3xl px-4 py-2 rounded-full bg-neutral-900 border border-neutral-800">
+            <div className="hidden sm:flex items-center gap-2 w-full max-w-3xl pl-4 pr-2 py-2 rounded-full bg-neutral-900 border border-neutral-800">
               <MagnifyingGlassIcon className="h-5 w-5 text-neutral-400" />
               <input
                 type="text"

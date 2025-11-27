@@ -1,0 +1,649 @@
+"use client";
+
+import "cropperjs/dist/cropper.css";
+
+import React, {
+  useEffect,
+  useState,
+  ChangeEvent,
+  FormEvent,
+  useRef,
+} from "react";
+import Cropper, { ReactCropperElement } from "react-cropper";
+import { CameraIcon } from "@heroicons/react/20/solid";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/components/AuthProvider";
+
+const API_BASE = "https://webapi.ceflix.org/api/";
+const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
+
+type Category = {
+  id: number;
+  title: string;
+  [key: string]: any;
+};
+
+export default function CreateChannelPage() {
+  const { token } = useAuth();
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+
+  // Channel fields
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [tags, setTags] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryVal, setCategoryVal] = useState<Category | null>(null);
+
+  // Branding
+  const [thumbnail, setThumbnail] = useState("");
+  const [cover, setCover] = useState("");
+  const [thumbFileName, setThumbFileName] = useState("");
+  const [coverFileName, setCoverFileName] = useState("");
+  const [thumbError, setThumbError] = useState<string | null>(null);
+  const [coverError, setCoverError] = useState<string | null>(null);
+
+  // Cropping state (thumbnail)
+  const [showThumbCropper, setShowThumbCropper] = useState(false);
+  const [rawThumbImage, setRawThumbImage] = useState("");
+  const thumbCropperRef = useRef<ReactCropperElement | null>(null);
+
+  // Cropping state (cover)
+  const [showCoverCropper, setShowCoverCropper] = useState(false);
+  const [rawCoverImage, setRawCoverImage] = useState("");
+  const coverCropperRef = useRef<ReactCropperElement | null>(null);
+
+  // File inputs (click image to open)
+  const thumbInputRef = useRef<HTMLInputElement | null>(null);
+  const coverInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Misc
+  const [progress, setProgress] = useState(0);
+  const [created, setCreated] = useState(false);
+  const [error, setError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
+
+  // -------------------------
+  // Helpers
+  // -------------------------
+  const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
+
+  const readFileAsDataURL = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === "string") resolve(reader.result);
+        else reject(new Error("Unable to read file"));
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  // -------------------------
+  // File selection + cropping
+  // -------------------------
+  const handleThumbFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      setThumbError("Image must be 2MB or less.");
+      return;
+    }
+
+    setThumbError(null);
+    setThumbFileName(file.name);
+
+    try {
+      const dataUrl = await readFileAsDataURL(file);
+      setRawThumbImage(dataUrl);
+      setShowThumbCropper(true);
+    } catch {
+      setThumbError("Unable to load image.");
+    }
+  };
+
+  const handleCoverFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      setCoverError("Image must be 2MB or less.");
+      return;
+    }
+
+    setCoverError(null);
+    setCoverFileName(file.name);
+
+    try {
+      const dataUrl = await readFileAsDataURL(file);
+      setRawCoverImage(dataUrl);
+      setShowCoverCropper(true);
+    } catch {
+      setCoverError("Unable to load image.");
+    }
+  };
+
+  const applyThumbCrop = () => {
+    const cropper = thumbCropperRef.current?.cropper;
+    if (!cropper) return;
+
+    const canvas = cropper.getCroppedCanvas({
+      width: 400,
+      height: 400,
+      imageSmoothingEnabled: true,
+    });
+
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+    setThumbnail(dataUrl);
+    setShowThumbCropper(false);
+    setRawThumbImage("");
+  };
+
+  const applyCoverCrop = () => {
+    const cropper = coverCropperRef.current?.cropper;
+    if (!cropper) return;
+
+    const canvas = cropper.getCroppedCanvas({
+      width: 1500,
+      height: 400,
+      imageSmoothingEnabled: true,
+    });
+
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+    setCover(dataUrl);
+    setShowCoverCropper(false);
+    setRawCoverImage("");
+  };
+
+  // -------------------------
+  // API calls
+  // -------------------------
+  async function getCategories() {
+    if (!token) return;
+
+    setLoading(true);
+    setError(false);
+
+    try {
+      const req = await fetch(API_BASE + "channelcategories", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Application-Key": APP_KEY,
+          "X-TOKEN": token,
+        },
+      });
+
+      const res = await req.json();
+
+      if (res.status && Array.isArray(res.data)) {
+        const cats: Category[] = res.data;
+        setCategories(cats);
+        const first = cats[0] || null;
+        setCategoryVal(first);
+      } else {
+        setError(true);
+        setErrorMessage("Unable to load categories.");
+      }
+    } catch (err) {
+      console.error("Failed to load categories", err);
+      setError(true);
+      setErrorMessage("Unable to load categories.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleCreateChannel(e: FormEvent) {
+    e.preventDefault();
+    if (!token) return;
+
+    if (!name.trim() || !description.trim() || !categoryVal) {
+      setError(true);
+      setErrorMessage("Please ensure that all required fields are complete.");
+      return;
+    }
+
+    setError(false);
+    setErrorMessage(null);
+    setProcessing(true);
+    setProgress(0);
+    setCreated(false);
+
+    try {
+      const body = {
+        token,
+        category: categoryVal.id,
+        channel_title: name,
+        description,
+        // tags were not sent in original create, but you can add if the API supports it:
+        // tags,
+        cover,
+        thumbnail,
+      };
+
+      const req = await fetch(API_BASE + "channel/new", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Application-Key": APP_KEY,
+          "X-TOKEN": token,
+        },
+        body: JSON.stringify(body),
+      });
+
+      setProgress(50);
+
+      const res = await req.json();
+
+      if (!res.status) {
+        setError(true);
+        setErrorMessage(
+          res.message || "Something went wrong creating your channel."
+        );
+        setProgress(0);
+      } else {
+        setProgress(100);
+        setCreated(true);
+
+        // If API returns channel id, you can redirect:
+        const newId =
+          res.data?.id || res.id || res.channel_id || undefined;
+
+        if (newId) {
+          router.push(`/channel/${newId}`);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to create channel", err);
+      setError(true);
+      setErrorMessage("Something went wrong creating your channel.");
+      setProgress(0);
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  // -------------------------
+  // Effects
+  // -------------------------
+  useEffect(() => {
+    if (token) {
+      getCategories();
+    }
+  }, [token]);
+
+  // -------------------------
+  // Guards
+  // -------------------------
+  if (!token) {
+    return (
+      <main className="min-h-screen bg-neutral-950 text-white">
+        <div className="max-w-4xl mx-auto px-4 sm:px-8 pt-24 pb-10">
+          <h1 className="text-2xl font-semibold mb-2">Create Channel</h1>
+          <p className="text-sm text-neutral-400">
+            You need to be signed in to create a channel.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-neutral-950 text-white">
+        <div className="max-w-5xl mx-auto px-4 sm:px-8 pt-16 pb-10">
+          <div className="space-y-6 animate-pulse">
+            <div className="h-7 w-48 bg-neutral-800 rounded" />
+            <div className="h-10 w-full bg-neutral-800 rounded" />
+            <div className="h-32 w-full bg-neutral-900 rounded" />
+            <div className="h-40 w-full bg-neutral-900 rounded" />
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-neutral-950 text-white pb-10">
+      <div className="mx-auto px-4 sm:px-8 max-w-5xl pt-10">
+        <h1 className="text-2xl text-white font-semibold mb-6">
+          Create Channel
+        </h1>
+
+        {/* Error banner */}
+        {error && errorMessage && (
+          <div className="mb-4 rounded-lg border border-red-500/60 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {errorMessage}
+          </div>
+        )}
+
+        <div className="space-y-8">
+          {/* Basic Info */}
+          <form
+            onSubmit={handleCreateChannel}
+            className="rounded-xl bg-neutral-900 border border-neutral-800 p-5 space-y-5"
+          >
+            <h2 className="text-sm font-semibold">Basic information</h2>
+
+            {/* Name */}
+            <div>
+              <label className="block text-sm font-medium mb-1">Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm text-white shadow-sm outline-none focus:ring-1 focus:ring-red-600"
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Description
+              </label>
+              <textarea
+                rows={4}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm text-white shadow-sm outline-none focus:ring-1 focus:ring-red-600"
+              />
+            </div>
+
+            {/* Category */}
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Channel Category
+              </label>
+              <select
+                value={categoryVal ? String(categoryVal.id) : ""}
+                onChange={(e) => {
+                  const id = Number(e.target.value);
+                  const cat = categories.find((c) => c.id === id) || null;
+                  setCategoryVal(cat);
+                }}
+                className="w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm text-white shadow-sm outline-none focus:ring-1 focus:ring-red-600"
+              >
+                <option value="" disabled>
+                  Select a category
+                </option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Optional tags (if you want to keep it) */}
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Channel Tags{" "}
+                <span className="text-[11px] text-neutral-400">
+                  (comma separated)
+                </span>
+              </label>
+              <input
+                type="text"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                className="w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm text-white shadow-sm outline-none focus:ring-1 focus:ring-red-600"
+                placeholder="e.g. ministry, music, youth"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="mt-3 flex items-center gap-3 flex-wrap">
+              <button
+                type="submit"
+                disabled={processing}
+                className={`rounded-md px-4 py-2 text-sm font-semibold shadow-sm ${
+                  processing
+                    ? "bg-white text-black cursor-not-allowed"
+                    : "bg-white hover:bg-white/80 text-black cursor-pointer"
+                }`}
+              >
+                {processing ? "Creating…" : "Create Channel"}
+              </button>
+
+              {progress > 0 && (
+                <div className="flex items-center gap-2 w-full max-w-xs">
+                  <div className="flex-1 h-1.5 rounded-full bg-neutral-800 overflow-hidden">
+                    <div
+                      className="h-1.5 bg-red-600 transition-all"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-neutral-200 whitespace-nowrap">
+                    {progress}%
+                  </span>
+                </div>
+              )}
+
+              {created && (
+                <p className="text-xs text-emerald-400 whitespace-nowrap">
+                  Channel created
+                </p>
+              )}
+            </div>
+          </form>
+
+          {/* Picture */}
+          <section className="rounded-xl bg-neutral-900 border border-neutral-800 p-5 space-y-4">
+            <h2 className="text-sm font-semibold">Picture</h2>
+            <p className="text-xs text-neutral-400 max-w-xl">
+              Your profile picture will appear where your channel is presented
+              on Ceflix, like next to your videos and comments.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+              <div className="flex flex-col items-center sm:items-start gap-3">
+                <div
+                  className="group relative h-40 w-40 rounded-full overflow-hidden bg-neutral-800 cursor-pointer"
+                  onClick={() => thumbInputRef.current?.click()}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={thumbnail || "https://ceflix.org/images/avatar.png"}
+                    alt="Channel picture"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="pointer-events-none absolute inset-0 flex flex-row justify-center items-center transition bg-neutral-900/80 opacity-0 group-hover:opacity-100">
+                    <CameraIcon
+                      className="h-10 w-10 text-white/70"
+                      aria-hidden="true"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-neutral-400">
+                  Recommended: at least 98 × 98px, JPG or PNG, 2MB or less.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-start gap-3 text-sm text-neutral-300">
+                <p>
+                  Make sure your picture follows the Ceflix Community
+                  Guidelines.
+                </p>
+
+                <input
+                  ref={thumbInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={handleThumbFileSelect}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => thumbInputRef.current?.click()}
+                  className="inline-flex items-center px-3 py-2 bg-neutral-950 rounded-md border border-neutral-700 cursor-pointer text-sm font-semibold hover:bg-neutral-900"
+                >
+                  Change
+                  {thumbFileName && (
+                    <span className="ml-3 text-xs text-neutral-300 truncate max-w-[180px]">
+                      {thumbFileName}
+                    </span>
+                  )}
+                </button>
+
+                {thumbError && (
+                  <p className="mt-1 text-xs text-red-400">{thumbError}</p>
+                )}
+              </div>
+            </div>
+
+            {showThumbCropper && rawThumbImage && (
+              <div className="mt-4">
+                <p className="text-xs text-neutral-400 mb-2">
+                  Adjust your profile picture (1:1).
+                </p>
+                <div className="w-full max-w-sm border border-neutral-700 rounded-md overflow-hidden bg-neutral-950">
+                  <Cropper
+                    ref={thumbCropperRef}
+                    style={{ width: "100%", height: 260 }}
+                    src={rawThumbImage}
+                    aspectRatio={1}
+                    viewMode={1}
+                    background={false}
+                    guides
+                    zoomable
+                    movable
+                    responsive
+                    dragMode="move"
+                  />
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={applyThumbCrop}
+                    className="px-3 py-1.5 rounded-full bg-red-700 hover:bg-red-600 text-xs font-semibold cursor-pointer"
+                  >
+                    Apply crop
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowThumbCropper(false);
+                      setRawThumbImage("");
+                    }}
+                    className="px-3 py-1.5 rounded-full border border-neutral-700 text-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Cover Image */}
+          <section className="rounded-xl bg-neutral-900 border border-neutral-800 p-5 space-y-4">
+            <h2 className="text-sm font-semibold">Cover image</h2>
+            <p className="text-xs text-neutral-400 max-w-xl">
+              This image appears across the top of your channel.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+              <div className="flex flex-col justify-center items-center sm:items-start gap-3">
+                <div
+                  className="group relative w-full max-w-xl h-32 rounded-md overflow-hidden bg-neutral-800 cursor-pointer"
+                  onClick={() => coverInputRef.current?.click()}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={cover || "https://ceflix.org/images/fallback.png"}
+                    alt="Channel cover"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="pointer-events-none absolute inset-0 flex flex-row justify-center items-center transition bg-neutral-900/80 opacity-0 group-hover:opacity-100">
+                    <CameraIcon
+                      className="h-10 w-10 text-white/70"
+                      aria-hidden="true"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-neutral-400">
+                  Recommended: at least 1500 × 400px, JPG or PNG, 2MB or less.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-start gap-3 text-sm text-neutral-300">
+                <p>For the best results on all devices, use a wide image.</p>
+
+                <input
+                  ref={coverInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={handleCoverFileSelect}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => coverInputRef.current?.click()}
+                  className="inline-flex items-center px-3 py-2 bg-neutral-950 rounded-md border border-neutral-700 cursor-pointer text-sm font-semibold hover:bg-neutral-900"
+                >
+                  Change
+                  {coverFileName && (
+                    <span className="ml-3 text-xs text-neutral-300 truncate max-w-[180px]">
+                      {coverFileName}
+                    </span>
+                  )}
+                </button>
+
+                {coverError && (
+                  <p className="mt-1 text-xs text-red-400">{coverError}</p>
+                )}
+              </div>
+            </div>
+
+            {showCoverCropper && rawCoverImage && (
+              <div className="mt-4">
+                <p className="text-xs text-neutral-400 mb-2">
+                  Adjust your cover image (wide).
+                </p>
+                <div className="w-full max-w-xl border border-neutral-700 rounded-md overflow-hidden bg-neutral-950">
+                  <Cropper
+                    ref={coverCropperRef}
+                    style={{ width: "100%", height: 260 }}
+                    src={rawCoverImage}
+                    aspectRatio={15 / 4}
+                    viewMode={1}
+                    background={false}
+                    guides
+                    zoomable
+                    movable
+                    responsive
+                    dragMode="move"
+                  />
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={applyCoverCrop}
+                    className="px-3 py-1.5 rounded-full bg-red-700 hover:bg-red-600 text-xs font-semibold cursor-pointer"
+                  >
+                    Apply crop
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCoverCropper(false);
+                      setRawCoverImage("");
+                    }}
+                    className="px-3 py-1.5 rounded-full border border-neutral-700 text-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
+    </main>
+  );
+}
