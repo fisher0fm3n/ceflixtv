@@ -644,40 +644,29 @@ export default function UploadPage() {
                     </button>
                   </div>
 
-                  {/* NEW: is this a short? */}
+                  {/* Video Type dropdown (Short / Video) */}
                   {select === 0 && (
-                  <div className="mt-4 space-y-1">
-                    <label className="text-sm font-semibold">
-                      Is this a short?
-                    </label>
-                    <div className="flex gap-3 my-2">
-                                              <button
-                        type="button"
-                        onClick={() => setIsShort("yes")}
-                        className={`cursor-pointer px-3 py-1.5 rounded-full text-sm font-semibold ${
-                          isShort === "yes"
-                            ? "bg-white text-black"
-                            : "bg-neutral-800 hover:bg-neutral-700"
-                        }`}
+                    <div className="mt-4 space-y-1">
+                      <label className="text-sm font-semibold">
+                        Video Type
+                      </label>
+                      <select
+                        value={isShort}
+                        onChange={(e) =>
+                          setIsShort(e.target.value as "yes" | "no")
+                        }
+                        className="mt-2 w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-red-600"
                       >
-                        Yes
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsShort("no")}
-                        className={`cursor-pointer px-3 py-1.5 rounded-full text-sm font-semibold ${
-                          isShort === "no"
-                            ? "bg-white text-black"
-                            : "bg-neutral-800 hover:bg-neutral-700"
-                        }`}
-                      >
-                        No
-                      </button>
+                        <option value="no">Video</option>
+                        <option value="yes">Short</option>
+                      </select>
+
+                      {isShort === "yes" && (
+                        <p className="text-xs text-neutral-400 mt-1">
+                          Shorts are usually vertical clips under 60 seconds.
+                        </p>
+                      )}
                     </div>
-                    <p className="text-xs text-neutral-400">
-                      Celips Shorts are usually vertical clips under 60 seconds.
-                    </p>
-                  </div>
                   )}
 
                   {/* Title */}
@@ -772,7 +761,7 @@ export default function UploadPage() {
                         </label>
                         <DatePicker
                           selected={datetime}
-                          onChange={(date) => setDatetime(date)}
+                          onChange={(date) => setDatetime(date as Date)}
                           minDate={new Date()}
                           maxDate={
                             currentHour + 4 > 29 ? new Date() + 1 : new Date()
@@ -1132,7 +1121,7 @@ export default function UploadPage() {
               <button
                 type="button"
                 onClick={nextStep}
-                className="w-16 cursor-pointer px-4 py-1.5 rounded-full bg-neutral-800 hover:bg-neutral-700"
+                className="w-16 cursor-pointer px-4 py-1.5 rounded-full bg-white hover:bg-white/80 text-black"
               >
                 Next
               </button>

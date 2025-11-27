@@ -7,6 +7,18 @@ import { useAuth } from "./components/AuthProvider";
 
 import InitialHomeGrid from "./components/HomeGrid";
 import ChannelSlider from "./components/ChannelSlider";
+import HeroSlider from "./components/HeroSlider";
+import RowSlider from "./components/RowSlider";
+
+import psvBg from "./assets/images/homepage/psv-bg.png";
+import psvLogo from "./assets/images/homepage/psv-logo.png";
+import godeeper from "./assets/images/homepage/godeeper.webp";
+import greatwonders from "./assets/images/homepage/greatwonders.webp";
+import guessthegmo from "./assets/images/homepage/guessthegmo.webp";
+import singwith from "./assets/images/homepage/singwith.png";
+import travelvlog from "./assets/images/homepage/travelvlog.jpg";
+import wordinthestreet from "./assets/images/homepage/wordinthestreet.webp";
+import trueto from "./assets/images/homepage/trueto.png";
 
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
@@ -66,6 +78,79 @@ const DEFAULT_CHANNELS: SubscriptionChannel[] = [
   },
 ];
 
+const SLIDES: Slide[] = [
+  {
+    id: "psv",
+    background: psvBg,
+    logo: psvLogo,
+    ageRating: "G",
+    meta: "Sub | Dub • Faith, Lifestyle",
+    description:
+      "A raw and honest look into my glow up journey and how growing closer to God helped me discover my true self. Sharing how this transformation strengthened my faith and shaped my mindset. Reflecting on the impact it had on my relationships with family and friends. A journey of healing, purpose, and becoming who I was always meant to be.",
+    primaryCta: "Watch Episode 1",
+    secondaryCta: "Add to Watchlist",
+  },
+];
+
+const FEATURED_SHOWS = [
+  {
+    id: "godeeper",
+    title: "Go Deeper",
+    image: godeeper,
+    subtitle: "Talk • 1 Season",
+    meta: "Faith • Inspiration",
+    tags: ["Talk Show", "Inspiration"],
+  },
+  {
+    id: "greatwonders",
+    title: "Great Wonders",
+    image: greatwonders,
+    subtitle: "Documentary • Series",
+    meta: "Exploration • Travel",
+    tags: ["Documentary", "Wonders"],
+  },
+  {
+    id: "guessthegmo",
+    title: "Guess The GMO",
+    image: guessthegmo,
+    subtitle: "Game Show",
+    meta: "Fun • Interactive",
+    tags: ["Game Show", "Family"],
+  },
+  {
+    id: "singwith",
+    title: "Sing With",
+    image: singwith,
+    subtitle: "Music • Performances",
+    meta: "Worship • Live",
+    tags: ["Music", "Live"],
+  },
+  {
+    id: "travelvlog",
+    title: "Travel Vlog",
+    image: travelvlog,
+    subtitle: "Vlog • Series",
+    meta: "Travel • Lifestyle",
+    tags: ["Travel", "Vlog"],
+  },
+  {
+    id: "wordinthestreet",
+    title: "Word In The Street",
+    image: wordinthestreet,
+    subtitle: "Street Interviews",
+    meta: "Faith • Conversations",
+    tags: ["Interviews", "Street"],
+  },
+  {
+    id: "trueto",
+    title: "True To The Last Bite",
+    image: trueto,
+    subtitle: "Series • Food",
+    meta: "Series • Food",
+    tags: ["Interviews", "Street"],
+  },
+];
+
 export default function HomePage() {
   const { token, user, initialized, logout } = useAuth();
   const router = useRouter();
@@ -96,7 +181,7 @@ export default function HomePage() {
         setSubsLoading(true);
         setSubsError(null);
 
-        const res = await fetch(API_BASE + "user/subscriptions", {
+        const res = await fetch(`${API_BASE}user/subscriptions`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -158,7 +243,15 @@ export default function HomePage() {
 
   return (
     <main className="bg-neutral-950 text-white min-h-screen mb-[10rem]">
-      <section className="mt-6">
+      <div className="overflow-hidden">
+      <HeroSlider slides={SLIDES} autoAdvanceMs={8000} />
+
+      <div className="lg:mt-[-5rem]">
+        <RowSlider title="Featured on Ceflix+" items={FEATURED_SHOWS} />
+      </div>
+      </div>
+
+      {/* <section className="mt-6">
         {token && subsError && (
           <div className="text-sm text-red-400 mb-2">{subsError}</div>
         )}
@@ -170,7 +263,7 @@ export default function HomePage() {
             loading={sliderLoading}
           />
         )}
-      </section>
+      </section> */}
 
       <InitialHomeGrid />
     </main>

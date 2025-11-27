@@ -160,8 +160,8 @@ export default function MainNav({
                 className="inline-flex px-4 py-2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/15"
                 aria-label="Upload video"
               >
-                <ArrowUpTrayIcon className="h-5 w-5 mr-2" />
-                <span className="text-sm font-semibold">Upload</span>
+                <ArrowUpTrayIcon className="h-5 w-5 md:mr-2" />
+                <span className="text-sm font-semibold hidden md:block">Upload</span>
               </Link>
             )}
             {initialized && loggedIn ? (

@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import Image, { StaticImageData } from "next/image";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/solid";
+import Link from "next/link";
 
 export type Slide = {
   id: string;
@@ -64,14 +65,14 @@ export default function HeroSlider({
       </div>
 
       {/* Content */}
-      <div className="relative h-full flex items-center px-6 sm:px-10 lg:px-16">
+      <div className="relative h-full flex items-end lg:items-center px-6 pb-8 sm:px-6 lg:px-6">
         <div className="max-w-xl space-y-5 md:space-y-6">
           {/* Logo */}
           <div className="max-w-xs sm:max-w-sm md:max-w-md">
             <Image
               src={current.logo}
               alt="Title logo"
-              className="w-[20rem]"
+              className="w-[14rem] sm:w-[16rem] lg:w-[20rem]"
             />
           </div>
 
@@ -90,18 +91,18 @@ export default function HeroSlider({
           )}
 
           {/* Description */}
-          <p className="text-sm sm:text-base text-neutral-200/90 max-w-lg leading-relaxed">
+          <p className="text-sm sm:text-base text-neutral-200/90 max-w-lg leading-relaxed line-clamp-4">
             {current.description}
           </p>
 
           {/* Buttons */}
           <div className="flex flex-wrap items-center gap-3 pt-1">
-            <button className="cursor-pointer inline-flex items-center gap-2 rounded-md bg-red-600 hover:bg-red-500 px-5 py-2.5 text-sm font-semibold text-white transition">
+            <Link href="/videos/watch/1888611/my-glow-up-journey---episode-1-my-history" className="cursor-pointer inline-flex items-center gap-2 rounded-md bg-red-600 hover:bg-red-500 px-5 py-2.5 text-sm font-semibold text-white transition">
               {current.primaryCta}
-            </button>
+            </Link>
 
             {current.secondaryCta && (
-              <button className="inline-flex items-center gap-2 rounded-md bg-neutral-700/70 hover:bg-neutral-600 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white transition">
+              <button className="cursor-pointer inline-flex items-center gap-2 rounded-md bg-neutral-700/70 hover:bg-neutral-600 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white transition">
                 {current.secondaryCta}
               </button>
             )}

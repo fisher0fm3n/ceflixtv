@@ -79,54 +79,54 @@ export default function SideNav({
         )}
 
         {/* Sliding panel */}
-        <aside
-          className={cx(
-            "fixed left-0 top-16 z-[999] backdrop-blur md:flex h-[calc(100vh-4rem)] flex-col bg-neutral-950/80 text-white w-60 transition-transform duration-200",
-            isOpen ? "translate-x-0" : "-translate-x-full"
-          )}
-        >
-          <nav className="flex-1 py-4">
-            {items.map((item) => {
-              const active =
-                item.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(item.href);
+{/* Snap-in panel */}
+{isOpen && (
+  <aside
+    className="fixed left-0 top-16 z-[999] backdrop-blur md:flex h-[calc(100vh-4rem)] flex-col bg-neutral-950/80 text-white w-60"
+  >
+    <nav className="flex-1 py-4">
+      {items.map((item) => {
+        const active =
+          item.href === "/"
+            ? pathname === "/"
+            : pathname.startsWith(item.href);
 
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cx(
-                    "mx-3 mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition",
-                    active
-                      ? "bg-neutral-800 text-white font-semibold"
-                      : "text-neutral-200 hover:bg-neutral-800/60"
-                  )}
-                  onClick={() => {
-                    // Close overlay after navigation
-                    if (onClose) onClose();
-                  }}
-                >
-                  <Icon className="h-5 w-5 shrink-0" />
-                  <span className="truncate">{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </aside>
+        const Icon = item.icon;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cx(
+              "mx-3 mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition",
+              active
+                ? "bg-neutral-800 text-white font-semibold"
+                : "text-neutral-200 hover:bg-neutral-800/60"
+            )}
+            onClick={() => {
+              if (onClose) onClose();
+            }}
+          >
+            <Icon className="h-5 w-5 shrink-0" />
+            <span className="truncate">{item.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  </aside>
+)}
       </>
     );
   }
 
   // -------- Default behaviour for all other pages --------
   return (
-    <aside
-      className={cx(
-        "hidden md:flex fixed left-0 top-16 h-[calc(100vh-4rem)] flex-col bg-neutral-950 text-white transition-all duration-200 z-[999]",
-        effectiveCollapsed ? "w-16" : "w-60"
-      )}
-    >
+<aside
+  className={cx(
+    "hidden md:flex fixed left-0 top-16 h-[calc(100vh-4rem)] flex-col bg-neutral-950 text-white z-[999]",
+    effectiveCollapsed ? "w-16" : "w-60"
+  )}
+>
+
       <nav className="flex-1 py-4">
         {items.map((item) => {
           const active =

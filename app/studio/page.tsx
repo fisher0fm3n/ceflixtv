@@ -18,6 +18,7 @@ type Stats = {
 
 type Video = {
   id: number;
+  channel_id: number;
   videos_title: string;
   slug: string;
   thumbnail: string;
@@ -34,6 +35,10 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // delete modal state
+  const [confirmVideo, setConfirmVideo] = useState<Video | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // ----------------------------
   // Load stats + videos
@@ -85,12 +90,68 @@ export default function DashboardPage() {
   }, [token]);
 
   // ----------------------------
-  // Delete video (UI only – hook API here if you have it)
+  // Delete API (uses video.id + video.channel_id)
   // ----------------------------
-  const handleDelete = (id: number) => {
-    if (!confirm("Delete this video?")) return;
-    setVideos((prev) => prev.filter((v) => v.id !== id));
+  const deleteVideo = async (video: Video) => {
+    if (!token) {
+      alert("You must be logged in to delete a video.");
+      return false;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}video/delete`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Application-Key": APP_KEY,
+          "X-TOKEN": token,
+        },
+        body: JSON.stringify({
+          channel_id: video.channel_id,
+          video: video.id,
+          token,
+        }),
+      });
+
+      const json = await res.json().catch(() => null);
+
+      if (res.ok && json?.status) {
+        setVideos((prev) => prev.filter((v) => v.id !== video.id));
+        return true;
+      }
+
+      console.error("Delete API failed:", json);
+      return false;
+    } catch (err) {
+      console.error("Error calling delete API:", err);
+      return false;
+    }
   };
+
+  const openDeleteModal = (video: Video) => {
+    setConfirmVideo(video);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmVideo) return;
+    setDeleting(true);
+    const ok = await deleteVideo(confirmVideo);
+    setDeleting(false);
+    if (!ok) {
+      alert("Failed to delete video. Please try again.");
+    }
+    setConfirmVideo(null);
+  };
+
+  const handleCancelDelete = () => {
+    if (deleting) return;
+    setConfirmVideo(null);
+  };
+
+  const viewSlug = (video: Video) =>
+    `/videos/watch/${video.id}/${video.videos_title
+      .replace(/[\s+-]/g, "-")
+      .toLowerCase()}`;
 
   // ----------------------------
   // UI
@@ -157,32 +218,30 @@ export default function DashboardPage() {
                   </p>
                   <p className="text-sm text-neutral-400 mt-1">
                     {video.numOfViews} views •{" "}
-                    {video.isLive === "1" ? "Live" : "Recorded"} •{" "}
-                    {video.isPublic === "0" ? "Public" : "Private"}
+                    {video.isLive === "1" ? "Live" : "Video"} •{" "}
+                    {video.isPublic === "1" ? "Public" : "Private"}
                   </p>
                   <p className="text-sm text-neutral-500 mt-1">
                     {new Date(video.created_at).toLocaleDateString()}
                   </p>
                 </div>
 
-                <div className="flex flex-wrap gap-2 mt-1">
+                <div className="flex flex-wrap items-center gap-2 mt-1">
                   <button
-                    onClick={() => router.push(`/videos/watch/${video.id}/${video.slug}`)}
-                    className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500 text-sm font-semibold"
+                    onClick={() => router.push(viewSlug(video))}
+                    className="inline-flex items-center px-4 py-2 rounded-full bg-white text-black hover:bg-white/80 text-sm font-semibold cursor-pointer"
                   >
                     View
                   </button>
                   <button
-                    onClick={() =>
-                      router.push(`/studio/edit-video/${video.id}`)
-                    }
-                    className="px-3 py-1 rounded bg-neutral-700 hover:bg-neutral-600 text-sm font-semibold"
+                    onClick={() => router.push(`/studio/videos/edit/${video.id}/${video.channel_id}`)}
+                    className="inline-flex items-center px-4 py-2 rounded-full bg-white text-black hover:bg-white/80 text-sm font-semibold cursor-pointer"
                   >
                     Edit
                   </button>
                   <button
-                    onClick={() => handleDelete(video.id)}
-                    className="px-3 py-1 rounded bg-red-700 hover:bg-red-600 text-sm font-semibold"
+                    onClick={() => openDeleteModal(video)}
+                    className="inline-flex items-center px-4 py-2 rounded-full bg-white text-black hover:bg-white/80 text-sm font-semibold cursor-pointer"
                   >
                     Delete
                   </button>
@@ -223,7 +282,7 @@ export default function DashboardPage() {
                   key={video.id}
                   className="border-t border-neutral-800 hover:bg-neutral-800/60"
                 >
-                  <td className="p-3">
+                  <td className="p-3 align-middle">
                     <div className="w-32 aspect-video bg-neutral-800 rounded overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -234,50 +293,48 @@ export default function DashboardPage() {
                     </div>
                   </td>
 
-                  <td className="p-3 font-medium">
+                  <td className="p-3 font-medium align-middle">
                     {video.videos_title}
                   </td>
 
-                  <td className="p-3 text-neutral-300">
+                  <td className="p-3 text-neutral-300 align-middle">
                     {video.numOfViews}
                   </td>
 
-                  <td className="p-3 text-neutral-300">
-                    {video.isLive === "1" ? "Live" : "Recorded"} •{" "}
-                    {video.isPublic === "0" ? "Public" : "Private"}
+                  <td className="p-3 text-neutral-300 align-middle">
+                    {video.isLive === "1" ? "Live" : "Video"} •{" "}
+                    {video.isPublic === "1" ? "Public" : "Private"}
                   </td>
 
-                  <td className="p-3 text-neutral-400">
+                  <td className="p-3 text-neutral-400 align-middle">
                     {new Date(video.created_at).toLocaleDateString()}
                   </td>
 
-                  <td className="p-3 flex flex-wrap gap-2">
-                    <button
-                      onClick={() =>
-                        router.push(`/videos/watch/${video.id}/${video.slug}`)
-                      }
-                      className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500 text-xs font-semibold"
-                    >
-                      View
-                    </button>
+                  <td className="p-3 align-middle">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => router.push(viewSlug(video))}
+                        className="inline-flex items-center px-4 py-2 rounded-full bg-white text-black hover:bg-white/80 text-sm font-semibold cursor-pointer"
+                      >
+                        View
+                      </button>
 
-                    <button
-                      onClick={() =>
-                        router.push(
-                          `/studio/edit-video/${video.id}`
-                        )
-                      }
-                      className="px-3 py-1 rounded bg-neutral-700 hover:bg-neutral-600 text-xs font-semibold"
-                    >
-                      Edit
-                    </button>
+                      <button
+                        onClick={() =>
+                          router.push(`/studio/videos/edit/${video.id}/${video.channel_id}`)
+                        }
+                        className="inline-flex items-center px-4 py-2 rounded-full bg-white text-black hover:bg-white/80 text-sm font-semibold cursor-pointer"
+                      >
+                        Edit
+                      </button>
 
-                    <button
-                      onClick={() => handleDelete(video.id)}
-                      className="px-3 py-1 rounded bg-red-700 hover:bg-red-600 text-xs font-semibold"
-                    >
-                      Delete
-                    </button>
+                      <button
+                        onClick={() => openDeleteModal(video)}
+                        className="inline-flex items-center px-4 py-2 rounded-full bg-white text-black hover:bg-white/80 text-sm font-semibold cursor-pointer"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -285,6 +342,39 @@ export default function DashboardPage() {
           </table>
         </div>
       </div>
+
+      {/* Delete confirmation modal */}
+      {confirmVideo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="mx-4 w-full max-w-md rounded-2xl bg-neutral-900 border border-neutral-700 p-6 shadow-lg">
+            <h2 className="text-lg font-semibold">Delete video?</h2>
+            <p className="mt-2 text-sm text-neutral-300">
+              Are you sure you want to delete{" "}
+              <span className="font-semibold">
+                "{confirmVideo.videos_title}"
+              </span>
+              ? This action cannot be undone.
+            </p>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={handleCancelDelete}
+                disabled={deleting}
+                className="inline-flex items-center px-4 py-2 rounded-full bg-white text-black hover:bg-white/80 text-sm font-semibold cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={deleting}
+                className="inline-flex items-center px-4 py-2 rounded-full bg-white text-black hover:bg-white/80 text-sm font-semibold cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

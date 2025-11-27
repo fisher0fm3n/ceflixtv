@@ -1,4 +1,51 @@
-@import 'breakpoints';
+$breakpoint-xs: 440px;
+
+// Small tablets and large smartphones (landscape view)
+$breakpoint-sm: 640px;
+
+// Small tablets (portrait view)
+$breakpoint-md: 768px;
+
+// Tablets and small desktops
+$breakpoint-lg: 1024px;
+
+// Large tablets and desktops
+$breakpoint-xl: 1200px;
+
+// Extra Small devices
+@mixin xs {
+    @media (min-width: #{$breakpoint-xs}) {
+        @content;
+    }
+ }
+
+// Small devices
+@mixin sm {
+   @media (min-width: #{$breakpoint-sm}) {
+       @content;
+   }
+}
+
+// Medium devices
+@mixin md {
+   @media (min-width: #{$breakpoint-md}) {
+       @content;
+   }
+}
+
+// Large devices
+@mixin lg {
+   @media (min-width: #{$breakpoint-lg}) {
+       @content;
+   }
+}
+
+// Extra large devices
+@mixin xl {
+   @media (min-width: #{$breakpoint-xl}) {
+       @content;
+     }
+   }
 
 :root {
   --plyr-color-main: #c81e1e;

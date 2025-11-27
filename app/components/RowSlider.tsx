@@ -43,7 +43,7 @@ export default function RowSlider({ title, items }: RowSliderProps) {
 
   return (
     <section className="w-full py-6 overflow-visible">
-      <div className="px-4 sm:px-[4rem]">
+      <div className="px-4 sm:px-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="relative text-lg sm:text-xl font-bold text-white">
             {title}
