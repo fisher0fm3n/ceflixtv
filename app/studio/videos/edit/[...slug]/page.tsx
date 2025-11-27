@@ -22,13 +22,13 @@ const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
 
 const privacyTypes2 = [
   {
-    id: 0,
+    id: "1",
     title: "public",
     description: "Anyone can search for and view",
     current: true,
   },
   {
-    id: 1,
+    id: "0",
     title: "private",
     description: "Only you can view",
     current: false,
@@ -255,10 +255,10 @@ export default function EditVideoPage() {
           await updateThumbnail();
         }
         setProcessed(true);
-        // setTimeout(() => {
-        //   setProcessed(false);
-        //   router.push("/studio");
-        // }, 1500);
+        setTimeout(() => {
+          setProcessed(false);
+          router.push("/studio");
+        }, 1500);
       }
     } catch {
       setError(true);

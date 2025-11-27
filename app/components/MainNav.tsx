@@ -16,6 +16,7 @@ import {
 import { useAuth } from "./AuthProvider";
 import Image from "next/image";
 import logo from "../assets/logo/ceflixplus-logo.png";
+import { mainNavItems } from "./navconfig";
 
 function cx(...cls: (string | false | null | undefined)[]) {
   return cls.filter(Boolean).join(" ");
@@ -115,8 +116,8 @@ export default function MainNav({
 
           {/* CENTER: big search bar */}
           {/* CENTER: big search bar */}
-          <div className="flex-1 flex justify-center">
-            <div className="hidden md:flex items-center gap-2 w-full max-w-3xl px-4 py-2 rounded-sm bg-neutral-900 border border-neutral-800">
+          <div className="flex-1 flex justify-end lg:justify-center">
+            <div className="hidden sm:flex items-center gap-2 w-full max-w-3xl px-4 py-2 rounded-full bg-neutral-900 border border-neutral-800">
               <MagnifyingGlassIcon className="h-5 w-5 text-neutral-400" />
               <input
                 type="text"
@@ -135,7 +136,7 @@ export default function MainNav({
               <button
                 type="button"
                 onClick={handleSearch}
-                className="inline-flex items-center px-3 py-1.5 rounded-full bg-white/10 text-xs font-semibold text-white hover:bg-white/20"
+                className="cursor-pointer inline-flex items-center px-3 py-1.5 rounded-full bg-white/10 text-xs font-semibold text-white hover:bg-white/20"
               >
                 Search
               </button>
@@ -144,7 +145,7 @@ export default function MainNav({
             {/* Mobile search: simple icon, goes to /search */}
             <button
               type="button"
-              className="md:hidden inline-flex items-center justify-center rounded-full p-2 text-white/90 hover:bg:white/10"
+              className="sm:hidden inline-flex items-center justify-center rounded-full p-2 bg-white/10 text-white hover:bg-white/15"
               aria-label="Search"
               onClick={() => router.push("/search")}
             >
@@ -161,7 +162,9 @@ export default function MainNav({
                 aria-label="Upload video"
               >
                 <ArrowUpTrayIcon className="h-5 w-5 md:mr-2" />
-                <span className="text-sm font-semibold hidden md:block">Upload</span>
+                <span className="text-sm font-semibold hidden md:block">
+                  Upload
+                </span>
               </Link>
             )}
             {initialized && loggedIn ? (
@@ -283,9 +286,18 @@ export default function MainNav({
               <Dialog.Panel className="fixed left-0 top-0 h-full w-full max-w-[360px] bg-neutral-900 text-white border-r border-white/10 shadow-2xl overflow-y-auto">
                 {/* header */}
                 <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
-                  <span className="text-lg font-bold">
-                    Ceflix<span className="text-red-500">+</span>
-                  </span>
+                  <Link
+                    href="/"
+                    className="flex items-center gap-2"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    <Image
+                      src={logo}
+                      alt="Ceflix+"
+                      className="w-[5.4rem] h-auto"
+                      priority
+                    />
+                  </Link>
                   <button
                     type="button"
                     onClick={() => setMobileOpen(false)}
@@ -297,27 +309,16 @@ export default function MainNav({
 
                 {/* body */}
                 <nav className="px-2 py-3 space-y-1 text-[15px]">
-                  <MobileRow href="/" onClick={() => setMobileOpen(false)}>
-                    Home
-                  </MobileRow>
-                  <MobileRow href="/anime" onClick={() => setMobileOpen(false)}>
-                    Anime
-                  </MobileRow>
-                  <MobileRow href="/shows" onClick={() => setMobileOpen(false)}>
-                    Short Drama
-                  </MobileRow>
-                  <MobileRow
-                    href="/trending"
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    Trending
-                  </MobileRow>
-                  <MobileRow
-                    href="/categories"
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    Category
-                  </MobileRow>
+                  {/* Primary nav – same as SideNav */}
+                  {mainNavItems.map((item) => (
+                    <MobileRow
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      {item.label}
+                    </MobileRow>
+                  ))}
 
                   <hr className="border-white/10 my-2" />
 

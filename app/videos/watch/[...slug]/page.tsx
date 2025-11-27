@@ -229,37 +229,27 @@ export default function PlayerPage() {
 
     const videoEl = videoRef.current;
 
-    async function setupPlayer() {
-      // Clean up any existing instances first
-      if (plyrRef.current) {
-        try {
-          plyrRef.current.destroy();
-        } catch (e) {
-          console.warn("Plyr destroy failed (ignored):", e);
-        }
-        plyrRef.current = null;
+    // Always clean up previous HLS instance for the old URL
+    if (hlsRef.current) {
+      try {
+        hlsRef.current.destroy();
+      } catch (e) {
+        console.warn("HLS destroy failed (ignored):", e);
       }
+      hlsRef.current = null;
+    }
 
-      if (hlsRef.current) {
-        try {
-          hlsRef.current.destroy();
-        } catch (e) {
-          console.warn("HLS destroy failed (ignored):", e);
-        }
-        hlsRef.current = null;
-      }
+    const isHls = videoUrl.endsWith(".m3u8");
 
-      if (!videoEl) return;
-
-      const isHls = videoUrl.endsWith(".m3u8");
-
-      // 1) Set up media source
+    // 1) Set up the media source for this URL
+    (async () => {
       if (isHls) {
         if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
           videoEl.src = videoUrl;
         } else {
           const HlsModule = await import("hls.js");
           const Hls = HlsModule.default;
+
           if (Hls.isSupported()) {
             const hls = new Hls();
             hls.loadSource(videoUrl);
@@ -273,43 +263,55 @@ export default function PlayerPage() {
         videoEl.src = videoUrl;
       }
 
-      // 2) Wrap with Plyr
+      // 2) Ensure Plyr exists and is wired to this <video>
       const PlyrModule = await import("plyr");
       const Plyr = PlyrModule.default;
 
-      const player = new Plyr(videoEl, {
-        autoplay,
-        controls: [
-          "play-large",
-          "play",
-          "progress",
-          "current-time",
-          "mute",
-          "volume",
-          "settings",
-          "fullscreen",
-        ],
-      });
+      let player = plyrRef.current;
 
-      plyrRef.current = player;
-
-      player.on("ready", () => {
-        player.play().catch(() => {
-          // autoplay may be blocked
+      if (!player) {
+        player = new Plyr(videoEl, {
+          autoplay,
+          controls: [
+            "play-large",
+            "play",
+            "progress",
+            "current-time",
+            "mute",
+            "volume",
+            "settings",
+            "fullscreen",
+          ],
         });
-      });
 
+        plyrRef.current = player;
+
+        player.on("ready", () => {
+          player.play().catch(() => {
+            // autoplay blocked
+          });
+        });
+      }
+
+      // 3) Update the "ended" handler for the new upNext/autoplay values
+      player.off("ended"); // remove previous handler if any
       player.on("ended", () => {
         if (autoplay && upNext.length > 0) {
           const next = upNext[0];
-          router.push(`/player/${next.id}`);
+          setCurrentVideoId(next.id);
+          updateUrlForVideo(next.id, next.videos_title);
+          window.scrollTo({ top: 0, behavior: "smooth" });
         }
       });
-    }
 
-    setupPlayer();
+      // Try to start playing the new language/source
+      player.play().catch(() => {
+        // ignore autoplay errors
+      });
+    })();
+  }, [videoUrl, autoplay, upNext, router]);
 
-    // Cleanup when videoUrl changes or component unmounts
+  useEffect(() => {
     return () => {
       if (plyrRef.current) {
         try {
@@ -329,7 +331,7 @@ export default function PlayerPage() {
         hlsRef.current = null;
       }
     };
-  }, [videoUrl, autoplay, upNext, router]);
+  }, []);
 
   const toggleAutoplay = () => {
     setAutoplay((prev) => {
@@ -359,11 +361,12 @@ export default function PlayerPage() {
   // 👉 Helper: update URL for a video (no "page change" feeling)
   const updateUrlForVideo = (id: string, title: string) => {
     const slug = formatTitle(title);
-    // keep playlist id in URL if it was provided initially
     const href = initialPlaylistId
       ? `/videos/watch/${id}/${initialPlaylistId}/${slug}`
       : `/videos/watch/${id}/${slug}`;
-    router.replace(href); // SPA navigation but same page component
+
+    // Use push so each video becomes its own history entry
+    router.push(href);
   };
 
   // helper to require auth for certain actions
@@ -434,7 +437,7 @@ export default function PlayerPage() {
         const commentsJson = await commentsRes.json();
 
         if (!videoJson.status) {
-          throw new Error("Video not found");
+          throw new Error(videoJson.message);
         }
 
         if (cancelled) return;
@@ -532,22 +535,21 @@ export default function PlayerPage() {
     }
   }, [video?.videos_title]);
 
-  const handleChangeLanguage = (lang: Language | null) => {
-    if (!video || !defaultVideoUrl || !currentVideoId) return;
+const handleChangeLanguage = (lang: Language | null) => {
+  if (!video || !defaultVideoUrl) return;
 
-    if (!lang) {
-      setVideoUrl(defaultVideoUrl);
-      setSelectedLangSlug(null);
-      updateUrlForVideo(currentVideoId, video.videos_title);
-      return;
-    }
+  if (!lang) {
+    // Back to original / default source
+    setVideoUrl(defaultVideoUrl);
+    setSelectedLangSlug(null);
+    return;
+  }
 
-    setVideoUrl(lang.url);
-    setSelectedLangSlug(lang.slug);
+  // Switch to the selected language source
+  setVideoUrl(lang.url);
+  setSelectedLangSlug(lang.slug);
+};
 
-    const titleWithLang = `${video.videos_title} [${lang.slug}]`;
-    updateUrlForVideo(currentVideoId, titleWithLang);
-  };
 
   const handleToggleLike = async () => {
     if (!video || !currentVideoId) return;
@@ -905,7 +907,6 @@ export default function PlayerPage() {
             }
           >
             <video
-              key={videoUrl}
               ref={videoRef}
               autoPlay
               muted
@@ -917,7 +918,7 @@ export default function PlayerPage() {
               }`}
               onEnded={handleVideoEnded}
             >
-              <source src={videoUrl} />
+              {/* <source src={videoUrl} /> */}
               Your browser does not support the video tag.
             </video>
 

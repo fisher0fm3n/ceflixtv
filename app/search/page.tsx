@@ -1,4 +1,3 @@
-// app/search/page.tsx (or wherever this lives)
 "use client";
 
 import {
@@ -6,7 +5,7 @@ import {
   useMemo,
   useState,
   useRef,
-  Suspense,        // ⬅️ add this
+  Suspense,
 } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
@@ -26,7 +25,7 @@ type VideoResult = {
   thumbnail: string;
   numOfComments: string;
   numOfViews: string;
-  uploadtime: string; // unix seconds
+  uploadtime: string;
   likes: string;
   isPremium: "0" | "1" | string;
 };
@@ -42,7 +41,7 @@ type ChannelResult = {
 type ApiResponse = {
   status: boolean;
   data?: {
-    videos?: any[]; // mixed videos & channels
+    videos?: any[];
     channels?: any[];
     playlists?: any[];
   };
@@ -75,7 +74,7 @@ function formatViews(viewsStr: string) {
   return String(v);
 }
 
-// 🔹 Inner component that actually uses useSearchParams
+// ✅ Inner component using useSearchParams
 function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -99,6 +98,20 @@ function SearchPageContent() {
     useState(PAGE_SIZE_CHANNELS);
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  // ✅ Local input state for mobile search
+  const [searchInput, setSearchInput] = useState(queryFromUrl);
+
+  useEffect(() => {
+    setSearchInput(queryFromUrl);
+  }, [queryFromUrl]);
+
+  const handleLocalSearch = () => {
+    const term = (searchInput || "").trim();
+    if (!term) return;
+    const encoded = encodeURIComponent(term).replace(/%20/g, "+");
+    router.push(`/search?q=${encoded}`);
+  };
 
   async function getSearchResults(term: string) {
     if (!term) {
@@ -155,7 +168,7 @@ function SearchPageContent() {
     }
   }
 
-  // fetch whenever q in URL changes
+  // Fetch when URL query changes
   useEffect(() => {
     if (!queryFromUrl) {
       setVideos([]);
@@ -166,7 +179,7 @@ function SearchPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryFromUrl, token]);
 
-  // reset visible counts when new results arrive
+  // Reset visible when results change
   useEffect(() => {
     setVisibleVideoCount(PAGE_SIZE_VIDEOS);
     setVisibleChannelCount(PAGE_SIZE_CHANNELS);
@@ -179,10 +192,9 @@ function SearchPageContent() {
     (resultFilter === "videos" && visibleVideoCount < videos.length) ||
     (resultFilter === "channels" && visibleChannelCount < channels.length);
 
-  // Infinite scroll
+  // Infinite scroll observer
   useEffect(() => {
     if (!loadMoreRef.current) return;
-
     const el = loadMoreRef.current;
 
     const observer = new IntersectionObserver(
@@ -193,22 +205,16 @@ function SearchPageContent() {
         if (!hasResults) return;
 
         if (resultFilter === "videos") {
-          setVisibleVideoCount((prev) => {
-            if (prev >= videos.length) return prev;
-            return Math.min(prev + PAGE_SIZE_VIDEOS, videos.length);
-          });
+          setVisibleVideoCount((prev) =>
+            Math.min(prev + PAGE_SIZE_VIDEOS, videos.length)
+          );
         } else {
-          setVisibleChannelCount((prev) => {
-            if (prev >= channels.length) return prev;
-            return Math.min(prev + PAGE_SIZE_CHANNELS, channels.length);
-          });
+          setVisibleChannelCount((prev) =>
+            Math.min(prev + PAGE_SIZE_CHANNELS, channels.length)
+          );
         }
       },
-      {
-        root: null,
-        rootMargin: "200px",
-        threshold: 0.1,
-      }
+      { root: null, rootMargin: "200px", threshold: 0.1 }
     );
 
     observer.observe(el);
@@ -220,7 +226,35 @@ function SearchPageContent() {
 
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
-      <div className="mx-auto px-4 sm:px-8 pt-6 pb-10">
+      <div className="mx-auto px-4 sm:px-8 pt-2 lg:pt-6 pb-10">
+
+        {/* ✅ Mobile-only Search Bar */}
+        <div className="mb-4 sm:hidden">
+          <div className="flex items-center gap-2 w-full px-4 py-2 rounded-full bg-neutral-900 border border-neutral-800">
+            <MagnifyingGlassIcon className="h-5 w-5 text-neutral-400" />
+            <input
+              type="text"
+              placeholder="Search Ceflix"
+              className="flex-1 bg-transparent text-sm text-white placeholder-neutral-400 focus:outline-none"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleLocalSearch();
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleLocalSearch}
+              className="inline-flex items-center px-3 py-1.5 rounded-full bg-white/10 text-xs font-semibold text-white hover:bg-white/20"
+            >
+              Search
+            </button>
+          </div>
+        </div>
+
         {/* Header / query */}
         {queryFromUrl && (
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -229,7 +263,6 @@ function SearchPageContent() {
               <span className="font-semibold text-white">“{queryFromUrl}”</span>
             </p>
 
-            {/* filter buttons for videos/channels */}
             {hasResults && (
               <div className="inline-flex rounded-full bg-neutral-900/80 p-1 text-sm">
                 <button
@@ -301,7 +334,6 @@ function SearchPageContent() {
                     .toLowerCase()}`}
                   className="flex flex-col sm:flex-row gap-3 sm:gap-4 rounded-lg hover:bg-neutral-900/70 transition p-4 -mx-2"
                 >
-                  {/* thumb */}
                   <div className="relative w-full sm:w-90 aspect-video rounded-md overflow-hidden bg-neutral-900 flex-shrink-0">
                     <Image
                       src={v.thumbnail}
@@ -317,7 +349,6 @@ function SearchPageContent() {
                     )}
                   </div>
 
-                  {/* text */}
                   <div className="flex-1 flex flex-col">
                     <h2 className="text-base sm:text-lg font-semibold leading-snug mb-1 line-clamp-2">
                       {v.videos_title}
@@ -386,7 +417,7 @@ function SearchPageContent() {
   );
 }
 
-// 🔹 Default export wrapped in Suspense
+// ✅ Suspense wrapper
 export default function SearchPage() {
   return (
     <Suspense fallback={null}>

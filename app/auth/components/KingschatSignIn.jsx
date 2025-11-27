@@ -2,7 +2,7 @@
 
 /* eslint-disable */
 const CLIENT_ID = "com.kingschat";
-const REDIRECT_URI = "http://localhost:3000/api/kingschat/callback";
+const REDIRECT_URI = "https://ceflixtv.netlify.app/api/kingschat/callback";
 const SCOPES = ["conference_calls"];
 
 import Image from "next/image";
