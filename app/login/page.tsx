@@ -1,15 +1,16 @@
 // app/login/page.tsx
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../components/AuthProvider";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import Image from "next/image";
 import logo from "../assets/logo/ceflixplus-logo.png";
-import { KingsChatSignIn } from "@/app/auth/components/KingschatSignIn"
+import { KingsChatSignIn } from "@/app/auth/components/KingschatSignIn";
 
-export default function LoginPage() {
+// 🔹 This component actually uses useSearchParams
+function LoginPageContent() {
   const { login, loading } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -41,8 +42,9 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen w-full bg-neutral-950 relative overflow-hidden">
       {/* 🔹 Gradient background */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_50%_0%,rgba(191,9,9,0.4),transparent),radial-gradient(50%_50%_at_100%_100%,rgba(239,68,68,0.28),transparent)]" />{" "}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_50%_0%,rgba(191,9,9,0.4),transparent),radial-gradient(50%_50%_at_100%_100%,rgba(239,68,68,0.28),transparent)]" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-neutral-950/40 to-neutral-950" />
+
       {/* Content */}
       <div className="relative z-10 min-h-screen grid place-items-center p-4 sm:p-6 md:p-0">
         <div className="w-full max-w-md rounded-2xl border border-white/10 bg-neutral-900/70 backdrop-blur-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden">
@@ -53,9 +55,6 @@ export default function LoginPage() {
               alt="Kingschat logo"
               className="w-[8rem] mx-auto mb-4"
             />
-            {/* <h1 className="text-white text-2xl font-semibold tracking-tight">
-              Sign in to Ceflix
-            </h1> */}
             <p className="text-neutral-400 font-[500] text-sm mt-1 text-center">
               Welcome back — enter your credentials to continue
             </p>
@@ -213,5 +212,14 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// 🔹 Export a wrapper that provides Suspense
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,13 @@
+// app/search/page.tsx (or wherever this lives)
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  Suspense,        // ⬅️ add this
+} from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -68,7 +75,8 @@ function formatViews(viewsStr: string) {
   return String(v);
 }
 
-export default function SearchPage() {
+// 🔹 Inner component that actually uses useSearchParams
+function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { token } = useAuth();
@@ -375,5 +383,14 @@ export default function SearchPage() {
         )}
       </div>
     </main>
+  );
+}
+
+// 🔹 Default export wrapped in Suspense
+export default function SearchPage() {
+  return (
+    <Suspense fallback={null}>
+      <SearchPageContent />
+    </Suspense>
   );
 }

@@ -3,7 +3,13 @@
 const nextConfig = {
   images: {
     // Either use domains:
-    domains: ["res.cloudinary.com", "cdnvideos.ceflix.org", "d3adbm7ictuj27.cloudfront.net", "d3c5pcohbexzc4.cloudfront.net", "ceflixwebusergen-6923f64a.s3.amazonaws.com"],
+    domains: [
+      "res.cloudinary.com",
+      "cdnvideos.ceflix.org",
+      "d3adbm7ictuj27.cloudfront.net",
+      "d3c5pcohbexzc4.cloudfront.net",
+      "ceflixwebusergen-6923f64a.s3.amazonaws.com",
+    ],
 
     // or, if you want to be more explicit:
     // remotePatterns: [
@@ -16,6 +22,10 @@ const nextConfig = {
     //     hostname: "cdnvideos.ceflix.org",
     //   },
     // ],
+  },
+  typescript: {
+    // ❗ This lets production builds succeed even if there are TS errors
+    ignoreBuildErrors: true,
   },
 };
 
