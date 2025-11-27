@@ -270,6 +270,7 @@ export default function HistoryPage() {
                         src={item.thumbnail}
                         alt={item.videos_title}
                         fill
+                        unoptimized
                         className="object-cover group-hover:scale-105 transition"
                       />
                       {progressPercent > 0 && (
@@ -305,6 +306,7 @@ export default function HistoryPage() {
                               src={`${item.channel_prefix}${item.channel_file}`}
                               alt={item.channel}
                               fill
+                              unoptimized
                               className="object-cover"
                             />
                           )}

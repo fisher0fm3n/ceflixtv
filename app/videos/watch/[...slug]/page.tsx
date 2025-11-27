@@ -14,6 +14,7 @@ import {
 import { HandThumbUpIcon as ThumbsUpSolid } from "@heroicons/react/24/solid";
 import { useAuth } from "../../../components/AuthProvider";
 import ShareModal from "../../../components/ShareModal";
+import Link from "next/link";
 
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
@@ -975,7 +976,7 @@ const handleChangeLanguage = (lang: Language | null) => {
               <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
                 {/* Channel info */}
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-neutral-700 overflow-hidden">
+                  <Link href={`/channel/${video.channel_id}`} className="h-10 w-10 rounded-full bg-neutral-700 overflow-hidden">
                     <img
                       src={
                         (video.channel_prefix || "") +
@@ -986,16 +987,16 @@ const handleChangeLanguage = (lang: Language | null) => {
                       height={40}
                       className="h-full w-full object-cover aspect-video"
                     />
-                  </div>
+                  </Link>
                   <div>
-                    <div className="flex items-center gap-1">
+                    <Link href={`/channel/${video.channel_id}`} className="flex items-center gap-1">
                       <span className="text-sm font-semibold">
                         {video.channel}
                       </span>
                       {video.isVerified === "1" && (
                         <CheckBadgeIcon className="w-4 h-4 text-blue-400" />
                       )}
-                    </div>
+                    </Link>
                     <p className="text-xs text-neutral-400">
                       {formatSubscribers(subscribers)}
                     </p>

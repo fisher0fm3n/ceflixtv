@@ -167,9 +167,9 @@ export default function HomePage() {
   }, [initialized, token, router]);
 
   // ✅ set document.title in an effect (browser only)
-  useEffect(() => {
-    document.title = "Ceflix Tv";
-  }, []);
+  // useEffect(() => {
+  //   document.title = "Ceflix Tv";
+  // }, []);
 
   // Fetch user subscriptions when logged in
   useEffect(() => {

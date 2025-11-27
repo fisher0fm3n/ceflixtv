@@ -158,7 +158,7 @@ export default function MainNav({
             {initialized && loggedIn && (
               <Link
                 href="/upload"
-                className="inline-flex px-4 py-2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/15"
+                className="cursor-pointer inline-flex px-4 py-2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/15"
                 aria-label="Upload video"
               >
                 <ArrowUpTrayIcon className="h-5 w-5 md:mr-2" />
@@ -208,7 +208,7 @@ export default function MainNav({
                               type="button"
                               onClick={() => logout()}
                               className={cx(
-                                "flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400",
+                                "cursor-pointer flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400",
                                 active && "bg-white/5"
                               )}
                             >
@@ -355,7 +355,7 @@ export default function MainNav({
                           setMobileOpen(false);
                           logout();
                         }}
-                        className="mt-2 flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-400 hover:bg-white/10"
+                        className="cursor-pointer mt-2 flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-400 hover:bg-white/10"
                       >
                         <ArrowRightOnRectangleIcon className="h-4 w-4" />
                         <span>Sign out</span>

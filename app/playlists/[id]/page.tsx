@@ -74,6 +74,14 @@ function abbreviateViews(v: string | number) {
   return `${n.toFixed(1).replace(/\.0$/, "")}${units[u]}`;
 }
 
+function slugify(title: string) {
+  return title
+    .toLowerCase()
+    .replace(/\[|\]/g, "") // remove square brackets
+    .replace(/[^a-z0-9]+/g, "-") // replace non-alphanumeric with dash
+    .replace(/^-+|-+$/g, ""); // trim leading/trailing dashes
+}
+
 function timeSince(dateStrOrUnix: string | number) {
   // Support both ISO string (created_at) and uploadtime (unix in seconds)
   let ts: number;
@@ -206,7 +214,11 @@ export default function PlaylistPage() {
   const totalViews = useMemo(
     () =>
       videos.reduce(
-        (acc, v) => acc + (typeof v.numOfViews === "string" ? parseInt(v.numOfViews as any, 10) : v.numOfViews),
+        (acc, v) =>
+          acc +
+          (typeof v.numOfViews === "string"
+            ? parseInt(v.numOfViews as any, 10)
+            : v.numOfViews),
         0
       ),
     [videos]
@@ -469,11 +481,7 @@ export default function PlaylistPage() {
         )}
 
         {/* Error */}
-        {error && (
-          <p className="mb-4 text-sm text-red-400">
-            {error}
-          </p>
-        )}
+        {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
 
         {/* Videos grid */}
         {videos.length === 0 ? (
@@ -484,9 +492,9 @@ export default function PlaylistPage() {
           <div className="grid gap-3 gap-y-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {videos.map((video) => {
               const durationText = formatDuration(video.duration);
-              const videoHref = `/videos/watch/${video.id}/${playlistId}/${video.videos_title
-                .replace(/[\s+-]/g, "-")
-                .toLowerCase()}`;
+              const videoHref = `/videos/watch/${
+                video.id
+              }/${playlistId}/${slugify(video.videos_title)}`;
 
               return (
                 <Link
@@ -549,7 +557,8 @@ export default function PlaylistPage() {
                       </p>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
                         <span className="flex items-center gap-1">
-                          {abbreviateViews(video.numOfViews)} views • {timeSince(video.uploadtime)}
+                          {abbreviateViews(video.numOfViews)} views •{" "}
+                          {timeSince(video.uploadtime)}
                         </span>
                       </div>
                     </div>

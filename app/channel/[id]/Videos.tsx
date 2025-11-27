@@ -9,6 +9,17 @@ type Props = {
   channelProfilePicture: string | null;
 };
 
+const CLOUDINARY_PREFIX =
+  "https://res.cloudinary.com/raves-music/image/fetch/w_450/";
+
+// If URL already contains "cloudinary", leave it as is.
+// Otherwise, prefix it with the Cloudinary fetch URL.
+function withCloudinaryPrefix(src: string) {
+  if (!src) return src;
+  if (src.toLowerCase().includes("cloudinary") || src.toLowerCase().includes("cloudfront")) return src;
+  return `${CLOUDINARY_PREFIX}${encodeURIComponent(src)}`;
+}
+
 function truncate(text: string | null | undefined, max: number) {
   if (!text) return "";
   if (text.length <= max) return text;
@@ -146,7 +157,7 @@ export default function ChannelVideos({ data }: Props) {
                   .toLowerCase()}`}
               >
                 <img
-                  src={item.thumbnail}
+                  src={withCloudinaryPrefix(item.thumbnail)}
                   // alt={item.videos_title}
                   className="w-full h-full rounded-md object-cover aspect-video"
                 />
@@ -162,7 +173,7 @@ export default function ChannelVideos({ data }: Props) {
                     .replace(/[\s+-]/g, "-")
                     .toLowerCase()}`}
                 >
-                  <h1 className="text-xs font-semibold leading-tight text-white mr-2">
+                  <h1 className="text-sm font-semibold leading-tight text-white mr-2">
                     {truncate(item.videos_title, 46)}
                   </h1>
                 </Link>
@@ -170,12 +181,12 @@ export default function ChannelVideos({ data }: Props) {
                   {item.channelID && item.channelName && (
                     <Link
                       href={`/channel/${item.channelID}/`}
-                      className="text-xs hover:text-red-600 mr-1"
+                      className="text-sm hover:text-red-600 mr-1"
                     >
                       {item.channelName}
                     </Link>
                   )}
-                  <span className="text-xs">
+                  <span className="text-sm">
                     {abbreviateViews(item.numOfViews)} Views •{" "}
                     {timeSince(item.uploadtime)}
                   </span>
@@ -196,10 +207,10 @@ export default function ChannelVideos({ data }: Props) {
       {/* loading / end message */}
       <div className="flex items-center justify-center mt-4">
         {loadingMore && (
-          <p className="text-xs text-neutral-400">Loading more videos…</p>
+          <p className="text-sm text-neutral-400">Loading more videos…</p>
         )}
         {!hasMore && totalVideos > 0 && !loadingMore && (
-          <p className="text-xs text-neutral-500">You’ve reached the end.</p>
+          <p className="text-sm text-neutral-500">You’ve reached the end.</p>
         )}
       </div>
     </div>

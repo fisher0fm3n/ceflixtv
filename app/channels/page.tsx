@@ -8,6 +8,7 @@ import {
   PencilIcon,
   EyeIcon,
   PlusCircleIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "../components/AuthProvider"; // ⬅️ adjust path if needed
 
@@ -50,6 +51,9 @@ export default function UserChannelsPage() {
   const [loading, setLoading] = useState(true);
   const [channels, setChannels] = useState<UserChannel[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  const [confirmChannel, setConfirmChannel] = useState<UserChannel | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const isLoggedIn = !!user && !!token;
 
@@ -118,6 +122,62 @@ export default function UserChannelsPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // --- DELETE CHANNEL API (using API_BASE & APP_KEY, no browser alert) ---
+  async function deleteChannel(channelId: number) {
+    if (!token) {
+      setError("You must be logged in to delete a channel.");
+      return false;
+    }
+
+    try {
+      const req = await fetch(API_BASE + "channel/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Application-Key": APP_KEY,
+          "X-TOKEN": token,
+        },
+        body: JSON.stringify({
+          channel_id: channelId,
+          token,
+        }),
+      });
+
+      const res = await req.json().catch(() => null);
+
+      if (req.ok && res?.status) {
+        // remove deleted channel from state
+        setChannels((prev) => prev.filter((ch) => ch.id !== channelId));
+        return true;
+      }
+
+      console.error("Delete channel API failed:", res);
+      setError("Failed to delete channel. Please try again.");
+      return false;
+    } catch (err) {
+      console.error("Error calling delete channel API:", err);
+      setError("Something went wrong. Please try again.");
+      return false;
+    }
+  }
+
+  async function handleConfirmDelete() {
+    if (!confirmChannel) return;
+
+    setDeletingId(confirmChannel.id);
+    const ok = await deleteChannel(confirmChannel.id);
+    setDeletingId(null);
+
+    if (ok) {
+      setConfirmChannel(null);
+    }
+  }
+
+  function handleCancelDelete() {
+    if (deletingId !== null && confirmChannel?.id === deletingId) return;
+    setConfirmChannel(null);
   }
 
   useEffect(() => {
@@ -216,8 +276,19 @@ export default function UserChannelsPage() {
             {channels.map((ch) => (
               <div
                 key={ch.id}
-                className="flex flex-col gap-4 p-4 rounded-xl bg-neutral-900/60 border border-neutral-800"
+                className="relative flex flex-col gap-4 p-4 rounded-xl bg-neutral-900/60 border border-neutral-800"
               >
+                {/* Trash icon top-right */}
+                <button
+                  type="button"
+                  onClick={() => setConfirmChannel(ch)}
+                  className="absolute z-50 top-6 right-6 inline-flex items-center justify-center rounded-full bg-neutral-900/80 hover:bg-red-600/20 border border-neutral-700 hover:border-red-500/70 p-1.5 transition cursor-pointer"
+                  disabled={deletingId === ch.id}
+                  aria-label="Delete channel"
+                >
+                  <TrashIcon className="h-4 w-4 text-neutral-300 hover:text-red-400" />
+                </button>
+
                 {/* Cover / avatar */}
                 <div className="relative sm:w-full">
                   <div className="relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-neutral-800">
@@ -296,6 +367,39 @@ export default function UserChannelsPage() {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation modal */}
+      {confirmChannel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-neutral-950 border border-neutral-800 p-6 shadow-xl">
+            <h2 className="text-lg font-semibold">Delete channel?</h2>
+            <p className="mt-2 text-sm text-neutral-300">
+              Are you sure you want to delete{" "}
+              <span className="font-semibold">&quot;{confirmChannel.channel}&quot;</span>?
+              This action cannot be undone.
+            </p>
+
+            <div className="mt-6 flex justify-end gap-3 text-sm">
+              <button
+                type="button"
+                onClick={handleCancelDelete}
+                disabled={deletingId === confirmChannel.id}
+                className="cursor-pointer rounded-full border border-neutral-700 px-4 py-1.5 font-semibold text-neutral-200 hover:bg-neutral-800 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={deletingId === confirmChannel.id}
+                className="cursor-pointer rounded-full bg-white px-4 py-1.5 font-semibold text-black hover:bg-neutral-200 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {deletingId === confirmChannel.id ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

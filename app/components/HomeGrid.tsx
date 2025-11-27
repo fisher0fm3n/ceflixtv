@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -19,6 +19,23 @@ type Section = {
   sectionData: VideoItem[];
 };
 
+const CLOUDINARY_PREFIX =
+  "https://res.cloudinary.com/raves-music/image/fetch/w_450/";
+
+// Ensure all image URLs are prefixed with the Cloudinary fetch URL
+function withCloudinaryPrefix(src: string) {
+  if (!src) return src;
+  // If it's already a Cloudinary URL, don't touch it
+  if (
+    src.toLowerCase().includes("cloudinary") ||
+    src.toLowerCase().includes("cloudfront")
+  )
+    return src;
+
+  // If you *don’t* want encoding, remove encodeURIComponent
+  return `${CLOUDINARY_PREFIX}${encodeURIComponent(src)}`;
+}
+
 function formatTitle(title: string) {
   return title
     .trim()
@@ -27,11 +44,20 @@ function formatTitle(title: string) {
     .replace(/\s+/g, "-");
 }
 
+const INITIAL_SECTIONS = 2;
+const SECTIONS_PER_LOAD = 2;
+
 export default function HomeInitialGrid() {
   const [sections, setSections] = useState<Section[]>([]);
+  const [visibleSectionCount, setVisibleSectionCount] = useState(
+    INITIAL_SECTIONS
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Initial load – single API call
   useEffect(() => {
     let cancelled = false;
 
@@ -50,7 +76,12 @@ export default function HomeInitialGrid() {
         }
 
         if (!cancelled) {
-          setSections(json.data || []);
+          const data: Section[] = json.data || [];
+          setSections(data);
+          // Reset visible count when data arrives
+          setVisibleSectionCount(
+            data.length > 0 ? Math.min(INITIAL_SECTIONS, data.length) : 0
+          );
         }
       } catch (err) {
         console.error("HomeInitialGrid load error:", err);
@@ -70,6 +101,38 @@ export default function HomeInitialGrid() {
       cancelled = true;
     };
   }, []);
+
+  // Infinite scroll for sections (no extra API calls, just reveal more)
+  useEffect(() => {
+    if (!sections.length) return;
+
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (!entry.isIntersecting) return;
+
+        setVisibleSectionCount((prev) => {
+          if (prev >= sections.length) return prev;
+          // Load the next batch of sections
+          return Math.min(prev + SECTIONS_PER_LOAD, sections.length);
+        });
+      },
+      {
+        root: null,
+        rootMargin: "0px 0px 300px 0px", // start loading a bit before reaching the bottom
+        threshold: 0.1,
+      }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [sections.length]);
 
   if (loading) {
     return (
@@ -101,9 +164,21 @@ export default function HomeInitialGrid() {
     );
   }
 
+  if (!sections.length) {
+    return (
+      <div className="p-4 sm:p-6">
+        <p className="text-sm text-neutral-400">
+          No sections available right now.
+        </p>
+      </div>
+    );
+  }
+
+  const visibleSections = sections.slice(0, visibleSectionCount);
+
   return (
     <div className="p-4 sm:p-6 space-y-8">
-      {sections.map((section) => (
+      {visibleSections.map((section) => (
         <section key={section.sectionName} className="space-y-3">
           {/* Section title */}
           <div className="flex items-center justify-between">
@@ -125,7 +200,7 @@ export default function HomeInitialGrid() {
                 {/* Thumbnail */}
                 <div className="relative rounded-md aspect-video overflow-hidden">
                   <Image
-                    src={video.thumbnail}
+                    src={withCloudinaryPrefix(video.thumbnail)}
                     alt={video.videos_title}
                     fill
                     unoptimized
@@ -142,7 +217,9 @@ export default function HomeInitialGrid() {
                   {video.channelProfilePicture && (
                     <div className="relative h-9 w-9 rounded-full overflow-hidden bg-neutral-800 flex-shrink-0">
                       <Image
-                        src={video.channelProfilePicture}
+                        src={withCloudinaryPrefix(
+                          video.channelProfilePicture
+                        )}
                         alt={video.channelName}
                         fill
                         unoptimized
@@ -170,6 +247,16 @@ export default function HomeInitialGrid() {
           </div>
         </section>
       ))}
+
+      {/* Sentinel for infinite scroll (only when there is more to load) */}
+      {visibleSectionCount < sections.length && (
+        <div
+          ref={sentinelRef}
+          className="h-10 flex items-center justify-center text-xs text-neutral-500"
+        >
+          Loading more sections…
+        </div>
+      )}
     </div>
   );
 }

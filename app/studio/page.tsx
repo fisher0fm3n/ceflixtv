@@ -161,8 +161,8 @@ export default function DashboardPage() {
       <main className="min-h-screen bg-neutral-950 text-white p-6">
         <div className="animate-pulse space-y-4 max-w-6xl mx-auto">
           <div className="h-8 bg-neutral-800 rounded w-40" />
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-            {[...Array(6)].map((_, i) => (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
               <div key={i} className="h-20 bg-neutral-800 rounded" />
             ))}
           </div>

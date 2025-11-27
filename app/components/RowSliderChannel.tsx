@@ -78,7 +78,7 @@ export default function RowSlider({ title, items }: RowSliderProps) {
 
                   {/* Text */}
                   <div className="mt-2 flex flex-col">
-                    <p className="text-sm font-medium text-white leading-snug line-clamp-2">
+                    <p className="text-md font-semibold text-white leading-snug line-clamp-2">
                       {item.title}
                     </p>
                     {item.meta && (
