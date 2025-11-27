@@ -93,11 +93,13 @@ export default function RowSlider({ title, items }: RowSliderProps) {
               return (
                 <SplideSlide key={item.id} className="overflow-visible">
                   <div className="flex flex-col w-full cursor-pointer">
-                    {item.href ? (
-                      <Link href={item.href}>{content}</Link>
-                    ) : (
-                      content
-                    )}
+                      <Link
+                        href={`/videos/watch/${item.id}/${item.title
+                          .replace(/[\s+-]/g, "-")
+                          .toLowerCase()}`}
+                      >
+                        {content}
+                      </Link>
                   </div>
                 </SplideSlide>
               );

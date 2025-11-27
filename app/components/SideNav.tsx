@@ -1,3 +1,4 @@
+// app/components/SideNav.tsx
 "use client";
 
 import Link from "next/link";
@@ -8,12 +9,19 @@ import {
   SparklesIcon,
   FireIcon,
   Squares2X2Icon,
+  ClockIcon,
+  HandThumbUpIcon,
+  QueueListIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "./AuthProvider";
 
 const items = [
   { href: "/", label: "Home", icon: HomeIcon },
   { href: "/ceclips", label: "CeClips", icon: SparklesIcon },
+  { href: "/history", label: "History", icon: ClockIcon },
+  { href: "/channels", label: "Channels", icon: TvIcon },
+  { href: "/likes", label: "Liked Videos", icon: HandThumbUpIcon },
+  { href: "/playlists", label: "Playlists", icon: QueueListIcon },
 ];
 
 type SideNavProps = {
@@ -29,25 +37,30 @@ function cx(...cls: (string | false | null | undefined)[]) {
   return cls.filter(Boolean).join(" ");
 }
 
-export default function SideNav({ collapsed = false, onClose }: SideNavProps) {
+export default function SideNav({
+  collapsed: collapsedProp,
+  onClose,
+}: SideNavProps) {
   const pathname = usePathname();
   const { token, user } = useAuth();
   const loggedIn = Boolean(token && user);
 
   // Treat anything under /player as the watch page
-  const isPlayerPage = pathname.startsWith("/videos");
+  const isPlayerPage =
+    pathname.startsWith("/videos") || pathname.startsWith("/ceclips");
 
-    if (pathname.startsWith("/login"))
-    return null;
+  if (pathname.startsWith("/login")) return null;
 
-  // On the player page we want it collapsed (hidden) by default if parent
-  // didn't pass anything explicit.
+  // Single source of truth:
+  // - On player pages, we rely only on collapsedProp (overlay open/closed).
+  // - On normal pages, we also rely on collapsedProp.
+  //   (AppShell is responsible for reading/writing localStorage.)
   const effectiveCollapsed =
-    typeof collapsed === "boolean"
-      ? collapsed
+    typeof collapsedProp === "boolean"
+      ? collapsedProp
       : isPlayerPage
-      ? true
-      : false;
+      ? true // default hidden on player page if no prop provided
+      : false; // default expanded on normal pages
 
   // -------- Overlay version for player page --------
   if (isPlayerPage) {
@@ -55,16 +68,15 @@ export default function SideNav({ collapsed = false, onClose }: SideNavProps) {
 
     return (
       <>
-        {/* Backdrop */}
-        {/* <div
-          className={cx(
-            "fixed inset-0 z-[998] bg-black/40 transition-opacity duration-200 md:block",
-            isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-          )}
-          onClick={() => {
-            if (isOpen && onClose) onClose();
-          }}
-        /> */}
+        {/* Optional backdrop – click to close */}
+        {isOpen && (
+          <div
+            className="fixed inset-0 z-[998] bg-black/40 md:hidden"
+            onClick={() => {
+              if (onClose) onClose();
+            }}
+          />
+        )}
 
         {/* Sliding panel */}
         <aside
@@ -91,6 +103,10 @@ export default function SideNav({ collapsed = false, onClose }: SideNavProps) {
                       ? "bg-neutral-800 text-white font-semibold"
                       : "text-neutral-200 hover:bg-neutral-800/60"
                   )}
+                  onClick={() => {
+                    // Close overlay after navigation
+                    if (onClose) onClose();
+                  }}
                 >
                   <Icon className="h-5 w-5 shrink-0" />
                   <span className="truncate">{item.label}</span>

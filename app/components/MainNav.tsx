@@ -11,6 +11,7 @@ import {
   ChevronDownIcon,
   UserCircleIcon,
   ArrowRightOnRectangleIcon,
+  ArrowUpTrayIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "./AuthProvider";
 import Image from "next/image";
@@ -33,8 +34,7 @@ export default function MainNav({
   const router = useRouter();
   const { user, token, logout, initialized } = useAuth();
 
-  if (pathname.startsWith("/login"))
-    return null;
+  if (pathname.startsWith("/login")) return null;
 
   const loggedIn = Boolean(token && user);
   const displayName =
@@ -43,6 +43,16 @@ export default function MainNav({
       : user?.username || "Profile";
 
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const handleSearch = () => {
+    const q = searchTerm.trim();
+    if (!q) return;
+
+    // encode, then turn spaces into +
+    const encoded = encodeURIComponent(q).replace(/%20/g, "+");
+    router.push(`/search?q=${encoded}`);
+  };
 
   const handleToggleSide = () => {
     if (onToggleSideNav) onToggleSideNav();
@@ -63,7 +73,7 @@ export default function MainNav({
         "bg-neutral-950/40 backdrop-blur"
       )}
     >
-      <div className="px-4 sm:px-6 lg:px-8">
+      <div className="px-4 sm:px-6 lg:px-auto lg:pl-[0.8rem] lg:pr-8">
         <div className="h-16 flex items-center gap-4">
           {/* LEFT: menu + brand */}
           <div className="flex items-center gap-3 shrink-0 min-w-0">
@@ -71,7 +81,7 @@ export default function MainNav({
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden inline-flex items-center justify-center rounded-md p-2 text-white/90 hover:bg-white/10"
+              className="cursor-pointer lg:hidden inline-flex items-center justify-center rounded-md p-2 text-white/90 hover:bg-white/10"
               aria-label="Open navigation"
             >
               <Bars3Icon className="h-6 w-6" />
@@ -81,7 +91,7 @@ export default function MainNav({
             <button
               type="button"
               onClick={handleToggleSide}
-              className="hidden lg:inline-flex items-center justify-center rounded-md p-2 mr-1 text-white/90 hover:bg-white/10"
+              className="cursor-pointer hidden lg:inline-flex items-center justify-center rounded-md p-2 mr-1 text-white/90 hover:bg-white/10"
               aria-label="Toggle sidebar"
             >
               <Bars3Icon
@@ -104,6 +114,7 @@ export default function MainNav({
           </div>
 
           {/* CENTER: big search bar */}
+          {/* CENTER: big search bar */}
           <div className="flex-1 flex justify-center">
             <div className="hidden md:flex items-center gap-2 w-full max-w-3xl px-4 py-2 rounded-sm bg-neutral-900 border border-neutral-800">
               <MagnifyingGlassIcon className="h-5 w-5 text-neutral-400" />
@@ -111,19 +122,29 @@ export default function MainNav({
                 type="text"
                 placeholder="Search Ceflix"
                 className="flex-1 bg-transparent text-sm text-white placeholder-neutral-400 focus:outline-none"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    const q = (e.currentTarget as HTMLInputElement).value.trim();
-                    if (q) router.push(`/search?q=${encodeURIComponent(q)}`);
+                    e.preventDefault();
+                    handleSearch();
                   }
                 }}
               />
+              {/* Search button */}
+              <button
+                type="button"
+                onClick={handleSearch}
+                className="inline-flex items-center px-3 py-1.5 rounded-full bg-white/10 text-xs font-semibold text-white hover:bg-white/20"
+              >
+                Search
+              </button>
             </div>
 
             {/* Mobile search: simple icon, goes to /search */}
             <button
               type="button"
-              className="md:hidden inline-flex items-center justify-center rounded-full p-2 text-white/90 hover:bg-white/10"
+              className="md:hidden inline-flex items-center justify-center rounded-full p-2 text-white/90 hover:bg:white/10"
               aria-label="Search"
               onClick={() => router.push("/search")}
             >
@@ -133,11 +154,21 @@ export default function MainNav({
 
           {/* RIGHT: auth/profile */}
           <div className="flex items-center gap-3 shrink-0">
+            {initialized && loggedIn && (
+              <Link
+                href="/upload"
+                className="inline-flex px-4 py-2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/15"
+                aria-label="Upload video"
+              >
+                <ArrowUpTrayIcon className="h-5 w-5 mr-2" />
+                <span className="text-sm font-semibold">Upload</span>
+              </Link>
+            )}
             {initialized && loggedIn ? (
               <>
                 {/* Desktop profile dropdown */}
                 <Menu as="div" className="relative hidden lg:block">
-                  <Menu.Button className="inline-flex h-9 items-center gap-2 rounded-full bg-white/10 px-2 pr-3 text-sm text-white hover:bg-white/15">
+                  <Menu.Button className="cursor-pointer inline-flex h-9 items-center gap-2 rounded-full bg-white/10 px-2 pr-3 text-sm text-white hover:bg-white/15">
                     <ProfileAvatar src={user?.profile_pic} />
                     <span className="max-w-[120px] truncate">
                       {displayName}

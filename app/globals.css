@@ -140,3 +140,5 @@ html, body {
 .plyr__menu__container .plyr__control[role=menuitemradio][aria-checked=true]::before {
   background: #c81e1e;
 }
+
+/* Position Splide arrows on the right side, vertically centered */

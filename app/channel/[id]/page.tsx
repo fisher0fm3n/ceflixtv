@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   ChevronRightIcon,
   ClockIcon,
@@ -154,7 +154,9 @@ function ChannelSkeleton() {
 
 export default function ChannelPage() {
   const params = useParams<{ id: string }>();
-  const { token, user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const { token, user, loading: authLoading, initialized } = useAuth();
+  const fetchKeyRef = useRef<string | null>(null);
 
   const [pageTitle, setPageTitle] = useState("Channel");
   const [loading, setLoading] = useState(true);
@@ -162,32 +164,54 @@ export default function ChannelPage() {
   const [highlight, setHighlight] = useState<ChannelVideo | null>(null);
   const [view, setView] = useState<View>("home");
   const [subscribe, setSubscribe] = useState(false);
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
+
+  // 👇 track highlight image loading
+  const [highlightImageLoaded, setHighlightImageLoaded] = useState(false);
 
   const channelIdParam = params.id;
   const isLoggedIn = !!user && !!token;
   const isOwner =
     isLoggedIn && data
-      ? String(user.id ?? user.userID) === data.channel.userID
+      ? String(user.id ?? (user as any).userID) === data.channel.userID
       : false;
 
   useEffect(() => {
     if (!channelIdParam) return;
-    if (authLoading || !token) return; // wait until auth finishes (token decided)
 
-    getChannel(channelIdParam, token);
-  }, [channelIdParam, token, authLoading]);
+    // 1) Wait until auth has finished hydrating from storage
+    if (!initialized) return;
 
-  async function getChannel(channelId: string, token?: string) {
+    // 2) If a login is currently in-flight, wait as well
+    if (authLoading) return;
+
+    const key = `${channelIdParam}-${token ?? "guest"}`;
+
+    // 3) Avoid duplicate fetches for same channel+auth combo
+    if (fetchKeyRef.current === key) return;
+    fetchKeyRef.current = key;
+
+    // Only pass token if it exists
+    getChannel(channelIdParam, token ?? undefined);
+  }, [channelIdParam, token, authLoading, initialized]);
+
+  async function getChannel(channelId: string, authToken?: string) {
     setLoading(true);
     try {
+      const body: any = { channel: channelId };
+      if (authToken) {
+        body.token = authToken; // only include if defined/truthy
+      }
+
       const req = await fetch(API_BASE + "channel", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Application-Key": APP_KEY,
         },
-        body: JSON.stringify({ token, channel: channelId }),
+        body: JSON.stringify(body),
       });
+
       const res = await req.json();
 
       if (res.status) {
@@ -200,7 +224,10 @@ export default function ChannelPage() {
         const sorted = [...videos].sort(
           (a, b) => (b.uploadtime ?? 0) - (a.uploadtime ?? 0)
         );
-        setHighlight(sorted[0] ?? null);
+        const first = sorted[0] ?? null;
+        setHighlight(first);
+        // reset highlight image loading when highlight changes
+        setHighlightImageLoaded(false);
       }
     } catch (err) {
       console.error("Failed to load channel:", err);
@@ -248,15 +275,33 @@ export default function ChannelPage() {
 
   return (
     <>
-      {/* If you still have an SEO component you can wire it here.
-          Otherwise you can remove this block. */}
-      {/* <SEO
-        title={`${pageTitle} - Ceflix`}
-        description={truncate(data.channel.description, 200)}
-        name={data.channel.channel}
-        type="article"
-        image={data.channel.cover}
-      /> */}
+      {/* Sign-in prompt modal */}
+      {showSignInPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="max-w-xs rounded-xl bg-white px-6 py-5 text-center text-black">
+            <p className="mb-4 text-sm font-medium">
+              Please sign in to subscribe to this channel
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                className="rounded-md bg-black px-4 py-2 text-sm font-semibold text-white"
+                onClick={() => {
+                  setShowSignInPrompt(false);
+                  router.push("/login");
+                }}
+              >
+                Sign in
+              </button>
+              <button
+                className="rounded-md bg-neutral-200 px-4 py-2 text-sm font-semibold text-black"
+                onClick={() => setShowSignInPrompt(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col max-w-6xl mx-auto mb-8 px-6 lg:px-0">
         {/* Cover */}
@@ -282,7 +327,7 @@ export default function ChannelPage() {
                   {data.channel.channel}
                 </p>
                 <p className="text-sm font-medium text-neutral-400">
-                  {abbreviateViews(data.subscribers)} Subscribers
+                  {abbreviateViews((data as any).subscribers)} Subscribers
                 </p>
 
                 <button
@@ -303,7 +348,7 @@ export default function ChannelPage() {
                 </button>
 
                 {/* Subscribe / Edit */}
-                {isLoggedIn && !isOwner && (
+                {!isOwner && (
                   <button
                     type="button"
                     className={`mt-4 text-black transition font-bold rounded-full ${
@@ -312,6 +357,10 @@ export default function ChannelPage() {
                         : "bg-neutral-600 hover:bg-neutral-500 text-white"
                     } px-4 py-2 text-sm cursor-pointer`}
                     onClick={() => {
+                      if (!token) {
+                        setShowSignInPrompt(true);
+                        return;
+                      }
                       channelSubscription();
                       setSubscribe((prev) => !prev);
                     }}
@@ -363,7 +412,12 @@ export default function ChannelPage() {
                   {/* Featured / highlighted video */}
                   <div className="flex flex-col lg:flex-row pt-4 my-8 md:gap-x-4">
                     <div className="relative thumbnail">
-                      <div className="relative w-full lg:max-w-[24rem]">
+                      <div className="relative w-full min-w-[24rem] lg:max-w-[24rem]">
+                        {/* Placeholder block while image loads */}
+                        {!highlightImageLoaded && (
+                          <div className="w-full aspect-video rounded-md bg-neutral-800 animate-pulse" />
+                        )}
+
                         <Link
                           href={`/videos/watch/${
                             highlight.id
@@ -373,13 +427,14 @@ export default function ChannelPage() {
                         >
                           <img
                             alt="cover"
-                            className="rounded-md w-full aspect-video"
+                            className={`rounded-md w-full aspect-video ${
+                              highlightImageLoaded ? "block" : "hidden"
+                            }`}
                             src={highlight.thumbnail}
+                            onLoad={() => setHighlightImageLoaded(true)}
+                            onError={() => setHighlightImageLoaded(true)}
                           />
                         </Link>
-                        <span className="text-white absolute bottom-0 right-0 text-xs px-2 py-1 m-1 rounded-sm bg-neutral-900/60">
-                          {duration(highlight.duration)}
-                        </span>
                       </div>
                     </div>
                     <div className="text-white max-w-[38rem]">
@@ -427,27 +482,6 @@ export default function ChannelPage() {
                 data={data}
                 channelProfilePicture={data.channel.url}
               />
-            </div>
-          )}
-
-          {/* PLAYLISTS VIEW */}
-          {view === "playlists" && (
-            <div className="mt-8">
-              <div className="flex flex-row items-center mb-4 justify-between">
-                <h1 className="text-lg font-semibold text-white">Playlists</h1>
-                {isOwner && (
-                  <Link
-                    className="hidden lg:inline-flex flex-row font-semibold items-center transition inline-block text-center rounded text-white bg-red-600 hover:bg-red-700 py-2 px-2.5 mr-2 mb-2 text-sm"
-                    href={`/channel/playlist/create/${data.channel.id}`}
-                  >
-                    <ListBulletIcon
-                      className="h-4 w-4 mr-2 top-[.3rem]"
-                      aria-hidden="true"
-                    />
-                    Create Playlist
-                  </Link>
-                )}
-              </div>
             </div>
           )}
 

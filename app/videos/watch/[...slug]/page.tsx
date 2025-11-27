@@ -50,6 +50,10 @@ type VideoData = {
   likes: string;
   uploadtime: string;
   numOfComments: number;
+  // (assuming these exist on the response)
+  channel_prefix?: string;
+  channel_file?: string;
+  subscribers?: string | number;
 };
 
 type Comment = {
@@ -89,6 +93,25 @@ const duration = (seconds: number | string) => {
   }
 };
 
+function formatSubscribers(v: string | number) {
+  const num = typeof v === "string" ? parseInt(v, 10) : v;
+  if (!Number.isFinite(num)) return "0 subscribers";
+
+  if (num < 1000) {
+    return `${num} subscriber${num === 1 ? "" : "s"}`;
+  }
+
+  const units = ["K", "M", "B"];
+  let u = -1;
+  let n = num;
+  while (n >= 1000 && u < units.length - 1) {
+    n /= 1000;
+    u++;
+  }
+
+  return `${n.toFixed(1).replace(/\.0$/, "")}${units[u]} subscribers`;
+}
+
 function formatViews(v: string | number) {
   const num = typeof v === "string" ? parseInt(v, 10) : v;
   if (!Number.isFinite(num)) return "0 views";
@@ -118,7 +141,16 @@ export default function PlayerPage() {
   const { token, user } = useAuth();
 
   const slugParam = params.slug;
-  const initialVideoId = Array.isArray(slugParam) ? slugParam[0] : slugParam;
+  const slugArray = Array.isArray(slugParam) ? slugParam : [slugParam];
+
+  const initialVideoId = slugArray[0] || null;
+
+  // ✅ Only treat second segment as playlist id if it’s numeric
+  const possiblePlaylist = slugArray[1];
+  const initialPlaylistId =
+    possiblePlaylist && /^\d+$/.test(possiblePlaylist)
+      ? possiblePlaylist
+      : null;
 
   // 👉 internal ID we use for fetching / swapping videos
   const [currentVideoId, setCurrentVideoId] = useState<string | null>(
@@ -127,10 +159,12 @@ export default function PlayerPage() {
 
   // keep internal ID in sync if route param changes externally
   useEffect(() => {
-    if (initialVideoId && initialVideoId !== currentVideoId) {
-      setCurrentVideoId(initialVideoId);
+    const arr = Array.isArray(params.slug) ? params.slug : [params.slug];
+    const vid = arr[0] || null;
+    if (vid && vid !== currentVideoId) {
+      setCurrentVideoId(vid);
     }
-  }, [initialVideoId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [params.slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -149,14 +183,26 @@ export default function PlayerPage() {
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [subscribed, setSubscribed] = useState(false);
+  const [subscribers, setSubscribers] = useState(0);
 
   const [autoplay, setAutoplay] = useState(false); // "Up next" autoplay
   const [theatre, setTheatre] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const plyrRef = useRef<any | null>(null);
+  const hlsRef = useRef<any | null>(null);
 
-  // NEW: which action is asking the user to sign in ("like" | "subscribe" | "comment")
+  const [isMobile, setIsMobile] = useState(false);
+  const [playlistTitle, setPlaylistTitle] = useState<string | null>(null);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768); // tweak breakpoint if you want
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // which action is asking the user to sign in ("like" | "subscribe" | "comment")
   const [authPrompt, setAuthPrompt] = useState<
     null | "like" | "subscribe" | "comment"
   >(null);
@@ -166,7 +212,7 @@ export default function PlayerPage() {
     [videoUrl]
   );
 
-  // NEW: restore theatre mode preference from localStorage on mount
+  // restore theatre mode preference from localStorage on mount
   useEffect(() => {
     try {
       const stored = localStorage.getItem("ceflix.theatre");
@@ -179,51 +225,108 @@ export default function PlayerPage() {
   }, []);
 
   useEffect(() => {
-    if (!videoUrl) return;
+    if (!videoUrl || !videoRef.current) return;
 
-    let player: any;
+    const videoEl = videoRef.current;
 
-    async function loadPlyr() {
-      // dynamic import so it only runs in the browser
+    async function setupPlayer() {
+      // Clean up any existing instances first
+      if (plyrRef.current) {
+        try {
+          plyrRef.current.destroy();
+        } catch (e) {
+          console.warn("Plyr destroy failed (ignored):", e);
+        }
+        plyrRef.current = null;
+      }
+
+      if (hlsRef.current) {
+        try {
+          hlsRef.current.destroy();
+        } catch (e) {
+          console.warn("HLS destroy failed (ignored):", e);
+        }
+        hlsRef.current = null;
+      }
+
+      if (!videoEl) return;
+
+      const isHls = videoUrl.endsWith(".m3u8");
+
+      // 1) Set up media source
+      if (isHls) {
+        if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
+          videoEl.src = videoUrl;
+        } else {
+          const HlsModule = await import("hls.js");
+          const Hls = HlsModule.default;
+          if (Hls.isSupported()) {
+            const hls = new Hls();
+            hls.loadSource(videoUrl);
+            hls.attachMedia(videoEl);
+            hlsRef.current = hls;
+          } else {
+            videoEl.src = videoUrl;
+          }
+        }
+      } else {
+        videoEl.src = videoUrl;
+      }
+
+      // 2) Wrap with Plyr
       const PlyrModule = await import("plyr");
       const Plyr = PlyrModule.default;
 
-      if (videoRef.current) {
-        player = new Plyr(videoRef.current, {
-          autoplay,
-          controls: [
-            "play-large",
-            "play",
-            "progress",
-            "current-time",
-            "mute",
-            "volume",
-            "settings",
-            "fullscreen",
-          ],
-        });
+      const player = new Plyr(videoEl, {
+        autoplay,
+        controls: [
+          "play-large",
+          "play",
+          "progress",
+          "current-time",
+          "mute",
+          "volume",
+          "settings",
+          "fullscreen",
+        ],
+      });
 
-        player.on("ready", () => {
-          player.play().catch(() => {
-            // autoplay may be blocked by browser, ignore
-          });
+      plyrRef.current = player;
+
+      player.on("ready", () => {
+        player.play().catch(() => {
+          // autoplay may be blocked
         });
-        // autoplay next video when ended
-        player.on("ended", () => {
-          if (autoplay && upNext.length > 0) {
-            const next = upNext[0];
-            router.push(`/player/${next.id}`);
-          }
-        });
-      }
+      });
+
+      player.on("ended", () => {
+        if (autoplay && upNext.length > 0) {
+          const next = upNext[0];
+          router.push(`/player/${next.id}`);
+        }
+      });
     }
 
-    loadPlyr();
+    setupPlayer();
 
-    // cleanup
+    // Cleanup when videoUrl changes or component unmounts
     return () => {
-      if (player) {
-        player.destroy();
+      if (plyrRef.current) {
+        try {
+          plyrRef.current.destroy();
+        } catch (e) {
+          console.warn("Plyr destroy failed (ignored):", e);
+        }
+        plyrRef.current = null;
+      }
+
+      if (hlsRef.current) {
+        try {
+          hlsRef.current.destroy();
+        } catch (e) {
+          console.warn("HLS destroy failed (ignored):", e);
+        }
+        hlsRef.current = null;
       }
     };
   }, [videoUrl, autoplay, upNext, router]);
@@ -240,7 +343,7 @@ export default function PlayerPage() {
     });
   };
 
-  // NEW: toggle theatre and persist in localStorage
+  // toggle theatre and persist in localStorage
   const toggleTheatre = () => {
     setTheatre((prev) => {
       const next = !prev;
@@ -256,14 +359,15 @@ export default function PlayerPage() {
   // 👉 Helper: update URL for a video (no "page change" feeling)
   const updateUrlForVideo = (id: string, title: string) => {
     const slug = formatTitle(title);
-    const href = `/videos/watch/${id}/${slug}`;
+    // keep playlist id in URL if it was provided initially
+    const href = initialPlaylistId
+      ? `/videos/watch/${id}/${initialPlaylistId}/${slug}`
+      : `/videos/watch/${id}/${slug}`;
     router.replace(href); // SPA navigation but same page component
   };
 
-  // NEW: helper to require auth for certain actions
-  const requireAuth = (
-    action: "like" | "subscribe" | "comment"
-  ): boolean => {
+  // helper to require auth for certain actions
+  const requireAuth = (action: "like" | "subscribe" | "comment"): boolean => {
     if (!user || !token) {
       setAuthPrompt(action);
       return false;
@@ -283,14 +387,19 @@ export default function PlayerPage() {
       setLoadError(null);
 
       try {
-        // 1) Fetch the video (unchanged)
+        // 1) Fetch the video
+        const videoRequestBody: any = { video: id, token };
+        if (initialPlaylistId) {
+          videoRequestBody.playlist = initialPlaylistId;
+        }
+
         const videoRes = await fetch(API_BASE + "video", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "Application-Key": APP_KEY,
           },
-          body: JSON.stringify({ video: id, token }),
+          body: JSON.stringify(videoRequestBody),
         });
 
         // 2) Get X-TOKEN from localStorage: ceflix_auth.token
@@ -305,7 +414,7 @@ export default function PlayerPage() {
           xToken = "";
         }
 
-        // 3) Fetch comments with the API you gave
+        // 3) Fetch comments
         const commentsRes = await fetch(
           "https://webapi.ceflix.org/api/video/comments",
           {
@@ -313,7 +422,6 @@ export default function PlayerPage() {
             headers: {
               "Access-Control-Allow-Origin": "*",
               "Access-Control-Request-Method": "POST",
-              "X-Requested-With": "XMLHttpRequest",
               "Content-Type": "application/json",
               "Application-Key": "2567a5ec9705eb7ac2c984033e06189d",
               ...(xToken ? { "X-TOKEN": xToken } : {}),
@@ -337,10 +445,37 @@ export default function PlayerPage() {
         setDefaultVideoUrl(v.url);
         setLanguages(videoJson.data.languages || []);
         setSelectedLangSlug(null);
-        setUpNext(videoJson.data.upnext || []);
+
+        // If a playlist is present, use its "pool" as up-next; otherwise fall back to upnext
+        if (Array.isArray(videoJson.data.pool) && videoJson.data.pool.length) {
+          const mappedPool: UpNextItem[] = videoJson.data.pool.map(
+            (item: any) => ({
+              id: String(item.id),
+              videos_title: item.videos_title,
+              thumbnail: item.thumbnail,
+              duration: String(item.duration ?? 0),
+              numOfViews: String(item.numOfViews ?? 0),
+              uploadtime: String(item.uploadtime ?? ""),
+              channel: item.channel,
+              isLive: (item.isLive ?? "0") as "0" | "1",
+            })
+          );
+          setUpNext(mappedPool);
+        } else {
+          setUpNext(videoJson.data.upnext || []);
+        }
+
         setLikesCount(parseInt(v.likes ?? "0", 10) || 0);
         setLiked(!!videoJson.data.liked);
         setSubscribed(!!videoJson.data.isSubscribed);
+        setSubscribers(videoJson.data.subscribers);
+
+        // 👇 Store playlist title (if any)
+        if (videoJson.data.playlist) {
+          setPlaylistTitle(videoJson.data.playlist.playlist_title || "");
+        } else {
+          setPlaylistTitle(null);
+        }
 
         if (commentsJson.status) {
           setComments(commentsJson.data || []);
@@ -389,7 +524,13 @@ export default function PlayerPage() {
     return () => {
       cancelled = true;
     };
-  }, [currentVideoId, token, user]);
+  }, [currentVideoId, token, user, initialPlaylistId]);
+
+  useEffect(() => {
+    if (video?.videos_title) {
+      document.title = `${video.videos_title} - Ceflix Tv`;
+    }
+  }, [video?.videos_title]);
 
   const handleChangeLanguage = (lang: Language | null) => {
     if (!video || !defaultVideoUrl || !currentVideoId) return;
@@ -397,7 +538,6 @@ export default function PlayerPage() {
     if (!lang) {
       setVideoUrl(defaultVideoUrl);
       setSelectedLangSlug(null);
-      // optional: reset URL to default (no lang)
       updateUrlForVideo(currentVideoId, video.videos_title);
       return;
     }
@@ -405,7 +545,6 @@ export default function PlayerPage() {
     setVideoUrl(lang.url);
     setSelectedLangSlug(lang.slug);
 
-    // keep ID the same, just update slug in URL to include lang
     const titleWithLang = `${video.videos_title} [${lang.slug}]`;
     updateUrlForVideo(currentVideoId, titleWithLang);
   };
@@ -500,7 +639,6 @@ export default function PlayerPage() {
   const playFirstUpNext = () => {
     if (!autoplay || !upNext.length) return;
     const next = upNext[0];
-    // update URL + ID, fetching happens via currentVideoId effect
     setCurrentVideoId(next.id);
     updateUrlForVideo(next.id, next.videos_title);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -510,17 +648,211 @@ export default function PlayerPage() {
     playFirstUpNext();
   };
 
-  // Up next item click handler (behaves like your React Router example)
+  // Up next item click handler
   const handleUpNextClick = (item: UpNextItem) => {
     setCurrentVideoId(item.id);
     updateUrlForVideo(item.id, item.videos_title);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  if (loading) {
+  function Skeleton({ className = "" }: { className?: string }) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-neutral-200">
-        Loading video…
+      <div
+        className={`animate-pulse bg-neutral-800/80 rounded-md ${className}`}
+      />
+    );
+  }
+
+  // if (loading) {
+  //   return (
+  //     <div className="min-h-screen bg-neutral-950 text-white pt-4 pb-10">
+  //       <div className="mx-auto px-4 lg:px-6 max-w-[110rem] grid gap-6 lg:grid-cols-12">
+  //         {/* Left: player + info skeleton */}
+  //         <div className="col-span-8 xl:col-span-9">
+  //           {/* Video skeleton */}
+  //           <div className="w-full bg-black rounded-lg aspect-video overflow-hidden">
+  //             <Skeleton className="w-full h-full rounded-none" />
+  //           </div>
+
+  //           {/* Title skeleton */}
+  //           <div className="mt-4">
+  //             <Skeleton className="h-6 w-3/4" />
+  //           </div>
+
+  //           {/* Channel row skeleton */}
+  //           <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+  //             <div className="flex items-center gap-3">
+  //               <Skeleton className="h-10 w-10 rounded-full" />
+  //               <div className="space-y-1">
+  //                 <Skeleton className="h-4 w-28" />
+  //                 <Skeleton className="h-3 w-20" />
+  //               </div>
+  //               <Skeleton className="h-8 w-24 rounded-full ml-2" />
+  //             </div>
+
+  //             <div className="flex flex-wrap items-center gap-2 md:gap-3">
+  //               <Skeleton className="h-8 w-20 rounded-full" />
+  //               <Skeleton className="h-8 w-20 rounded-full" />
+  //               <Skeleton className="h-8 w-24 rounded-full" />
+  //               <Skeleton className="h-8 w-24 rounded-full" />
+  //             </div>
+  //           </div>
+
+  //           {/* Description card skeleton */}
+  //           <div className="mt-4 rounded-xl bg-neutral-900/80 px-4 py-3">
+  //             <Skeleton className="h-4 w-40 mb-3" />
+  //             <Skeleton className="h-3 w-full mb-2" />
+  //             <Skeleton className="h-3 w-5/6 mb-2" />
+  //             <Skeleton className="h-3 w-2/3" />
+  //           </div>
+
+  //           {/* Comments skeleton */}
+  //           <div className="mt-6">
+  //             <Skeleton className="h-4 w-40 mb-3" />
+  //             {/* Comment box */}
+  //             <div className="mb-4">
+  //               <Skeleton className="h-20 w-full rounded-md" />
+  //               <div className="mt-2 flex justify-end">
+  //                 <Skeleton className="h-8 w-24 rounded-full" />
+  //               </div>
+  //             </div>
+
+  //             {/* A few comment items */}
+  //             <div className="space-y-4">
+  //               {[0, 1, 2].map((i) => (
+  //                 <div key={i} className="flex items-start gap-3">
+  //                   <Skeleton className="h-11 w-11 rounded-full" />
+  //                   <div className="flex-1 space-y-2">
+  //                     <Skeleton className="h-4 w-32" />
+  //                     <Skeleton className="h-3 w-full" />
+  //                     <Skeleton className="h-3 w-4/5" />
+  //                   </div>
+  //                 </div>
+  //               ))}
+  //             </div>
+  //           </div>
+  //         </div>
+
+  //         {/* Right: “Up next” sidebar skeleton */}
+  //         <aside className="col-span-8 lg:col-span-4 xl:col-span-3">
+  //           <Skeleton className="h-5 w-40 mb-3" />
+  //           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-1 gap-2">
+  //             {[0, 1, 2, 3].map((i) => (
+  //               <div
+  //                 key={i}
+  //                 className="w-full p-2 sm:max-w-sm flex flex-col lg:flex-row gap-2 rounded-lg"
+  //               >
+  //                 <div className="relative w-full lg:w-40 flex-shrink-0 aspect-video rounded-md overflow-hidden bg-neutral-900">
+  //                   <Skeleton className="w-full h-full rounded-none" />
+  //                 </div>
+  //                 <div className="flex-1 min-w-0 mt-1 lg:mt-0 space-y-2">
+  //                   <Skeleton className="h-4 w-full" />
+  //                   <Skeleton className="h-3 w-2/3" />
+  //                   <Skeleton className="h-3 w-1/2" />
+  //                 </div>
+  //               </div>
+  //             ))}
+  //           </div>
+  //         </aside>
+  //       </div>
+  //     </div>
+  //   );
+  // }
+
+  const isInitialLoading = loading && !videoUrl;
+
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen bg-neutral-950 text-white pt-4 pb-10">
+        <div className="mx-auto px-4 lg:px-6 max-w-[110rem] grid gap-6 lg:grid-cols-12">
+          {/* Left: player + info skeleton */}
+          <div className="col-span-8 xl:col-span-9">
+            {/* Video skeleton */}
+            <div className="w-full bg-black rounded-lg aspect-video overflow-hidden">
+              <Skeleton className="w-full h-full rounded-none" />
+            </div>
+
+            {/* Title skeleton */}
+            <div className="mt-4">
+              <Skeleton className="h-6 w-3/4" />
+            </div>
+
+            {/* Channel row skeleton */}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="space-y-1">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+                <Skeleton className="h-8 w-24 rounded-full ml-2" />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                <Skeleton className="h-8 w-20 rounded-full" />
+                <Skeleton className="h-8 w-20 rounded-full" />
+                <Skeleton className="h-8 w-24 rounded-full" />
+                <Skeleton className="h-8 w-24 rounded-full" />
+              </div>
+            </div>
+
+            {/* Description card skeleton */}
+            <div className="mt-4 rounded-xl bg-neutral-900/80 px-4 py-3">
+              <Skeleton className="h-4 w-40 mb-3" />
+              <Skeleton className="h-3 w-full mb-2" />
+              <Skeleton className="h-3 w-5/6 mb-2" />
+              <Skeleton className="h-3 w-2/3" />
+            </div>
+
+            {/* Comments skeleton */}
+            <div className="mt-6">
+              <Skeleton className="h-4 w-40 mb-3" />
+              {/* Comment box */}
+              <div className="mb-4">
+                <Skeleton className="h-20 w-full rounded-md" />
+                <div className="mt-2 flex justify-end">
+                  <Skeleton className="h-8 w-24 rounded-full" />
+                </div>
+              </div>
+
+              {/* A few comment items */}
+              <div className="space-y-4">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <Skeleton className="h-11 w-11 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-4/5" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right: “Up next” sidebar skeleton */}
+          <aside className="col-span-8 lg:col-span-4 xl:col-span-3">
+            <Skeleton className="h-5 w-40 mb-3" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-1 gap-2">
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="w-full p-2 sm:max-w-sm flex flex-col lg:flex-row gap-2 rounded-lg"
+                >
+                  <div className="relative w-full lg:w-40 flex-shrink-0 aspect-video rounded-md overflow-hidden bg-neutral-900">
+                    <Skeleton className="w-full h-full rounded-none" />
+                  </div>
+                  <div className="flex-1 min-w-0 mt-1 lg:mt-0 space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-3 w-2/3" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </aside>
+        </div>
       </div>
     );
   }
@@ -533,7 +865,6 @@ export default function PlayerPage() {
     );
   }
 
-  // text used in the auth prompt based on action
   const authPromptTitle =
     authPrompt === "like"
       ? "Like this video?"
@@ -553,18 +884,18 @@ export default function PlayerPage() {
         className={`mx-auto px-4 lg:px-6 grid gap-6 ${
           theatre
             ? "max-w-[1400px] grid-cols-1"
-            : "max-w-[110rem] lg:grid-cols-11"
+            : "max-w-[110rem] lg:grid-cols-12"
         }`}
       >
         {/* Player + info */}
-        <div className="col-span-8">
+        <div className="col-span-8 xl:col-span-9">
           {/* Video container with theatre-mode height rules */}
           <div
             className={`relative w-full bg-black overflow-hidden mb-3 ${
               theatre ? "rounded-none" : "rounded-lg aspect-video"
             }`}
             style={
-              theatre
+              theatre && !isMobile
                 ? {
                     maxHeight: "calc(100vh - 189px)",
                     height: "42.25vw",
@@ -573,7 +904,6 @@ export default function PlayerPage() {
                 : undefined
             }
           >
-            {/* HTML5 video element controlled by Plyr */}
             <video
               key={videoUrl}
               ref={videoRef}
@@ -582,12 +912,21 @@ export default function PlayerPage() {
               playsInline
               controls
               poster={video.thumbnail}
-              className="w-full h-full object-contain bg-black"
+              className={`w-full h-full object-contain bg-black transition-opacity ${
+                loading ? "opacity-0" : "opacity-100"
+              }`}
               onEnded={handleVideoEnded}
             >
               <source src={videoUrl} />
               Your browser does not support the video tag.
             </video>
+
+            {/* Skeleton overlay while loading */}
+            {loading && (
+              <div className="absolute inset-0">
+                <Skeleton className="w-full h-full rounded-none" />
+              </div>
+            )}
 
             {/* AUTH PROMPT OVERLAY ON VIDEO */}
             {authPrompt && (
@@ -622,20 +961,25 @@ export default function PlayerPage() {
           </div>
 
           <div className="grid grid-cols-3 gap-8">
-            <div className={theatre ? "col-span-2" : "col-span-3"}>
+            <div
+              className={theatre ? "col-span-3 lg:col-span-2" : "col-span-3"}
+            >
               {/* Title */}
               <h1 className="mt-2 text-xl md:text-2xl font-extrabold tracking-tight">
                 {video.videos_title}
                 {selectedLangSlug ? ` [${selectedLangSlug.toUpperCase()}]` : ""}
               </h1>
 
-              {/* Channel + actions row (like YouTube) */}
+              {/* Channel + actions row */}
               <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
                 {/* Channel info */}
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-neutral-700 overflow-hidden">
                     <img
-                      src={video.channel_prefix + video.channel_file}
+                      src={
+                        (video.channel_prefix || "") +
+                          (video.channel_file || "") || video.thumbnail
+                      }
                       alt={video.channel}
                       width={40}
                       height={40}
@@ -652,8 +996,7 @@ export default function PlayerPage() {
                       )}
                     </div>
                     <p className="text-xs text-neutral-400">
-                      {/* YouTube shows subscribers here; we only have views */}
-                      {formatViews(video.numOfViews)}
+                      {formatSubscribers(subscribers)}
                     </p>
                   </div>
 
@@ -662,17 +1005,16 @@ export default function PlayerPage() {
                     onClick={handleToggleSubscribe}
                     className={`cursor-pointer ml-2 text-xs md:text-sm font-semibold rounded-full px-4 py-2 ${
                       subscribed
-                        ? "bg-neutral-700 text-white"
-                        : "bg-white text-black hover:bg-neutral-100"
+                        ? "bg-neutral-700 text-white hover:bg-neutral-700/80"
+                        : "bg-white text-black hover:bg-white/80"
                     }`}
                   >
                     {subscribed ? "Subscribed" : "Subscribe"}
                   </button>
                 </div>
 
-                {/* Actions (likes / share / theatre / autoplay) */}
+                {/* Actions */}
                 <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                  {/* Likes */}
                   <button
                     type="button"
                     onClick={handleToggleLike}
@@ -702,11 +1044,10 @@ export default function PlayerPage() {
                     url={
                       typeof window !== "undefined" ? window.location.href : ""
                     }
-                    hashtags={["ceflix"]} // optional
+                    hashtags={["ceflix"]}
                     id={video.id}
                   />
 
-                  {/* Theatre toggle */}
                   <button
                     type="button"
                     onClick={toggleTheatre}
@@ -715,7 +1056,6 @@ export default function PlayerPage() {
                     {theatre ? "Default view" : "Theater mode"}
                   </button>
 
-                  {/* Autoplay toggle (Up next) */}
                   {!isLive && (
                     <button
                       type="button"
@@ -733,7 +1073,7 @@ export default function PlayerPage() {
                 </div>
               </div>
 
-              {/* Description card (like the grey box in the screenshot) */}
+              {/* Description card */}
               <div className="mt-4 rounded-xl bg-neutral-900/80 px-4 py-3 text-sm">
                 <p className="font-semibold text-neutral-100">
                   {formatViews(video.numOfViews)} •{" "}
@@ -761,7 +1101,7 @@ export default function PlayerPage() {
                 )}
               </div>
 
-              {/* Languages (optional, under description) */}
+              {/* Languages */}
               {languages.length > 0 && (
                 <div className="mt-3 bg-neutral-900/80 border border-neutral-800 rounded-lg p-3">
                   <p className="text-xs font-semibold mb-2">
@@ -808,16 +1148,16 @@ export default function PlayerPage() {
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
                     placeholder="Add your comment…"
-                    className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+                    className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-500"
                   />
                   <div className="mt-2 flex items-center justify-between text-xs">
                     {postingComment && (
-                      <span className="text-red-400">Posting…</span>
+                      <span className="text-white">Posting…</span>
                     )}
                     <button
                       type="button"
                       onClick={handlePostComment}
-                      className="ml-auto inline-flex items-center rounded-md bg-red-600 px-4 py-1.5 text-xs font-semibold hover:bg-red-700"
+                      className="cursor-pointer ml-auto text-black inline-flex items-center rounded-full bg-white px-4 py-1.5 text-sm font-semibold hover:bg-white/80"
                     >
                       Comment
                     </button>
@@ -863,8 +1203,13 @@ export default function PlayerPage() {
 
             {/* Up next sidebar when in theatre mode */}
             {theatre && (
-              <aside className="mt-6 col-span-1">
-                <div className="space-y-3">
+              <aside className="mt-6 col-span-3 lg:col-span-1">
+                {playlistTitle && (
+                  <h3 className="text-md font-bold mb-2 text-white">
+                    Playlist - {playlistTitle}
+                  </h3>
+                )}
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-1">
                   {upNext
                     .filter((v) => v.isLive === "0")
                     .map((item) => (
@@ -872,27 +1217,32 @@ export default function PlayerPage() {
                         key={item.id}
                         type="button"
                         onClick={() => handleUpNextClick(item)}
-                        className="w-full text-left flex gap-3 cursor-pointer"
+                        className={`w-full p-2 lg:max-w-sm text-left flex flex-col lg:flex-row gap-2 lg:gap-3 cursor-pointer rounded-lg ${
+                          String(item.id) === String(currentVideoId)
+                            ? "bg-neutral-600/20 ring-2 ring-neutral-500"
+                            : "hover:bg-neutral-900"
+                        }`}
                       >
-                        <div className="relative w-50 flex-shrink-0 aspect-video rounded-md overflow-hidden bg-neutral-900">
+                        {/* Thumbnail with fixed desktop width, full width on mobile */}
+                        <div className="relative w-full lg:w-40 flex-shrink-0 aspect-video rounded-xl overflow-hidden bg-neutral-900">
                           <img
                             src={item.thumbnail}
-                            // alt={item.videos_title}
-                            className="w-full h-full object-cover aspect-video"
+                            className="w-full h-full object-cover"
                           />
                           <span className="absolute bottom-1 right-1 rounded-sm bg-black/80 px-1.5 py-0.5 text-[11px] font-semibold">
                             {duration(item.duration)}
                           </span>
                         </div>
 
-                        <div className="flex-1 min-w-0">
+                        {/* Text */}
+                        <div className="flex-1 min-w-0 mt-1 lg:mt-0">
                           <p className="text-sm font-semibold line-clamp-2">
                             {item.videos_title}
                           </p>
-                          <p className="text-sm text-neutral-400 mt-1">
+                          <p className="text-xs text-neutral-400 mt-1 line-clamp-1">
                             {item.channel}
                           </p>
-                          <p className="text-sm text-neutral-500">
+                          <p className="text-xs text-neutral-500 mt-0.5">
                             {formatViews(item.numOfViews)} •{" "}
                             {timeSince(item.uploadtime)}
                           </p>
@@ -910,8 +1260,15 @@ export default function PlayerPage() {
 
         {/* Up next (non-theatre layout) */}
         {!theatre && (
-          <aside className="space-y-3 col-span-3">
-            <div className="space-y-3">
+          <aside className="col-span-8 lg:col-span-4 xl:col-span-3">
+            {playlistTitle && (
+              <h3 className="text-md font-bold mb-2 text-white">
+                Playlist - {playlistTitle}
+              </h3>
+            )}
+
+            {/* Grid on mobile/tablet, single column on large screens */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-1">
               {upNext
                 .filter((v) => v.isLive === "0")
                 .map((item) => (
@@ -919,26 +1276,36 @@ export default function PlayerPage() {
                     key={item.id}
                     type="button"
                     onClick={() => handleUpNextClick(item)}
-                    className="w-full text-left flex gap-3 cursor-pointer"
+                    className={`w-full p-2 sm:max-w-sm text-left flex flex-col lg:flex-row gap-2 lg:gap-3 cursor-pointer rounded-lg ${
+                      String(item.id) === String(currentVideoId)
+                        ? "bg-neutral-600/20 ring-2 ring-neutral-500"
+                        : "hover:bg-neutral-900"
+                    }`}
                   >
-                    <div className="relative w-50 flex-shrink-0 aspect-video rounded-md overflow-hidden bg-neutral-900">
+                    <div className="relative w-full lg:w-40 flex-shrink-0 aspect-video rounded-sm overflow-hidden bg-neutral-900">
                       <img
                         src={item.thumbnail}
-                        // alt={item.videos_title}
-                        className="w-full h-full object-cover aspect-video"
+                        className="w-full h-full object-cover"
                       />
                       <span className="absolute bottom-1 right-1 rounded-sm bg-black/80 px-1.5 py-0.5 text-[11px] font-semibold">
                         {duration(item.duration)}
                       </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-extrabold line-clamp-2">
+                    <div className="flex-1 min-w-0 mt-1 lg:mt-0">
+                      <p className="text-sm font-semibold line-clamp-2">
                         {item.videos_title}
                       </p>
-                      <p className="text-xs font-semibold text-neutral-400 mt-1">
+
+                      {String(item.id) === String(currentVideoId) && (
+                        <p className="text-[11px] text-red-400 font-semibold mt-0.5">
+                          Now playing
+                        </p>
+                      )}
+
+                      <p className="text-xs text-neutral-400 mt-1 line-clamp-1">
                         {item.channel}
                       </p>
-                      <p className="text-xs font-semibold text-neutral-500 mt-1">
+                      <p className="text-xs text-neutral-500 mt-0.5">
                         {formatViews(item.numOfViews)} •{" "}
                         {timeSince(item.uploadtime)}
                       </p>
@@ -946,7 +1313,9 @@ export default function PlayerPage() {
                   </button>
                 ))}
               {upNext.length === 0 && (
-                <p className="text-xs text-neutral-500">No more videos.</p>
+                <p className="text-xs text-neutral-500 col-span-full">
+                  No more videos.
+                </p>
               )}
             </div>
           </aside>
