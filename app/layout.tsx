@@ -20,8 +20,8 @@ const avenir = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Ceflix Plus",
-  description: "Ceflix Plus",
+  title: "Ceflix Tv",
+  description: "Watch. Share. Shine – Only on CeFlix Live TV. Showcase your talents and watch your dreams take center stage on CeFlix Live TV.",
 };
 
 export default function RootLayout({

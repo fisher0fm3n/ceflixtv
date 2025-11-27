@@ -195,8 +195,8 @@ export default function MainNav({
                         </p>
                       </div>
 
-                      <MenuItemLink href="/profile">Profile</MenuItemLink>
-                      <MenuItemLink href="/my-list">My List</MenuItemLink>
+                      <MenuItemLink href="/studio">Ceflix Studio</MenuItemLink>
+                      <MenuItemLink href="/settings">Settings</MenuItemLink>
 
                       <div className="border-t border-white/10 mt-1 pt-1">
                         <Menu.Item>

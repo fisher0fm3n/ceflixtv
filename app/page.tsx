@@ -18,7 +18,6 @@ type SubscriptionChannel = {
   urlprefix: string;
   slug?: string | null;
   url?: string | null;
-  // any other fields are fine, ChannelSlider only needs the above
 };
 
 // 🔹 Static default “guest” channels (subset of your JSON)
@@ -82,7 +81,10 @@ export default function HomePage() {
     // }
   }, [initialized, token, router]);
 
-      document.title = `Ceflix Tv`;
+  // ✅ set document.title in an effect (browser only)
+  useEffect(() => {
+    document.title = "Ceflix Tv";
+  }, []);
 
   // Fetch user subscriptions when logged in
   useEffect(() => {
