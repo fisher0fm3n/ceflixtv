@@ -340,7 +340,7 @@ function SearchPageContent() {
                       alt={v.videos_title}
                       fill
                       unoptimized
-                      className="object-cover"
+                      className="object-contain"
                     />
                     {isLive && (
                       <span className="absolute bottom-1 left-1 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-red-600 text-white">

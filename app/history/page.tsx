@@ -1,20 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+const CLOUDINARY_PREFIX =
+  "https://res.cloudinary.com/raves-music/image/fetch/w_350/";
+
+// If URL already contains "cloudinary" or "cloudfront", leave it as is.
+// Otherwise, prefix it with the Cloudinary fetch URL.
+function withCloudinaryPrefix(src: string | null): string {
+  if (!src) return "";
+  const lower = src.toLowerCase();
+  if (lower.includes("cloudinary") || lower.includes("cloudfront")) return src;
+  return `${CLOUDINARY_PREFIX}${encodeURIComponent(src)}`;
+}
+
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  TrashIcon,
-  ClockIcon,
-  PlayCircleIcon,
-} from "@heroicons/react/24/outline";
+import { TrashIcon } from "@heroicons/react/24/outline";
 
 // ⬇️ Adjust this path if needed (follow your ChannelPage pattern)
 import { useAuth } from "../components/AuthProvider";
 
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
+
+// How many items to show per "page" when scrolling
+const PAGE_SIZE = 10;
 
 type HistoryItem = {
   id: number; // history id
@@ -73,10 +84,15 @@ type HistoryItem = {
 export default function HistoryPage() {
   const router = useRouter();
   const { token, user } = useAuth(); // token is a string like on ChannelPage
+
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // inline pagination state
+  const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const isLoggedIn = !!user && !!token;
 
@@ -138,7 +154,6 @@ export default function HistoryPage() {
           "Content-Type": "application/json",
           "Application-Key": APP_KEY,
         },
-        // CRA used JSON.stringify(token); here token is a string
         body: JSON.stringify({ token }),
       });
 
@@ -169,7 +184,7 @@ export default function HistoryPage() {
         headers: {
           "Content-Type": "application/json",
           "Application-Key": APP_KEY,
-          "X-TOKEN": token, // like channelSubscription
+          "X-TOKEN": token,
         },
         body: JSON.stringify({ video: videoID, token }),
       });
@@ -183,6 +198,7 @@ export default function HistoryPage() {
     }
   };
 
+  // initial fetch
   useEffect(() => {
     if (!isLoggedIn) {
       setLoading(false);
@@ -191,6 +207,50 @@ export default function HistoryPage() {
     fetchHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, token]);
+
+  // reset visibleCount whenever new items arrive
+  useEffect(() => {
+    setVisibleCount((prev) => {
+      if (!items.length) return prev;
+      return Math.min(PAGE_SIZE, items.length);
+    });
+  }, [items.length]);
+
+  // IntersectionObserver for inline pagination / infinite scroll
+  useEffect(() => {
+    if (!items.length) return;
+
+    const sentinel = loadMoreRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (!entry.isIntersecting) return;
+
+        setVisibleCount((prev) => {
+          if (prev >= items.length) {
+            return prev;
+          }
+          const next = Math.min(prev + PAGE_SIZE, items.length);
+          return next;
+        });
+      },
+      {
+        root: null,
+        rootMargin: "200px", // start loading a bit before it hits the bottom
+        threshold: 0.1,
+      }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [items.length]);
+
+  const visibleItems = items.slice(0, visibleCount);
 
   // ───────── not signed in ─────────
   if (!isLoggedIn) {
@@ -251,110 +311,128 @@ export default function HistoryPage() {
         )}
 
         {!loading && items.length > 0 && (
-          <div className="space-y-4">
-            {items.map((item) => {
-              const progressPercent = computeProgress(item);
+          <>
+            <div className="space-y-4">
+              {visibleItems.map((item) => {
+                const progressPercent = computeProgress(item);
 
-              return (
-                <div
-                  key={`${item.id}-${item.videoID}`}
-                  className="flex gap-4 group"
-                >
-                  {/* Thumbnail */}
-                  <Link
-                    href={`/videos/watch/${item.videoID}/${item.slug}`}
-                    className="block w-40 sm:w-56 md:w-64 flex-shrink-0"
+                return (
+                  <div
+                    key={`${item.id}-${item.videoID}`}
+                    className="flex gap-4 group"
                   >
-                    <div className="relative aspect-video rounded-md overflow-hidden bg-neutral-800">
-                      <Image
-                        src={item.thumbnail}
-                        alt={item.videos_title}
-                        fill
-                        unoptimized
-                        className="object-cover group-hover:scale-105 transition"
-                      />
-                      {progressPercent > 0 && (
-                        <div className="absolute bottom-0 left-0 w-full h-1.5 bg-black/60">
-                          <div
-                            className="h-full bg-red-600"
-                            style={{ width: `${progressPercent}%` }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
+                    {/* Thumbnail */}
                     <Link
                       href={`/videos/watch/${item.videoID}/${item.slug}`}
-                      className="block"
+                      className="block w-40 sm:w-56 md:w-64 flex-shrink-0"
                     >
-                      <h2 className="text-sm sm:text-lg font-bold line-clamp-2 transition">
-                        {item.videos_title}
-                      </h2>
+                      <div className="relative aspect-video rounded-md overflow-hidden bg-neutral-800">
+                        <Image
+                          src={withCloudinaryPrefix(item.thumbnail)}
+                          alt={item.videos_title}
+                          fill
+                          unoptimized
+                          className="object-contain group-hover:scale-105 transition"
+                        />
+                        {progressPercent > 0 && (
+                          <div className="absolute bottom-0 left-0 w-full h-1.5 bg-black/60">
+                            <div
+                              className="h-full bg-red-600"
+                              style={{ width: `${progressPercent}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </Link>
 
-                    <div className="mt-1 text-xs text-neutral-400 flex flex-wrap gap-x-2 gap-y-1 items-center">
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
                       <Link
-                        href={`/channel/${item.channel_id}`}
-                        className="hover:text-neutral-200 flex items-center gap-3"
+                        href={`/videos/watch/${item.videoID}/${item.slug}`}
+                        className="block"
                       >
-                        <span className="relative inline-block h-6 w-6 rounded-full overflow-hidden bg-neutral-800">
-                          {item.channel_file && (
-                            <Image
-                              src={`${item.channel_prefix}${item.channel_file}`}
-                              alt={item.channel}
-                              fill
-                              unoptimized
-                              className="object-cover"
-                            />
-                          )}
-                        </span>
-                        <span>{item.channel}</span>
-                        {item.isVerified === "1" && (
-                          <span className="ml-1 text-[10px] uppercase tracking-wide text-blue-400 border border-blue-400/40 rounded px-1 py-[1px]">
-                            Verified
-                          </span>
-                        )}
+                        <h2 className="text-sm sm:text-lg font-bold line-clamp-2 transition">
+                          {item.videos_title}
+                        </h2>
                       </Link>
 
-                      <span>•</span>
-                      <span>{formatViews(item.numOfViews)}</span>
-                      <span>•</span>
-                      <span>{timeSince(item.uploadtime)}</span>
-                    </div>
+                      <div className="mt-1 text-xs text-neutral-400 flex flex-wrap gap-x-2 gap-y-1 items-center">
+                        <Link
+                          href={`/channel/${item.channel_id}`}
+                          className="hover:text-neutral-200 flex items-center gap-3"
+                        >
+                          <span className="relative inline-block h-6 w-6 rounded-full overflow-hidden bg-neutral-800">
+                            {item.channel_file && (
+                              <Image
+                                src={withCloudinaryPrefix(
+                                  `${item.channel_prefix}${item.channel_file}`
+                                )}
+                                alt={item.channel}
+                                fill
+                                unoptimized
+                                className="object-cover"
+                              />
+                            )}
+                          </span>
+                          <span>{item.channel}</span>
+                          {item.isVerified === "1" && (
+                            <span className="ml-1 text-[10px] uppercase tracking-wide text-blue-400 border border-blue-400/40 rounded px-1 py-[1px]">
+                              Verified
+                            </span>
+                          )}
+                        </Link>
 
-                    <p className="mt-2 text-sm text-neutral-400 line-clamp-2">
-                      {item.description}
-                    </p>
-
-                    {/* progress meta + delete */}
-                    <div className="mt-2 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-[11px] text-neutral-400">
-                        {/* <ClockIcon className="h-4 w-4" />
-                        {progressPercent > 95
-                          ? "Watched"
-                          : progressPercent > 0
-                          ? `Watched ${progressPercent.toFixed(0)}%`
-                          : "Started"} */}
+                        <span>•</span>
+                        <span>{formatViews(item.numOfViews)}</span>
+                        <span>•</span>
+                        <span>{timeSince(item.uploadtime)}</span>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => deleteVideo(item.videoID)}
-                        disabled={deletingId === item.videoID}
-                        className="cursor-pointer inline-flex items-center gap-1 text-xs rounded-full px-3 py-1 border border-neutral-700 text-neutral-300 hover:bg-neutral-800 disabled:opacity-60"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                        {deletingId === item.videoID ? "Removing..." : "Remove"}
-                      </button>
+                      <p className="mt-2 text-sm text-neutral-400 line-clamp-2">
+                        {item.description}
+                      </p>
+
+                      {/* progress meta + delete */}
+                      <div className="mt-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-[11px] text-neutral-400">
+                          {/* reserved for any extra meta if needed */}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => deleteVideo(item.videoID)}
+                          disabled={deletingId === item.videoID}
+                          className="cursor-pointer inline-flex items-center gap-1 text-xs rounded-full px-3 py-1 border border-neutral-700 text-neutral-300 hover:bg-neutral-800 disabled:opacity-60"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                          {deletingId === item.videoID
+                            ? "Removing..."
+                            : "Remove"}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+
+            {/* Sentinel for infinite scroll */}
+            {visibleCount < items.length && (
+              <div
+                ref={loadMoreRef}
+                className="mt-6 h-10 flex items-center justify-center text-xs text-neutral-500"
+              >
+                Loading more…
+              </div>
+            )}
+
+            {/* Optional: message when fully loaded */}
+            {visibleCount >= items.length && items.length > 0 && (
+              <div className="mt-6 text-center text-xs text-neutral-500">
+                You&apos;ve reached the end of your history.
+              </div>
+            )}
+          </>
         )}
       </div>
     </main>

@@ -439,7 +439,7 @@ export default function ChannelPageClient({ channelId }: ClientProps) {
                         >
                           <img
                             alt="cover"
-                            className={`rounded-md w-full aspect-video ${
+                            className={`rounded-md w-full aspect-video object-contain bg-black ${
                               highlightImageLoaded ? "block" : "hidden"
                             }`}
                             src={withCloudinaryPrefix(highlight.thumbnail)}

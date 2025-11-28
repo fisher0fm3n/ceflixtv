@@ -59,14 +59,13 @@ export default function RowSlider({ title, items }: RowSliderProps) {
               const content = (
                 <>
                   {/* Thumbnail */}
-                  <div className="relative aspect-[16/9] rounded-lg overflow-hidden bg-neutral-800">
+                  <div className="relative aspect-[16/9] rounded-lg overflow-hidden bg-black">
                     <Image
                       src={item.image as any}
                       alt={item.title}
                       fill
                       sizes="(max-width: 768px) 90vw, 25vw"
-                      className="object-cover"
-                      unoptimized
+                      className="object-contain"
                     />
 
                     {item.duration && (

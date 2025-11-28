@@ -9,9 +9,15 @@ import {
   HandThumbUpIcon as ThumbsUpOutline,
   ShareIcon,
   ClockIcon,
-  CheckBadgeIcon,
+  RectangleGroupIcon,
+  FlagIcon,
 } from "@heroicons/react/24/outline";
-import { HandThumbUpIcon as ThumbsUpSolid } from "@heroicons/react/24/solid";
+import { Switch } from "@headlessui/react";
+
+import {
+  CheckBadgeIcon,
+  HandThumbUpIcon as ThumbsUpSolid,
+} from "@heroicons/react/24/solid";
 import { useAuth } from "../../../components/AuthProvider";
 import ShareModal from "../../../components/ShareModal";
 import Link from "next/link";
@@ -66,6 +72,11 @@ type Comment = {
   comment: string;
 };
 
+type ReportFlag = {
+  id: number;
+  title: string;
+};
+
 function timeSince(unix: number | string) {
   const ts = typeof unix === "string" ? parseInt(unix, 10) * 1000 : unix * 1000;
   const diff = Date.now() - ts;
@@ -93,6 +104,33 @@ const duration = (seconds: number | string) => {
     return val.substring(12, 19);
   }
 };
+
+const CLOUDINARY_PREFIX =
+  "https://res.cloudinary.com/raves-music/image/fetch/w_350/";
+
+// If URL already contains "cloudinary", leave it as is.
+// Otherwise, prefix it with the Cloudinary fetch URL.
+function withCloudinaryPrefix(src: string | null): string {
+  if (!src) return "";
+  if (
+    src.toLowerCase().includes("cloudinary") ||
+    src.toLowerCase().includes("cloudfront")
+  )
+    return src;
+  return `${CLOUDINARY_PREFIX}${encodeURIComponent(src)}`;
+}
+
+function withCloudinaryPrefix2(src: string | null): string {
+  if (!src) return "";
+  if (
+    src.toLowerCase().includes("cloudinary") ||
+    src.toLowerCase().includes("cloudfront")
+  )
+    return src;
+  return `https://res.cloudinary.com/raves-music/image/fetch/w_1200/${encodeURIComponent(
+    src
+  )}`;
+}
 
 function formatSubscribers(v: string | number) {
   const num = typeof v === "string" ? parseInt(v, 10) : v;
@@ -196,6 +234,31 @@ export default function PlayerPage() {
 
   const [isMobile, setIsMobile] = useState(false);
   const [playlistTitle, setPlaylistTitle] = useState<string | null>(null);
+
+  // 🔔 Autoplay preview state
+  const [showAutoplayPreview, setShowAutoplayPreview] = useState(false);
+  const [autoplayCountdown, setAutoplayCountdown] = useState(10);
+  const autoplayTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 🔁 Resume playback timestamp from API (data.time)
+  const [resumeTime, setResumeTime] = useState<number | null>(null);
+
+  // ⏱️ Refs for tracking playback time & duration (for save history)
+  const playbackTimeRef = useRef(0);
+  const durationRef = useRef(0);
+  const durationUpdatedRef = useRef(false);
+
+  // 🚩 Report state
+  const [reportOptions, setReportOptions] = useState<ReportFlag[]>([]);
+  const [selectedReport, setSelectedReport] = useState<number | null>(null);
+  const [reportMessage, setReportMessage] = useState("");
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportFeedback, setReportFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768); // tweak breakpoint if you want
     check();
@@ -203,9 +266,9 @@ export default function PlayerPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // which action is asking the user to sign in ("like" | "subscribe" | "comment")
+  // which action is asking the user to sign in ("like" | "subscribe" | "comment" | "report")
   const [authPrompt, setAuthPrompt] = useState<
-    null | "like" | "subscribe" | "comment"
+    null | "like" | "subscribe" | "comment" | "report"
   >(null);
 
   const isLive = useMemo(
@@ -225,6 +288,40 @@ export default function PlayerPage() {
     }
   }, []);
 
+  // restore autoplay preference from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("ceflix.autoplay");
+      if (stored !== null) {
+        setAutoplay(JSON.parse(stored));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Fetch report flags once
+  useEffect(() => {
+    const fetchFlags = async () => {
+      try {
+        const res = await fetch(`${API_BASE}video/report/flags`, {
+          headers: {
+            "Application-Key": APP_KEY,
+          },
+        });
+        const data = await res.json();
+        if (data?.status && Array.isArray(data.data)) {
+          setReportOptions(
+            data.data.map((f: any) => ({ id: f.id, title: f.title }))
+          );
+        }
+      } catch (err) {
+        console.error("Error fetching report flags", err);
+      }
+    };
+    fetchFlags();
+  }, []);
+
   useEffect(() => {
     if (!videoUrl || !videoRef.current) return;
 
@@ -242,8 +339,8 @@ export default function PlayerPage() {
 
     const isHls = videoUrl.endsWith(".m3u8");
 
-    // 1) Set up the media source for this URL
     (async () => {
+      // 1) Set up the media source for this URL
       if (isHls) {
         if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
           videoEl.src = videoUrl;
@@ -272,7 +369,7 @@ export default function PlayerPage() {
 
       if (!player) {
         player = new Plyr(videoEl, {
-          autoplay,
+          autoplay: true, // autoplay current video, NOT "up next"
           controls: [
             "play-large",
             "play",
@@ -294,23 +391,12 @@ export default function PlayerPage() {
         });
       }
 
-      // 3) Update the "ended" handler for the new upNext/autoplay values
-      player.off("ended"); // remove previous handler if any
-      player.on("ended", () => {
-        if (autoplay && upNext.length > 0) {
-          const next = upNext[0];
-          setCurrentVideoId(next.id);
-          updateUrlForVideo(next.id, next.videos_title);
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }
-      });
-
-      // Try to start playing the new language/source
+      // Just try to play; no ended handler here
       player.play().catch(() => {
         // ignore autoplay errors
       });
     })();
-  }, [videoUrl, autoplay, upNext, router]);
+  }, [videoUrl]);
 
   useEffect(() => {
     return () => {
@@ -331,6 +417,10 @@ export default function PlayerPage() {
         }
         hlsRef.current = null;
       }
+
+      if (autoplayTimerRef.current) {
+        clearInterval(autoplayTimerRef.current);
+      }
     };
   }, []);
 
@@ -345,6 +435,33 @@ export default function PlayerPage() {
       return next;
     });
   };
+
+  // If autoplay is turned off while the preview is visible, cancel it
+  useEffect(() => {
+    if (!autoplay) {
+      if (autoplayTimerRef.current) {
+        clearInterval(autoplayTimerRef.current);
+        autoplayTimerRef.current = null;
+      }
+      setShowAutoplayPreview(false);
+      setAutoplayCountdown(10);
+    }
+  }, [autoplay]);
+
+  // When current video changes, reset any overlay + playback trackers
+  useEffect(() => {
+    if (autoplayTimerRef.current) {
+      clearInterval(autoplayTimerRef.current);
+      autoplayTimerRef.current = null;
+    }
+    setShowAutoplayPreview(false);
+    setAutoplayCountdown(10);
+
+    playbackTimeRef.current = 0;
+    durationRef.current = 0;
+    durationUpdatedRef.current = false;
+    setResumeTime(null);
+  }, [currentVideoId]);
 
   // toggle theatre and persist in localStorage
   const toggleTheatre = () => {
@@ -371,13 +488,192 @@ export default function PlayerPage() {
   };
 
   // helper to require auth for certain actions
-  const requireAuth = (action: "like" | "subscribe" | "comment"): boolean => {
+  const requireAuth = (
+    action: "like" | "subscribe" | "comment" | "report"
+  ): boolean => {
     if (!user || !token) {
       setAuthPrompt(action);
       return false;
     }
     return true;
   };
+
+  // ⭐ Save video watch progress to API
+  const saveVideoHistory = async (
+    currentTimeMillis: number,
+    durationMillis: number
+  ) => {
+    try {
+      if (!token || !currentVideoId) {
+        return;
+      }
+
+      const req = await fetch(`${API_BASE}savevideotime`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Application-Key": APP_KEY,
+        },
+        body: JSON.stringify({
+          token: token,
+          video: currentVideoId,
+          currentTime: currentTimeMillis / 1000,
+          duration: durationMillis / 1000,
+        }),
+      });
+
+      const res = await req.json();
+
+      if (res.status) {
+        console.log(res);
+      }
+    } catch (error) {
+      console.error("Error saving video history:", error);
+    }
+  };
+
+  // ⭐ Update video duration in API
+  const updatedVideoDuration = async (durationInMillis: number) => {
+    try {
+      if (!token || !currentVideoId) {
+        throw new Error(
+          "Token or video id is not available for authentication."
+        );
+      }
+
+      const response = await fetch(`${API_BASE}updatevideoduration`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Application-Key": APP_KEY,
+          "X-TOKEN": token,
+        },
+        body: JSON.stringify({
+          video: currentVideoId,
+          duration: durationInMillis,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Failed to update video duration. Status: ${response.status}, Message: ${errorText}`
+        );
+      }
+
+      const res = await response.json();
+
+      if (!res.status) {
+        throw new Error("API error: " + (res.message || "Unknown error"));
+      }
+
+      console.log("Video duration updated successfully");
+    } catch (error: any) {
+      console.error("Error in updatedVideoDuration:", error.message);
+    }
+  };
+
+  // ⭐ Play video starting from a timestamp (seconds)
+  const playFromTimestamp = async (timeInSeconds: number | string) => {
+    const seconds = parseFloat(String(timeInSeconds));
+
+    if (!isNaN(seconds) && videoRef.current) {
+      const videoElement = videoRef.current;
+      videoElement.currentTime = seconds;
+
+      await new Promise<void>((resolve) => {
+        setTimeout(() => {
+          console.log("play video from timestamp");
+          videoElement
+            .play()
+            .then(() => resolve())
+            .catch(() => resolve());
+        }, 1000);
+      });
+
+      return true;
+    }
+
+    return false;
+  };
+
+  // 🚩 Submit report (with loading indicator & inline feedback)
+  const handleReportSubmit = async () => {
+    if (!currentVideoId) return;
+
+    setReportFeedback(null);
+
+    if (!selectedReport) {
+      setReportFeedback({
+        type: "error",
+        message: "Please select a reason for reporting.",
+      });
+      return;
+    }
+
+    if (!requireAuth("report")) return;
+
+    try {
+      setReportSubmitting(true);
+
+      const res = await fetch(`${API_BASE}video/report`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Application-Key": APP_KEY,
+        },
+        body: JSON.stringify({
+          video: currentVideoId,
+          flag: selectedReport,
+          message: reportMessage,
+          token: token,
+        }),
+      });
+
+      const result = await res.json();
+      if (result.status) {
+        setReportFeedback({
+          type: "success",
+          message: "Report submitted successfully.",
+        });
+        setSelectedReport(null);
+        setReportMessage("");
+        setTimeout(() => {
+          setReportOpen(false);
+        }, 1500);
+      } else {
+        setReportFeedback({
+          type: "error",
+          message: "Failed to submit report. Please try again.",
+        });
+      }
+    } catch (error) {
+      console.error("Report submit error:", error);
+      setReportFeedback({
+        type: "error",
+        message: "Failed to submit report. Please try again.",
+      });
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
+
+  // Save progress when video or page is about to be left
+  useEffect(() => {
+    return () => {
+      if (
+        token &&
+        currentVideoId &&
+        playbackTimeRef.current > 0 &&
+        durationRef.current > 0
+      ) {
+        void saveVideoHistory(
+          playbackTimeRef.current * 1000,
+          durationRef.current * 1000
+        );
+      }
+    };
+  }, [currentVideoId, token]);
 
   // Fetch video + comments whenever the *current* video ID changes
   useEffect(() => {
@@ -449,6 +745,16 @@ export default function PlayerPage() {
         setDefaultVideoUrl(v.url);
         setLanguages(videoJson.data.languages || []);
         setSelectedLangSlug(null);
+
+        // 👇 restore saved playback time from API (data.time)
+        const apiTime = videoJson.data?.time;
+        const parsedTime =
+          typeof apiTime === "number"
+            ? apiTime
+            : apiTime != null
+            ? parseFloat(String(apiTime))
+            : 0;
+        setResumeTime(!isNaN(parsedTime) && parsedTime > 0 ? parsedTime : null);
 
         // If a playlist is present, use its "pool" as up-next; otherwise fall back to upnext
         if (Array.isArray(videoJson.data.pool) && videoJson.data.pool.length) {
@@ -536,21 +842,20 @@ export default function PlayerPage() {
     }
   }, [video?.videos_title]);
 
-const handleChangeLanguage = (lang: Language | null) => {
-  if (!video || !defaultVideoUrl) return;
+  const handleChangeLanguage = (lang: Language | null) => {
+    if (!video || !defaultVideoUrl) return;
 
-  if (!lang) {
-    // Back to original / default source
-    setVideoUrl(defaultVideoUrl);
-    setSelectedLangSlug(null);
-    return;
-  }
+    if (!lang) {
+      // Back to original / default source
+      setVideoUrl(defaultVideoUrl);
+      setSelectedLangSlug(null);
+      return;
+    }
 
-  // Switch to the selected language source
-  setVideoUrl(lang.url);
-  setSelectedLangSlug(lang.slug);
-};
-
+    // Switch to the selected language source
+    setVideoUrl(lang.url);
+    setSelectedLangSlug(lang.slug);
+  };
 
   const handleToggleLike = async () => {
     if (!video || !currentVideoId) return;
@@ -638,17 +943,113 @@ const handleChangeLanguage = (lang: Language | null) => {
     }
   };
 
+  // track playback progress & duration
+  const handleTimeUpdate: React.ReactEventHandler<HTMLVideoElement> = (e) => {
+    const el = e.currentTarget;
+    playbackTimeRef.current = el.currentTime || 0;
+    if (!isNaN(el.duration)) {
+      durationRef.current = el.duration;
+    }
+  };
+
+  const handleLoadedMetadata: React.ReactEventHandler<HTMLVideoElement> = (
+    e
+  ) => {
+    const el = e.currentTarget;
+    if (!isNaN(el.duration)) {
+      durationRef.current = el.duration;
+      if (!durationUpdatedRef.current && el.duration > 0) {
+        durationUpdatedRef.current = true;
+        void updatedVideoDuration(el.duration);
+      }
+    }
+
+    // If we have a stored timestamp from API, resume playback from there
+    if (resumeTime && resumeTime > 0) {
+      void playFromTimestamp(resumeTime);
+    }
+  };
+
+  // First non-live up next video (for overlay + autoplay)
+  const nextUpVideo = useMemo(
+    () => upNext.filter((v) => v.isLive === "0")[0] ?? null,
+    [upNext]
+  );
+
   // Called when current video ends and autoplay is enabled
   const playFirstUpNext = () => {
     if (!autoplay || !upNext.length) return;
-    const next = upNext[0];
+    const next = upNext.filter((v) => v.isLive === "0")[0];
+    if (!next) return;
+
     setCurrentVideoId(next.id);
     updateUrlForVideo(next.id, next.videos_title);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleVideoEnded: React.ReactEventHandler<HTMLVideoElement> = () => {
+  // Start the 10s countdown + overlay
+  const startAutoplayCountdown = () => {
+    if (!autoplay || !nextUpVideo) return;
+
+    // already counting down
+    if (autoplayTimerRef.current) {
+      return;
+    }
+
+    setShowAutoplayPreview(true);
+    setAutoplayCountdown(10);
+
+    autoplayTimerRef.current = setInterval(() => {
+      setAutoplayCountdown((prev) => {
+        if (prev <= 1) {
+          if (autoplayTimerRef.current) {
+            clearInterval(autoplayTimerRef.current);
+            autoplayTimerRef.current = null;
+          }
+          // Let it hit 0; effect will handle playing next video
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  useEffect(() => {
+    if (
+      !autoplay ||
+      !nextUpVideo ||
+      !showAutoplayPreview ||
+      autoplayCountdown !== 0
+    ) {
+      return;
+    }
+
+    // Countdown finished: hide overlay and play the next video
+    setShowAutoplayPreview(false);
     playFirstUpNext();
+  }, [autoplayCountdown, autoplay, nextUpVideo, showAutoplayPreview]);
+
+  const handleAutoplayCancel = () => {
+    if (autoplayTimerRef.current) {
+      clearInterval(autoplayTimerRef.current);
+      autoplayTimerRef.current = null;
+    }
+    setShowAutoplayPreview(false);
+    setAutoplayCountdown(10);
+  };
+
+  const handleAutoplayPlayNow = () => {
+    if (autoplayTimerRef.current) {
+      clearInterval(autoplayTimerRef.current);
+      autoplayTimerRef.current = null;
+    }
+    setShowAutoplayPreview(false);
+    playFirstUpNext();
+  };
+
+  const handleVideoEnded: React.ReactEventHandler<HTMLVideoElement> = () => {
+    if (!autoplay || !nextUpVideo) return;
+    startAutoplayCountdown();
   };
 
   // Up next item click handler
@@ -665,102 +1066,6 @@ const handleChangeLanguage = (lang: Language | null) => {
       />
     );
   }
-
-  // if (loading) {
-  //   return (
-  //     <div className="min-h-screen bg-neutral-950 text-white pt-4 pb-10">
-  //       <div className="mx-auto px-4 lg:px-6 max-w-[110rem] grid gap-6 lg:grid-cols-12">
-  //         {/* Left: player + info skeleton */}
-  //         <div className="col-span-8 xl:col-span-9">
-  //           {/* Video skeleton */}
-  //           <div className="w-full bg-black rounded-lg aspect-video overflow-hidden">
-  //             <Skeleton className="w-full h-full rounded-none" />
-  //           </div>
-
-  //           {/* Title skeleton */}
-  //           <div className="mt-4">
-  //             <Skeleton className="h-6 w-3/4" />
-  //           </div>
-
-  //           {/* Channel row skeleton */}
-  //           <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-  //             <div className="flex items-center gap-3">
-  //               <Skeleton className="h-10 w-10 rounded-full" />
-  //               <div className="space-y-1">
-  //                 <Skeleton className="h-4 w-28" />
-  //                 <Skeleton className="h-3 w-20" />
-  //               </div>
-  //               <Skeleton className="h-8 w-24 rounded-full ml-2" />
-  //             </div>
-
-  //             <div className="flex flex-wrap items-center gap-2 md:gap-3">
-  //               <Skeleton className="h-8 w-20 rounded-full" />
-  //               <Skeleton className="h-8 w-20 rounded-full" />
-  //               <Skeleton className="h-8 w-24 rounded-full" />
-  //               <Skeleton className="h-8 w-24 rounded-full" />
-  //             </div>
-  //           </div>
-
-  //           {/* Description card skeleton */}
-  //           <div className="mt-4 rounded-xl bg-neutral-900/80 px-4 py-3">
-  //             <Skeleton className="h-4 w-40 mb-3" />
-  //             <Skeleton className="h-3 w-full mb-2" />
-  //             <Skeleton className="h-3 w-5/6 mb-2" />
-  //             <Skeleton className="h-3 w-2/3" />
-  //           </div>
-
-  //           {/* Comments skeleton */}
-  //           <div className="mt-6">
-  //             <Skeleton className="h-4 w-40 mb-3" />
-  //             {/* Comment box */}
-  //             <div className="mb-4">
-  //               <Skeleton className="h-20 w-full rounded-md" />
-  //               <div className="mt-2 flex justify-end">
-  //                 <Skeleton className="h-8 w-24 rounded-full" />
-  //               </div>
-  //             </div>
-
-  //             {/* A few comment items */}
-  //             <div className="space-y-4">
-  //               {[0, 1, 2].map((i) => (
-  //                 <div key={i} className="flex items-start gap-3">
-  //                   <Skeleton className="h-11 w-11 rounded-full" />
-  //                   <div className="flex-1 space-y-2">
-  //                     <Skeleton className="h-4 w-32" />
-  //                     <Skeleton className="h-3 w-full" />
-  //                     <Skeleton className="h-3 w-4/5" />
-  //                   </div>
-  //                 </div>
-  //               ))}
-  //             </div>
-  //           </div>
-  //         </div>
-
-  //         {/* Right: “Up next” sidebar skeleton */}
-  //         <aside className="col-span-8 lg:col-span-4 xl:col-span-3">
-  //           <Skeleton className="h-5 w-40 mb-3" />
-  //           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-1 gap-2">
-  //             {[0, 1, 2, 3].map((i) => (
-  //               <div
-  //                 key={i}
-  //                 className="w-full p-2 sm:max-w-sm flex flex-col lg:flex-row gap-2 rounded-lg"
-  //               >
-  //                 <div className="relative w-full lg:w-40 flex-shrink-0 aspect-video rounded-md overflow-hidden bg-neutral-900">
-  //                   <Skeleton className="w-full h-full rounded-none" />
-  //                 </div>
-  //                 <div className="flex-1 min-w-0 mt-1 lg:mt-0 space-y-2">
-  //                   <Skeleton className="h-4 w-full" />
-  //                   <Skeleton className="h-3 w-2/3" />
-  //                   <Skeleton className="h-3 w-1/2" />
-  //                 </div>
-  //               </div>
-  //             ))}
-  //           </div>
-  //         </aside>
-  //       </div>
-  //     </div>
-  //   );
-  // }
 
   const isInitialLoading = loading && !videoUrl;
 
@@ -868,18 +1173,22 @@ const handleChangeLanguage = (lang: Language | null) => {
     );
   }
 
-  const authPromptTitle =
-    authPrompt === "like"
-      ? "Like this video?"
-      : authPrompt === "subscribe"
-      ? "Subscribe to this channel?"
-      : "Want to comment?";
-  const authPromptSubtitle =
-    authPrompt === "like"
-      ? "Sign in to make your opinion count."
-      : authPrompt === "subscribe"
-      ? "Sign in to subscribe to channels."
-      : "Sign in to join the conversation.";
+  let authPromptTitle = "";
+  let authPromptSubtitle = "";
+
+  if (authPrompt === "like") {
+    authPromptTitle = "Like this video?";
+    authPromptSubtitle = "Sign in to make your opinion count.";
+  } else if (authPrompt === "subscribe") {
+    authPromptTitle = "Subscribe to this channel?";
+    authPromptSubtitle = "Sign in to subscribe to channels.";
+  } else if (authPrompt === "comment") {
+    authPromptTitle = "Want to comment?";
+    authPromptSubtitle = "Sign in to join the conversation.";
+  } else if (authPrompt === "report") {
+    authPromptTitle = "Report this video?";
+    authPromptSubtitle = "Sign in to report inappropriate content.";
+  }
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white pt-4 pb-10">
@@ -913,11 +1222,13 @@ const handleChangeLanguage = (lang: Language | null) => {
               muted
               playsInline
               controls
-              poster={video.thumbnail}
+              poster={withCloudinaryPrefix(video.thumbnail)}
               className={`w-full h-full object-contain bg-black transition-opacity ${
                 loading ? "opacity-0" : "opacity-100"
               }`}
               onEnded={handleVideoEnded}
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
             >
               {/* <source src={videoUrl} /> */}
               Your browser does not support the video tag.
@@ -927,6 +1238,61 @@ const handleChangeLanguage = (lang: Language | null) => {
             {loading && (
               <div className="absolute inset-0">
                 <Skeleton className="w-full h-full rounded-none" />
+              </div>
+            )}
+
+            {/* AUTOPLAY PREVIEW OVERLAY */}
+            {showAutoplayPreview && autoplay && nextUpVideo && (
+              <div className="pointer-events-none absolute inset-0 flex items-end justify-center pb-8 mb-8">
+                <div className="pointer-events-auto flex w-full max-w-xl items-center gap-4 rounded-2xl bg-black/80 border border-white/10 px-4 py-3 shadow-2xl">
+                  {/* Thumbnail */}
+                  <div className="relative h-20 w-36 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-900">
+                    <Image
+                      src={withCloudinaryPrefix2(nextUpVideo.thumbnail)}
+                      alt={nextUpVideo.videos_title}
+                      fill
+                      unoptimized
+                      className="object-cover"
+                    />
+                    <span className="absolute bottom-1 right-1 rounded-sm bg-black/80 px-1.5 py-0.5 text-[11px] font-semibold">
+                      {duration(nextUpVideo.duration)}
+                    </span>
+                  </div>
+
+                  {/* Text */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-neutral-400">
+                      Up next in{" "}
+                      <span className="font-semibold text-white">
+                        {autoplayCountdown}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-sm font-semibold line-clamp-2">
+                      {nextUpVideo.videos_title}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-neutral-400 line-clamp-1">
+                      {nextUpVideo.channel}
+                    </p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAutoplayCancel}
+                      className="cursor-pointer rounded-full bg-neutral-700/90 px-4 py-1.5 text-xs font-semibold text-neutral-100 hover:bg-neutral-600"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAutoplayPlayNow}
+                      className="cursor-pointer rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-red-500"
+                    >
+                      Play now
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -960,6 +1326,113 @@ const handleChangeLanguage = (lang: Language | null) => {
                 </div>
               </div>
             )}
+
+            {/* REPORT MODAL (on-page) WITH BLACK TRANSPARENT BACKDROP */}
+            {reportOpen && (
+              <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70">
+                <div className="mx-4 w-full max-w-md rounded-2xl bg-neutral-900/95 border border-white/10 px-5 py-4 shadow-xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      <FlagIcon className="w-5 h-5" />
+                      Report video
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReportOpen(false);
+                        setReportFeedback(null);
+                      }}
+                      className="text-sm text-neutral-400 hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-neutral-300 mb-3">
+                    Select a reason and optionally add more details.
+                  </p>
+
+                  <div className="max-h-40 overflow-y-auto mb-3 space-y-2 text-sm">
+                    {reportOptions.map((option) => (
+                      <label
+                        key={option.id}
+                        className="flex items-center gap-2 cursor-pointer text-md"
+                      >
+                        <input
+                          type="radio"
+                          name="report-flag"
+                          value={option.id}
+                          checked={selectedReport === option.id}
+                          onChange={() => setSelectedReport(option.id)}
+                          className="h-3 w-3 text-md"
+                          disabled={reportSubmitting}
+                        />
+                        <span className="text-md">{option.title}</span>
+                      </label>
+                    ))}
+                    {reportOptions.length === 0 && (
+                      <p className="text-xs text-neutral-500">
+                        No report options available.
+                      </p>
+                    )}
+                  </div>
+
+                  <textarea
+                    value={reportMessage}
+                    onChange={(e) => setReportMessage(e.target.value)}
+                    placeholder="Additional details (optional)…"
+                    className="w-full rounded-md bg-neutral-800 border border-neutral-700 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-500 mb-3 disabled:opacity-60"
+                    rows={3}
+                    disabled={reportSubmitting}
+                  />
+
+                  {reportFeedback && (
+                    <p
+                      className={`mb-2 text-xs ${
+                        reportFeedback.type === "success"
+                          ? "text-green-400"
+                          : "text-red-400"
+                      }`}
+                    >
+                      {reportFeedback.message}
+                    </p>
+                  )}
+
+                  {reportSubmitting && (
+                    <div className="flex items-center gap-2 mb-3 text-xs text-neutral-300">
+                      <div className="h-3 w-3 rounded-full border border-neutral-400 border-t-transparent animate-spin" />
+                      <span>Submitting report…</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReportOpen(false);
+                        setReportFeedback(null);
+                      }}
+                      className="cursor-pointer rounded-full border border-neutral-600 px-4 py-1.5 text-xs font-semibold text-neutral-200 hover:bg-neutral-800"
+                      disabled={reportSubmitting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleReportSubmit}
+                      disabled={reportSubmitting}
+                      className={`cursor-pointer rounded-full px-4 py-1.5 text-xs font-semibold ${
+                        reportSubmitting
+                          ? "bg-white text-black opacity-70 cursor-not-allowed"
+                          : "bg-white text-black hover:bg-white/80"
+                      }`}
+                    >
+                      {reportSubmitting ? "Submitting..." : "Submit report"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-8">
@@ -976,20 +1449,27 @@ const handleChangeLanguage = (lang: Language | null) => {
               <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
                 {/* Channel info */}
                 <div className="flex items-center gap-3">
-                  <Link href={`/channel/${video.channel_id}`} className="h-10 w-10 rounded-full bg-neutral-700 overflow-hidden">
-                    <img
-                      src={
+                  <Link
+                    href={`/channel/${video.channel_id}`}
+                    className="h-10 w-10 rounded-full bg-neutral-700 overflow-hidden"
+                  >
+                    <Image
+                      src={withCloudinaryPrefix(
                         (video.channel_prefix || "") +
                           (video.channel_file || "") || video.thumbnail
-                      }
+                      )}
                       alt={video.channel}
                       width={40}
                       height={40}
+                      unoptimized
                       className="h-full w-full object-cover aspect-video"
                     />
                   </Link>
                   <div>
-                    <Link href={`/channel/${video.channel_id}`} className="flex items-center gap-1">
+                    <Link
+                      href={`/channel/${video.channel_id}`}
+                      className="flex items-center gap-1"
+                    >
                       <span className="text-sm font-semibold">
                         {video.channel}
                       </span>
@@ -1039,6 +1519,18 @@ const handleChangeLanguage = (lang: Language | null) => {
                     <span>Share</span>
                   </button>
 
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReportFeedback(null);
+                      setReportOpen(true);
+                    }}
+                    className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-xs md:text-sm font-semibold hover:bg-neutral-700"
+                  >
+                    <FlagIcon className="w-4 h-4" />
+                    <span>Report</span>
+                  </button>
+
                   <ShareModal
                     open={shareOpen}
                     setOpen={setShareOpen}
@@ -1053,24 +1545,34 @@ const handleChangeLanguage = (lang: Language | null) => {
                   <button
                     type="button"
                     onClick={toggleTheatre}
-                    className="inline-flex items-center gap-2 rounded-full bg-neutral-800 px-3 py-2 text-[11px] md:text-xs font-medium hover:bg-neutral-700"
+                    aria-pressed={theatre}
+                    aria-label={
+                      theatre ? "Exit theater mode" : "Enter theater mode"
+                    }
+                    className="hidden lg:block cursor-pointer inline-flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-xs md:text-sm font-semibold hover:bg-neutral-700"
                   >
-                    {theatre ? "Default view" : "Theater mode"}
+                    <RectangleGroupIcon className="w-5 h-5" />
                   </button>
 
                   {!isLive && (
-                    <button
-                      type="button"
-                      onClick={toggleAutoplay}
-                      className="inline-flex items-center gap-2 rounded-full bg-neutral-800 px-3 py-2 text-[11px] md:text-xs font-medium hover:bg-neutral-700"
-                    >
-                      <span>Autoplay</span>
-                      <span
-                        className={autoplay ? "text-red-400 font-semibold" : ""}
+                    <div className="inline-flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-xs md:text-sm font-semibold">
+                      <Switch
+                        checked={autoplay}
+                        onChange={toggleAutoplay}
+                        className={`${
+                          autoplay ? "bg-red-600" : "bg-neutral-500"
+                        } relative inline-flex h-5 w-10 items-center rounded-full`}
                       >
-                        {autoplay ? "On" : "Off"}
+                        <span
+                          className={`${
+                            autoplay ? "translate-x-6" : "translate-x-1"
+                          } inline-block h-3 w-3 transform rounded-full bg-white transition`}
+                        />
+                      </Switch>
+                      <span className="select-none text-sm font-medium text-heading">
+                        Autoplay
                       </span>
-                    </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1170,11 +1672,11 @@ const handleChangeLanguage = (lang: Language | null) => {
                   {comments.map((c) => (
                     <div key={c.id} className="flex items-start gap-3">
                       <div className="h-11 w-11 rounded-full overflow-hidden bg-neutral-700">
-                        <img
-                          src={
+                        <Image
+                          src={withCloudinaryPrefix(
                             c.profile_pic ||
-                            "https://ceflix.org/images/avatar.png"
-                          }
+                              "https://ceflix.org/images/avatar.png"
+                          )}
                           alt={`${c.fname} ${c.lname}`}
                           width={36}
                           height={36}
@@ -1227,9 +1729,12 @@ const handleChangeLanguage = (lang: Language | null) => {
                       >
                         {/* Thumbnail with fixed desktop width, full width on mobile */}
                         <div className="relative w-full lg:w-40 flex-shrink-0 aspect-video rounded-xl overflow-hidden bg-neutral-900">
-                          <img
-                            src={item.thumbnail}
-                            className="w-full h-full object-cover"
+                          <Image
+                            src={withCloudinaryPrefix(item.thumbnail)}
+                            className="object-cover"
+                            alt={item.videos_title}
+                            fill
+                            sizes="(max-width: 1024px) 50vw, 160px"
                           />
                           <span className="absolute bottom-1 right-1 rounded-sm bg-black/80 px-1.5 py-0.5 text-[11px] font-semibold">
                             {duration(item.duration)}
@@ -1285,9 +1790,13 @@ const handleChangeLanguage = (lang: Language | null) => {
                     }`}
                   >
                     <div className="relative w-full lg:w-40 flex-shrink-0 aspect-video rounded-sm overflow-hidden bg-neutral-900">
-                      <img
-                        src={item.thumbnail}
-                        className="w-full h-full object-cover"
+                      <Image
+                        src={withCloudinaryPrefix(item.thumbnail)}
+                        className="object-cover"
+                        alt={item.videos_title}
+                        fill
+                        unoptimized
+                        sizes="(max-width: 1024px) 50vw, 160px"
                       />
                       <span className="absolute bottom-1 right-1 rounded-sm bg-black/80 px-1.5 py-0.5 text-[11px] font-semibold">
                         {duration(item.duration)}

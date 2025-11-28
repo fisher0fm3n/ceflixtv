@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { ChannelData, ChannelVideo } from "./page";
+import Image from "next/image";
 
 type Props = {
   data: ChannelData;
@@ -12,11 +13,12 @@ type Props = {
 const CLOUDINARY_PREFIX =
   "https://res.cloudinary.com/raves-music/image/fetch/w_450/";
 
-// If URL already contains "cloudinary", leave it as is.
+// If URL already contains "cloudinary" or "cloudfront", leave it as is.
 // Otherwise, prefix it with the Cloudinary fetch URL.
 function withCloudinaryPrefix(src: string) {
   if (!src) return src;
-  if (src.toLowerCase().includes("cloudinary") || src.toLowerCase().includes("cloudfront")) return src;
+  const lower = src.toLowerCase();
+  if (lower.includes("cloudinary") || lower.includes("cloudfront")) return src;
   return `${CLOUDINARY_PREFIX}${encodeURIComponent(src)}`;
 }
 
@@ -25,6 +27,17 @@ function truncate(text: string | null | undefined, max: number) {
   if (text.length <= max) return text;
   return text.slice(0, max) + "…";
 }
+
+function makeSlug(title: string) {
+  return title
+    .toLowerCase()
+    .trim()
+    .replace(/[\[\]]/g, "")       // remove [ and ]
+    .replace(/[\s+]+/g, "-")      // spaces and pluses to dash
+    .replace(/-+/g, "-")          // collapse multiple dashes
+    .replace(/[^a-z0-9-]/g, "");  // optionally strip other weird chars
+}
+
 
 function abbreviateViews(v: string | number) {
   const num = typeof v === "string" ? parseInt(v, 10) : v;
@@ -92,6 +105,7 @@ export default function ChannelVideos({ data }: Props) {
 
   const hasMore = visibleCount < totalVideos;
 
+  
   // Reset when channel or video list changes
   useEffect(() => {
     setVisibleCount(Math.min(perPage, totalVideos));
@@ -115,7 +129,6 @@ export default function ChannelVideos({ data }: Props) {
         setLoadingMore(true);
 
         // Simulate async batch (even though it's just local data)
-        // So we can show "Loading..." and avoid spamming updates.
         setTimeout(() => {
           setVisibleCount((prev) => {
             const next = Math.min(prev + perPage, totalVideos);
@@ -150,28 +163,29 @@ export default function ChannelVideos({ data }: Props) {
       <div className="grid gap-2 gap-y-6 2xl:gap-y-8 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {pageVideos.map((item) => (
           <div key={item.id} className="video-block flex flex-col cursor">
-            <div className="relative thumbnail img-hover-zoom img-hover-zoom--slowmo">
+            <div className="relative aspect-video rounded-md overflow-hidden thumbnail img-hover-zoom img-hover-zoom--slowmo">
               <Link
-                href={`/videos/watch/${item.id}/${item.videos_title
-                  .replace(/[\s+-]/g, "-")
-                  .toLowerCase()}`}
+                href={`/videos/watch/${item.id}/${makeSlug(item.videos_title)}`}
+                className="block w-full h-full"
               >
-                <img
+                <Image
                   src={withCloudinaryPrefix(item.thumbnail)}
-                  // alt={item.videos_title}
-                  className="w-full h-full rounded-md object-cover aspect-video"
+                  alt={item.videos_title}
+                  fill
+                  unoptimized
+                  className="object-contain bg-black"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                 />
                 <span className="text-white absolute bottom-2 right-2 text-xs px-2 py-1 rounded-md bg-neutral-900/60 timestamp">
                   {duration(item.duration)}
                 </span>
               </Link>
             </div>
+
             <div className="mt-4 pb-3">
               <div className="flex flex-col">
                 <Link
-                  href={`/videos/watch/${item.id}/${item.videos_title
-                    .replace(/[\s+-]/g, "-")
-                    .toLowerCase()}`}
+                  href={`/videos/watch/${item.id}/${makeSlug(item.videos_title)}`}
                 >
                   <h1 className="text-sm font-semibold leading-tight text-white mr-2">
                     {truncate(item.videos_title, 46)}

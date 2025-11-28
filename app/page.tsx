@@ -246,7 +246,7 @@ export default function HomePage() {
       <div className="overflow-hidden">
       <HeroSlider slides={SLIDES} autoAdvanceMs={8000} />
 
-      <div className="lg:mt-[-5rem]">
+      <div className="lg:mt-[-5rem] mb-4">
         <RowSlider title="Featured on Ceflix+" items={FEATURED_SHOWS} />
       </div>
       </div>
