@@ -244,11 +244,11 @@ export default function HomePage() {
   return (
     <main className="bg-neutral-950 text-white min-h-screen mb-[10rem]">
       <div className="overflow-hidden">
-      <HeroSlider slides={SLIDES} autoAdvanceMs={8000} />
+        <HeroSlider slides={SLIDES} autoAdvanceMs={8000} />
 
-      <div className="lg:mt-[-5rem] mb-4">
+        {/* <div className="lg:mt-[-5rem] mb-4">
         <RowSlider title="Featured on Ceflix+" items={FEATURED_SHOWS} />
-      </div>
+      </div> */}
       </div>
 
       {/* <section className="mt-6">
