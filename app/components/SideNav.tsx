@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "./AuthProvider";
 import { mainNavItems } from "./navconfig";
+import { DevicePhoneMobileIcon } from "@heroicons/react/24/outline";
 
 type SideNavProps = {
   collapsed?: boolean;
@@ -32,8 +33,8 @@ export default function SideNav({
     typeof collapsedProp === "boolean"
       ? collapsedProp
       : isPlayerPage
-      ? true
-      : false;
+        ? true
+        : false;
 
   // -------- Overlay version for player page --------
   if (isPlayerPage) {
@@ -51,7 +52,7 @@ export default function SideNav({
         )}
 
         {isOpen && (
-          <aside className="fixed left-0 top-16 z-[999] backdrop-blur md:flex h-[calc(100vh-4rem)] flex-col bg-neutral-950/80 text-white w-60">
+          <aside className="fixed hidden left-0 top-16 z-[999] backdrop-blur lg:flex h-[calc(100vh-4rem)] flex-col bg-neutral-950/80 text-white w-60">
             <nav className="flex-1 py-4">
               {mainNavItems.map((item) => {
                 const active =
@@ -68,7 +69,7 @@ export default function SideNav({
                       "mx-3 mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition",
                       active
                         ? "bg-neutral-800 text-white font-semibold"
-                        : "text-neutral-200 hover:bg-neutral-800/60"
+                        : "text-neutral-200 hover:bg-neutral-800/60",
                     )}
                     onClick={() => {
                       if (onClose) onClose();
@@ -79,6 +80,18 @@ export default function SideNav({
                   </Link>
                 );
               })}
+              <a
+                href="https://web.lwappstore.com/share/lW-sA-D70-AJ318"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mx-3 mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition text-neutral-200 hover:bg-neutral-800/60"
+                onClick={() => {
+                  if (onClose) onClose();
+                }}
+              >
+                <DevicePhoneMobileIcon className="h-5 w-5 shrink-0" />
+                <span className="truncate">Ceflix Tv App</span>
+              </a>
             </nav>
           </aside>
         )}
@@ -90,8 +103,8 @@ export default function SideNav({
   return (
     <aside
       className={cx(
-        "hidden md:flex fixed left-0 top-16 h-[calc(100vh-4rem)] flex-col bg-neutral-950 text-white z-[999]",
-        effectiveCollapsed ? "w-16" : "w-60"
+        "hidden lg:flex fixed left-0 top-16 h-[calc(100vh-4rem)] flex-col bg-neutral-950 text-white z-[999]",
+        effectiveCollapsed ? "w-16" : "w-60",
       )}
     >
       <nav className="flex-1 py-4">
@@ -111,7 +124,7 @@ export default function SideNav({
                 effectiveCollapsed ? "justify-center" : "gap-3",
                 active
                   ? "bg-neutral-800 text-white font-semibold"
-                  : "text-neutral-200 hover:bg-neutral-800/60"
+                  : "text-neutral-200 hover:bg-neutral-800/60",
               )}
             >
               <Icon className="h-6 w-6 shrink-0" />
@@ -123,6 +136,23 @@ export default function SideNav({
             </Link>
           );
         })}
+        <a
+          href="https://web.lwappstore.com/share/lW-sA-D70-AJ318"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cx(
+            "mx-2 mb-1 flex items-center rounded-lg px-3 py-2 text-sm transition text-neutral-200 hover:bg-neutral-800/60",
+            effectiveCollapsed ? "justify-center" : "gap-3",
+          )}
+          onClick={() => {
+            if (onClose) onClose();
+          }}
+        >
+          <DevicePhoneMobileIcon className="h-5 w-5 shrink-0" />
+          <span className={effectiveCollapsed ? "sr-only" : "truncate ml-3"}>
+            Ceflix Tv App
+          </span>
+        </a>
       </nav>
     </aside>
   );

@@ -93,10 +93,10 @@ export default function AppShell({ children }: Props) {
 
   // MAIN margin-left logic:
   const mainMarginClass = isPlayerPage
-    ? "md:ml-0"
+    ? "lg:ml-0"
     : collapsedBool
-    ? "md:ml-16"
-    : "md:ml-60";
+    ? "lg:ml-16"
+    : "lg:ml-60";
 
   return (
     <>

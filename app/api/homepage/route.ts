@@ -24,7 +24,7 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: msg }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, data: json.data ?? [] });
+    return NextResponse.json({ ok: true, data: json ?? [] });
   } catch (err) {
     console.error("initialhome API error:", err);
     return NextResponse.json(

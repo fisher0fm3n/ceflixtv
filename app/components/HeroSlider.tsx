@@ -9,7 +9,7 @@ import Link from "next/link";
 export type Slide = {
   id: string;
   background: StaticImageData; // 👈 imported image
-  logo: StaticImageData;       // 👈 imported image
+  logo: StaticImageData; // 👈 imported image
   ageRating?: string;
   meta?: string;
   description: string;
@@ -50,7 +50,8 @@ export default function HeroSlider({
   }, [index, slides.length, autoAdvanceMs]);
 
   return (
-    <section className="relative w-full h-[70vh] md:h-[80vh] lg:h-[95vh] overflow-hidden bg-black">
+    // <section className="relative w-full h-[70vh] md:h-[80vh] lg:h-[95vh] overflow-hidden bg-black">
+    <section className="relative w-full h-[70vh] overflow-hidden bg-black">
       {/* Background */}
       <div className="absolute inset-0">
         <Image
@@ -91,13 +92,16 @@ export default function HeroSlider({
           )}
 
           {/* Description */}
-          <p className="text-sm sm:text-base text-neutral-200/90 max-w-lg leading-relaxed line-clamp-4">
+          <p className="text-sm sm:text-base text-neutral-200/90 max-w-lg leading-relaxed line-clamp-3">
             {current.description}
           </p>
 
           {/* Buttons */}
           <div className="flex flex-wrap items-center gap-3 pt-1">
-            <Link href="/videos/watch/1888611/my-glow-up-journey---episode-1-my-history" className="cursor-pointer inline-flex items-center gap-2 rounded-md bg-red-600 hover:bg-red-500 px-5 py-2.5 text-sm font-semibold text-white transition">
+            <Link
+              href="/videos/watch/1888611/my-glow-up-journey---episode-1-my-history"
+              className="cursor-pointer inline-flex items-center gap-2 rounded-md bg-red-600 hover:bg-red-500 px-5 py-2.5 text-sm font-semibold text-white transition"
+            >
               {current.primaryCta}
             </Link>
 

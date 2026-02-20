@@ -9,12 +9,10 @@ import "@splidejs/react-splide/css";
 
 type ChannelItem = {
   id: number;
-  channel: string;
-  filename: string;
-  urlprefix: string;
-  slug?: string | null;
-  url?: string | null;
-  cover?: string | null; // optional, if you have it
+  name: string;
+  desc: string;
+  src: string;
+  imgChannel?: string | null; // optional, if you have it
 };
 
 type ChannelSliderProps = {
@@ -34,7 +32,7 @@ export default function ChannelSlider({
   const skeletonCount = 8;
 
   return (
-    <section className="w-full py-4 overflow-hidden">
+    <section className="w-full py-4 overflow-hidden px-6">
       <div>
         {/* Section title */}
         <div className="flex items-center justify-between mb-3">
@@ -43,7 +41,7 @@ export default function ChannelSlider({
           </h2>
         </div>
 
-        <div className="relative px-6">
+        <div className="relative">
           <Splide
             options={{
               type: "loop",
@@ -79,10 +77,9 @@ export default function ChannelSlider({
                 ))
               : // 🔹 Real data slides
                 items.map((item) => {
-                  const thumbSrc = `${item.urlprefix ?? ""}${
-                    item.filename ?? ""
-                  }`;
-                  const bgSrc = item.cover || thumbSrc; // use cover if available, else thumb
+                  const thumbSrc = item.imgChannel
+
+                  const bgSrc = item.imgChannel
 
                   return (
                     <SplideSlide
@@ -90,7 +87,7 @@ export default function ChannelSlider({
                       className="overflow-visible h-full"
                     >
                       <Link
-                        href={`/channel/${item.id}`}
+                        href={`/stations/${item.id}`}
                         className="block w-full h-full bg-cover bg-center rounded-md overflow-hidden "
                         style={{ backgroundImage: `url(${bgSrc})` }}
                       >
@@ -99,8 +96,8 @@ export default function ChannelSlider({
                           {/* Circular thumbnail */}
                           <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden bg-neutral-800">
                             <Image
-                              src={thumbSrc}
-                              alt={item.channel}
+                              src={item.imgChannel}
+                              alt={item.name}
                               fill
                               sizes="(max-width: 768px) 25vw, 10vw"
                               className="object-cover"
@@ -110,7 +107,7 @@ export default function ChannelSlider({
 
                           {/* Channel name */}
                           <p className="mt-2 text-xs sm:text-sm font-semibold text-white text-center line-clamp-2 min-h-[2.5rem]">
-                            {item.channel}
+                            {item.name}
                           </p>
                         </div>
                       </Link>
