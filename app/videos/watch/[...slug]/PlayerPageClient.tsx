@@ -11,8 +11,10 @@ import {
   ClockIcon,
   RectangleGroupIcon,
   FlagIcon,
+  GiftIcon,
 } from "@heroicons/react/24/outline";
 import { Switch } from "@headlessui/react";
+import VideoJsPlayer from "@/app/components/VideoJsPlayer";
 
 import {
   CheckBadgeIcon,
@@ -128,7 +130,7 @@ function withCloudinaryPrefix2(src: string | null): string {
   )
     return src;
   return `https://res.cloudinary.com/raves-music/image/fetch/w_1200/${encodeURIComponent(
-    src
+    src,
   )}`;
 }
 
@@ -193,7 +195,7 @@ export default function PlayerPage() {
 
   // 👉 internal ID we use for fetching / swapping videos
   const [currentVideoId, setCurrentVideoId] = useState<string | null>(
-    initialVideoId ?? null
+    initialVideoId ?? null,
   );
 
   // keep internal ID in sync if route param changes externally
@@ -273,7 +275,7 @@ export default function PlayerPage() {
 
   const isLive = useMemo(
     () => !!videoUrl && videoUrl.endsWith(".m3u8"),
-    [videoUrl]
+    [videoUrl],
   );
 
   // restore theatre mode preference from localStorage on mount
@@ -312,7 +314,7 @@ export default function PlayerPage() {
         const data = await res.json();
         if (data?.status && Array.isArray(data.data)) {
           setReportOptions(
-            data.data.map((f: any) => ({ id: f.id, title: f.title }))
+            data.data.map((f: any) => ({ id: f.id, title: f.title })),
           );
         }
       } catch (err) {
@@ -489,7 +491,7 @@ export default function PlayerPage() {
 
   // helper to require auth for certain actions
   const requireAuth = (
-    action: "like" | "subscribe" | "comment" | "report"
+    action: "like" | "subscribe" | "comment" | "report",
   ): boolean => {
     if (!user || !token) {
       setAuthPrompt(action);
@@ -501,7 +503,7 @@ export default function PlayerPage() {
   // ⭐ Save video watch progress to API
   const saveVideoHistory = async (
     currentTimeMillis: number,
-    durationMillis: number
+    durationMillis: number,
   ) => {
     try {
       if (!token || !currentVideoId) {
@@ -537,7 +539,7 @@ export default function PlayerPage() {
     try {
       if (!token || !currentVideoId) {
         throw new Error(
-          "Token or video id is not available for authentication."
+          "Token or video id is not available for authentication.",
         );
       }
 
@@ -557,7 +559,7 @@ export default function PlayerPage() {
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(
-          `Failed to update video duration. Status: ${response.status}, Message: ${errorText}`
+          `Failed to update video duration. Status: ${response.status}, Message: ${errorText}`,
         );
       }
 
@@ -669,7 +671,7 @@ export default function PlayerPage() {
       ) {
         void saveVideoHistory(
           playbackTimeRef.current * 1000,
-          durationRef.current * 1000
+          durationRef.current * 1000,
         );
       }
     };
@@ -727,7 +729,7 @@ export default function PlayerPage() {
               ...(xToken ? { "X-TOKEN": xToken } : {}),
             },
             body: JSON.stringify({ video: id }),
-          }
+          },
         );
 
         const videoJson = await videoRes.json();
@@ -752,8 +754,8 @@ export default function PlayerPage() {
           typeof apiTime === "number"
             ? apiTime
             : apiTime != null
-            ? parseFloat(String(apiTime))
-            : 0;
+              ? parseFloat(String(apiTime))
+              : 0;
         setResumeTime(!isNaN(parsedTime) && parsedTime > 0 ? parsedTime : null);
 
         // If a playlist is present, use its "pool" as up-next; otherwise fall back to upnext
@@ -768,7 +770,7 @@ export default function PlayerPage() {
               uploadtime: String(item.uploadtime ?? ""),
               channel: item.channel,
               isLive: (item.isLive ?? "0") as "0" | "1",
-            })
+            }),
           );
           setUpNext(mappedPool);
         } else {
@@ -953,7 +955,7 @@ export default function PlayerPage() {
   };
 
   const handleLoadedMetadata: React.ReactEventHandler<HTMLVideoElement> = (
-    e
+    e,
   ) => {
     const el = e.currentTarget;
     if (!isNaN(el.duration)) {
@@ -973,7 +975,7 @@ export default function PlayerPage() {
   // First non-live up next video (for overlay + autoplay)
   const nextUpVideo = useMemo(
     () => upNext.filter((v) => v.isLive === "0")[0] ?? null,
-    [upNext]
+    [upNext],
   );
 
   // Called when current video ends and autoplay is enabled
@@ -1456,7 +1458,7 @@ export default function PlayerPage() {
                     <img
                       src={withCloudinaryPrefix(
                         (video.channel_prefix || "") +
-                          (video.channel_file || "") || video.thumbnail
+                          (video.channel_file || "") || video.thumbnail,
                       )}
                       alt={video.channel}
                       width={40}
@@ -1517,6 +1519,14 @@ export default function PlayerPage() {
                   >
                     <ShareIcon className="w-4 h-4" />
                     <span>Share</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-xs md:text-sm font-semibold hover:bg-neutral-700"
+                  >
+                    <GiftIcon className="w-4 h-4" />
+                    <span>Support</span>
                   </button>
 
                   <button
@@ -1675,7 +1685,7 @@ export default function PlayerPage() {
                         <img
                           src={withCloudinaryPrefix(
                             c.profile_pic ||
-                              "https://ceflix.org/images/avatar.png"
+                              "https://ceflix.org/images/avatar.png",
                           )}
                           alt={`${c.fname} ${c.lname}`}
                           width={36}
