@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     // Set cookies
     const res = NextResponse.redirect(
-      new URL("/auth/kingschat/callback", req.url), // will hit page.tsx as GET
+      new URL("https://ceflix.org/auth/kingschat/callback", req.url), // will hit page.tsx as GET
       { status: 303 }
     );
 
