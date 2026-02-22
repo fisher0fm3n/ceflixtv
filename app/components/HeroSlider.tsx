@@ -12,6 +12,7 @@ export type Slide = {
   logo: string; // URL
   bg_img: string; // URL
   highlight_text?: string;
+  desc?: string;
   btn_text: string;
   url_type: "internal" | "external";
   url: string; // internal path or external URL
@@ -97,30 +98,21 @@ export default function HeroSlider({ slides, autoAdvanceMs = 8000 }: HeroSliderP
       <div className="relative h-full flex items-end lg:items-center px-6 pb-8 sm:px-6 lg:px-6">
         <div className="max-w-xl space-y-5 md:space-y-6">
           {/* Logo */}
-          <div className="max-w-xs sm:max-w-sm md:max-w-md">
+          <div className="max-w-xs sm:max-w-sm md:max-w-md mb-14">
             <Image
               src={current.logo}
               alt={current.title}
-              width={420}
-              height={200}
-              className="w-[14rem] sm:w-[16rem] lg:w-[20rem] h-auto"
+              width={380}
+              height={180}
+              className="w-[14rem] sm:w-[16rem] lg:w-[18rem] h-auto"
               priority
             />
           </div>
 
-          {/* Highlight */}
-          {current.highlight_text && (
-            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-neutral-300">
-              <span className="inline-flex items-center rounded-sm border border-white/40 bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold">
-                {current.highlight_text}
-              </span>
-            </div>
-          )}
-
           {/* Title */}
-          {current.title && (
-            <p className="text-sm sm:text-base text-neutral-200/90 max-w-lg leading-relaxed line-clamp-2">
-              {current.title}
+          {current.desc && (
+            <p className="text-sm sm:text-base text-neutral-200/90 max-w-lg leading-relaxed line-clamp-3">
+              {current.desc}
             </p>
           )}
 
@@ -152,14 +144,14 @@ export default function HeroSlider({ slides, autoAdvanceMs = 8000 }: HeroSliderP
         <>
           <button
             onClick={prev}
-            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 hover:bg-black/70 p-2 text-white transition"
+            className="cursor-pointer absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 hover:bg-black/70 p-2 text-white transition"
             aria-label="Previous slide"
           >
             <ChevronLeftIcon className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
           <button
             onClick={next}
-            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 hover:bg-black/70 p-2 text-white transition"
+            className="cursor-pointer absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 hover:bg-black/70 p-2 text-white transition"
             aria-label="Next slide"
           >
             <ChevronRightIcon className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -168,7 +160,7 @@ export default function HeroSlider({ slides, autoAdvanceMs = 8000 }: HeroSliderP
       )}
 
       {/* Dots */}
-      {slides.length > 1 && (
+      {/* {slides.length > 1 && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
           {slides.map((s, i) => (
             <button
@@ -183,7 +175,7 @@ export default function HeroSlider({ slides, autoAdvanceMs = 8000 }: HeroSliderP
             />
           ))}
         </div>
-      )}
+      )} */}
     </section>
   );
 }

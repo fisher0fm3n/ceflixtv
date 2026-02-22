@@ -50,7 +50,7 @@ function LoginPageContent() {
         <div className="w-full max-w-md rounded-2xl border border-white/10 bg-neutral-900/70 backdrop-blur-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden">
           {/* header */}
           <div className="px-8 pt-8 pb-4">
-            <Image
+            <img
               src={logo}
               alt="Kingschat logo"
               className="w-[8rem] mx-auto mb-4"

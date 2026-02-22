@@ -425,7 +425,7 @@ export default function PlaylistPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
           <div className="flex items-center gap-4">
             <div className="relative h-20 w-20 rounded-md overflow-hidden bg-neutral-900">
-              <Image
+              <img
                 src={thumbnailSrc}
                 alt={playlist.playlist_title}
                 fill
@@ -504,7 +504,7 @@ export default function PlaylistPage() {
                 >
                   <div className="relative w-full overflow-hidden rounded-md bg-neutral-900">
                     <div className="relative w-full aspect-video">
-                      <Image
+                      <img
                         src={
                           video.thumbnail && video.thumbnail.trim() !== ""
                             ? video.thumbnail
@@ -528,7 +528,7 @@ export default function PlaylistPage() {
                     {/* Channel avatar */}
                     <div className="mt-1 h-8 w-8 min-w-[2rem] rounded-full overflow-hidden bg-neutral-800">
                       {video.channel_image ? (
-                        <Image
+                        <img
                           src={video.channel_image}
                           alt={video.channel}
                           width={32}

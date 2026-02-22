@@ -75,7 +75,7 @@ export default function SideNav({
                       if (onClose) onClose();
                     }}
                   >
-                    <Icon className="h-5 w-5 shrink-0" />
+                    <Icon className="h-6 w-6 shrink-0" />
                     <span className="truncate">{item.label}</span>
                   </Link>
                 );
@@ -148,7 +148,7 @@ export default function SideNav({
             if (onClose) onClose();
           }}
         >
-          <DevicePhoneMobileIcon className="h-5 w-5 shrink-0" />
+          <DevicePhoneMobileIcon className="h-6 w-6 shrink-0" />
           <span className={effectiveCollapsed ? "sr-only" : "truncate ml-3"}>
             Ceflix Tv App
           </span>

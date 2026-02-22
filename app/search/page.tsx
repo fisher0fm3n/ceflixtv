@@ -335,7 +335,7 @@ function SearchPageContent() {
                   className="flex flex-col sm:flex-row gap-3 sm:gap-4 rounded-lg hover:bg-neutral-900/70 transition p-4 -mx-2"
                 >
                   <div className="relative w-full sm:w-90 aspect-video rounded-md overflow-hidden bg-neutral-900 flex-shrink-0">
-                    <Image
+                    <img
                       src={v.thumbnail}
                       alt={v.videos_title}
                       fill
@@ -384,7 +384,7 @@ function SearchPageContent() {
                   className="flex items-center gap-3 rounded-lg hover:bg-neutral-900/70 transition p-2 -mx-2"
                 >
                   <div className="relative h-14 w-14 rounded-full overflow-hidden bg-neutral-800 flex-shrink-0">
-                    <Image
+                    <img
                       src={c.profilepic}
                       alt={c.channelName}
                       fill

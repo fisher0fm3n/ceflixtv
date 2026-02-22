@@ -315,7 +315,7 @@ export default function ChannelPageClient({ channelId }: ClientProps) {
       <div className="flex flex-col max-w-6xl mx-auto mb-8 px-6 lg:px-0">
         {/* Cover */}
         <div className="w-full relative bg-cover max-h-[40rem] h-[6rem] channel-cover md:h-[14rem] overflow-hidden max-w-screen-2xl mx-auto rounded-xl">
-          <img
+          <Image
             alt="cover"
             className="w-full relative bg-white object-cover object-center h-full"
             src={withCloudinaryPrefix(
@@ -328,7 +328,7 @@ export default function ChannelPageClient({ channelId }: ClientProps) {
           {/* Header */}
           <div className="px-0 border-b-1 border-neutral-200/15 mt-6">
             <div className="py-4 gap-8 lg:gap-0 flex text-white flex-row lg:space-x-4 items-center justify-start text-center lg:text-left">
-              <img
+              <Image
                 className="rounded-full aspect-square object-cover max-w-[6rem] max-h-[6rem] w-full h-full lg:max-w-[10rem] lg:max-h-[10rem]"
                 src={withCloudinaryPrefix(
                   data.channel.url || "/images/channel/background.jpg"
@@ -437,7 +437,7 @@ export default function ChannelPageClient({ channelId }: ClientProps) {
                             .replace(/[\s+-]/g, "-")
                             .toLowerCase()}`}
                         >
-                          <img
+                          <Image
                             alt="cover"
                             className={`rounded-md w-full aspect-video object-contain bg-black ${
                               highlightImageLoaded ? "block" : "hidden"

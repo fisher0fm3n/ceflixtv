@@ -1247,7 +1247,7 @@ export default function PlayerPage() {
                 <div className="pointer-events-auto flex w-full max-w-xl items-center gap-4 rounded-2xl bg-black/80 border border-white/10 px-4 py-3 shadow-2xl">
                   {/* Thumbnail */}
                   <div className="relative h-20 w-36 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-900">
-                    <Image
+                    <img
                       src={withCloudinaryPrefix2(nextUpVideo.thumbnail)}
                       alt={nextUpVideo.videos_title}
                       fill
@@ -1453,7 +1453,7 @@ export default function PlayerPage() {
                     href={`/channel/${video.channel_id}`}
                     className="h-10 w-10 rounded-full bg-neutral-700 overflow-hidden"
                   >
-                    <Image
+                    <img
                       src={withCloudinaryPrefix(
                         (video.channel_prefix || "") +
                           (video.channel_file || "") || video.thumbnail
@@ -1672,7 +1672,7 @@ export default function PlayerPage() {
                   {comments.map((c) => (
                     <div key={c.id} className="flex items-start gap-3">
                       <div className="h-11 w-11 rounded-full overflow-hidden bg-neutral-700">
-                        <Image
+                        <img
                           src={withCloudinaryPrefix(
                             c.profile_pic ||
                               "https://ceflix.org/images/avatar.png"
@@ -1729,7 +1729,7 @@ export default function PlayerPage() {
                       >
                         {/* Thumbnail with fixed desktop width, full width on mobile */}
                         <div className="relative w-full lg:w-40 flex-shrink-0 aspect-video rounded-xl overflow-hidden bg-neutral-900">
-                          <Image
+                          <img
                             src={withCloudinaryPrefix(item.thumbnail)}
                             className="object-cover"
                             alt={item.videos_title}
@@ -1790,7 +1790,7 @@ export default function PlayerPage() {
                     }`}
                   >
                     <div className="relative w-full lg:w-40 flex-shrink-0 aspect-video rounded-sm overflow-hidden bg-neutral-900">
-                      <Image
+                      <img
                         src={withCloudinaryPrefix(item.thumbnail)}
                         className="object-cover"
                         alt={item.videos_title}

@@ -22,6 +22,4 @@ export const mainNavItems: NavItem[] = [
   { href: "/channels", label: "Channels", icon: TvIcon },
   { href: "/likes", label: "Liked Videos", icon: HandThumbUpIcon },
   { href: "/playlists", label: "Playlists", icon: QueueListIcon },
-  // If you still want Anime / Short Drama / Trending / Category
-  // either add them here, or create a second array for "explore" links.
 ];

@@ -302,7 +302,7 @@ export default function PlaylistsPage() {
                   <div className="relative w-full overflow-hidden rounded-md bg-neutral-900">
                     <div className="relative w-full aspect-video">
                       {hasThumb ? (
-                        <Image
+                        <img
                           src={pl.playlist_thumbnail!}
                           alt={pl.playlist_title}
                           fill

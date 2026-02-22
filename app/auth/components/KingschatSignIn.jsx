@@ -23,7 +23,7 @@ export function KingsChatSignIn() {
                  disabled:opacity-60 disabled:cursor-not-allowed transition"
       onClick={() => window.open(getLoginUrl(), "_self")}
     >
-      <Image
+      <img
         src={logo}
         alt="Kingschat logo"
         className="w-8 h-8"

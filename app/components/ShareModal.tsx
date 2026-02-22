@@ -106,7 +106,7 @@ export default function ShareModal({
                       >
                         <div className="w-[60px] h-[60px] rounded-full bg-white p-2 flex items-center justify-center">
                           {/* replace src with your actual kingschat logo path */}
-                          <Image
+                          <img
                             src={kc_logo}
                             alt="Kingschat"
                             className="w-full h-full object-contain"

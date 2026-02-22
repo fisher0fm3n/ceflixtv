@@ -314,7 +314,7 @@ export default function LikedVideosPage() {
                     <div className="relative w-full overflow-hidden rounded-md bg-neutral-900">
                       <Link href={watchHref}>
                         <div className="relative w-full aspect-video">
-                          <Image
+                          <img
                             src={video.thumbnail}
                             alt={video.videos_title}
                             fill
@@ -338,7 +338,7 @@ export default function LikedVideosPage() {
                       <div className="mt-1">
                         <div className="h-8 w-8 rounded-full overflow-hidden bg-neutral-800 flex items-center justify-center text-xs">
                           {video.channel_image ? (
-                            <Image
+                            <img
                               src={video.channel_image}
                               alt={video.channel}
                               width={32}

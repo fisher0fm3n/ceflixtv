@@ -350,7 +350,7 @@ export default function SettingsPage() {
               <div className="col-span-3 flex flex-col items-center">
                 <div className="relative h-32 w-32 rounded-full overflow-hidden bg-neutral-800 flex items-center justify-center">
                   {thumbnail ? (
-                    <Image
+                    <img
                       src={thumbnail}
                       alt="Profile picture"
                       fill

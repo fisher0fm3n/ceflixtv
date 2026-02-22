@@ -25,6 +25,7 @@ type ChannelData = {
   cat_id: number;
   url: string; // avatar / picture
   cover: string; // cover image
+  wallet_address?: string | null; // ✅ added
 };
 
 type Category = {
@@ -46,6 +47,13 @@ export default function EditChannelPage() {
   const [tags, setTags] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryVal, setCategoryVal] = useState<Category | null>(null);
+
+  // ✅ Wallet
+  const [walletAddress, setWalletAddress] = useState("");
+  const [walletDirty, setWalletDirty] = useState(false);
+  const [walletSaving, setWalletSaving] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
+  const [walletSaved, setWalletSaved] = useState(false);
 
   // Branding
   const [thumbnail, setThumbnail] = useState("");
@@ -96,6 +104,14 @@ export default function EditChannelPage() {
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+
+  // ✅ (optional) light validation (lets empty be allowed)
+  const isLikelyWallet = (value: string) => {
+    const v = value.trim();
+    if (!v) return true;
+    // ethereum-like: 0x + 40 hex chars
+    return /^0x[a-fA-F0-9]{40}$/.test(v);
+  };
 
   // -------------------------
   // Thumbnail / Cover API
@@ -160,6 +176,62 @@ export default function EditChannelPage() {
   const handleCoverUpdateClick = () => {
     if (!cover || !coverDirty) return;
     void updateCover(cover);
+  };
+
+  // ✅ Wallet API
+  async function updateWalletAddress(nextWallet: string) {
+    if (!token || !channelId) return;
+
+    const cleaned = nextWallet.trim();
+    setWalletSaved(false);
+    setWalletError(null);
+
+    if (!isLikelyWallet(cleaned)) {
+      setWalletError("Please enter a valid wallet address (e.g. 0x…)");
+      return;
+    }
+
+    try {
+      setWalletSaving(true);
+
+      const req = await fetch(`${API_BASE}user/channels/${channelId}/wallet`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Application-Key": APP_KEY,
+          "X-TOKEN": token,
+        },
+        body: JSON.stringify({
+          token,
+          walletaddress: cleaned,
+        }),
+      });
+
+      const res = await req.json().catch(() => null);
+
+      if (!req.ok || (res && res.status === false)) {
+        setWalletError("Unable to save wallet address. Please try again.");
+        return;
+      }
+
+      setWalletDirty(false);
+      setWalletSaved(true);
+
+      // keep local channelData in sync for display elsewhere
+      setChannelData((prev) =>
+        prev ? { ...prev, wallet_address: cleaned } : prev
+      );
+    } catch (err) {
+      console.error("Failed to update wallet address", err);
+      setWalletError("Unable to save wallet address. Please try again.");
+    } finally {
+      setWalletSaving(false);
+    }
+  }
+
+  const handleWalletSaveClick = () => {
+    if (!walletDirty || walletSaving) return;
+    void updateWalletAddress(walletAddress);
   };
 
   // -------------------------
@@ -285,6 +357,13 @@ export default function EditChannelPage() {
         setTags(ch.tags || "");
         setThumbnail(ch.url || "");
         setCover(ch.cover || "");
+
+        // ✅ populate wallet field
+        setWalletAddress((ch.wallet_address || "").trim());
+        setWalletDirty(false);
+        setWalletError(null);
+        setWalletSaved(false);
+
         setThumbDirty(false);
         setCoverDirty(false);
 
@@ -474,6 +553,78 @@ export default function EditChannelPage() {
                 className="w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm text-white shadow-sm outline-none focus:ring-1 focus:ring-red-600"
                 placeholder="e.g. ministry, music, youth"
               />
+            </div>
+
+            {/* ✅ Wallet Address */}
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Wallet address{" "}
+                <span className="text-[11px] text-neutral-400">
+                  (for monetization payouts)
+                </span>
+              </label>
+              <input
+                type="text"
+                value={walletAddress}
+                onChange={(e) => {
+                  setWalletAddress(e.target.value);
+                  setWalletDirty(true);
+                  setWalletSaved(false);
+                  setWalletError(null);
+                }}
+                className="w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm text-white shadow-sm outline-none focus:ring-1 focus:ring-red-600"
+                placeholder="0x…"
+              />
+
+              {walletDirty && (
+                <p className="mt-2 text-[11px] text-amber-300">
+                  You have unsaved changes to your wallet address.
+                </p>
+              )}
+
+              {walletError && (
+                <p className="mt-2 text-xs text-red-400">{walletError}</p>
+              )}
+
+              {walletSaved && (
+                <p className="mt-2 text-xs text-emerald-400">
+                  Wallet address saved
+                </p>
+              )}
+
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleWalletSaveClick}
+                  disabled={!walletDirty || walletSaving}
+                  className={`inline-flex items-center px-3 py-2 rounded-md text-sm font-semibold shadow-sm ${
+                    !walletDirty || walletSaving
+                      ? "bg-neutral-700 text-neutral-300 cursor-not-allowed"
+                      : "bg-white text-black hover:bg-white/80 cursor-pointer"
+                  }`}
+                >
+                  {walletSaving ? "Saving…" : "Save wallet"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    // revert to what came from userchannel
+                    setWalletAddress((channelData?.wallet_address || "").trim());
+                    setWalletDirty(false);
+                    setWalletError(null);
+                    setWalletSaved(false);
+                  }}
+                  disabled={!walletDirty || walletSaving}
+                  className={`inline-flex items-center px-3 py-2 rounded-md text-sm font-semibold ${
+                    !walletDirty || walletSaving
+                      ? "border border-neutral-800 text-neutral-500 cursor-not-allowed"
+                      : "border border-neutral-700 text-neutral-200 hover:bg-neutral-950 cursor-pointer"
+                  }`}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
 
             {/* Actions */}

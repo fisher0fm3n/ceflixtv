@@ -327,7 +327,7 @@ export default function HistoryPage() {
                       className="block w-40 sm:w-56 md:w-64 flex-shrink-0"
                     >
                       <div className="relative aspect-video rounded-md overflow-hidden bg-neutral-800">
-                        <Image
+                        <img
                           src={withCloudinaryPrefix(item.thumbnail)}
                           alt={item.videos_title}
                           fill
@@ -363,7 +363,7 @@ export default function HistoryPage() {
                         >
                           <span className="relative inline-block h-6 w-6 rounded-full overflow-hidden bg-neutral-800">
                             {item.channel_file && (
-                              <Image
+                              <img
                                 src={withCloudinaryPrefix(
                                   `${item.channel_prefix}${item.channel_file}`
                                 )}

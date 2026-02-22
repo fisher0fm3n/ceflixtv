@@ -303,7 +303,7 @@ export default function LiveStationsClient() {
                   }`}
                 >
                   <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-neutral-900 flex-shrink-0">
-                    <Image
+                    <img
                       src={s.imgChannel}
                       alt={s.name}
                       fill

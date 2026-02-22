@@ -65,7 +65,7 @@ export default function RowSlider({ title, items }: RowSliderProps) {
                       alt={item.title}
                       fill
                       sizes="(max-width: 768px) 90vw, 25vw"
-                      className="object-contain"
+                      className="w-full aspect-video object-contain bg-black block"
                     />
 
                     {item.duration && (
