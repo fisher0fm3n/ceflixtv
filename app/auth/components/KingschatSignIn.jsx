@@ -2,16 +2,20 @@
 
 /* eslint-disable */
 const CLIENT_ID = "com.kingschat";
-// const REDIRECT_URI = "http://102.219.189.121/api/kingschat/callback";
-const REDIRECT_URI = "https://ceflixtv.netlify.app/api/kingschat/callback";
 const SCOPES = ["conference_calls"];
 
 import Image from "next/image";
 import logo from "../../assets/logo/kingschat.png";
 
+const getRedirectUri = () => {
+  if (typeof window === "undefined") return "";
+  return `${window.location.origin}/api/kingschat/callback`;
+};
+
 const getLoginUrl = () => {
   const encodedScopes = encodeURIComponent(JSON.stringify(SCOPES));
-  const encodedRedirect = encodeURIComponent(REDIRECT_URI);
+  const encodedRedirect = encodeURIComponent(getRedirectUri());
+
   return `https://accounts.kingsch.at/?client_id=${CLIENT_ID}&scopes=${encodedScopes}&post_redirect=true&redirect_uri=${encodedRedirect}`;
 };
 
@@ -23,11 +27,7 @@ export function KingsChatSignIn() {
                  disabled:opacity-60 disabled:cursor-not-allowed transition"
       onClick={() => window.open(getLoginUrl(), "_self")}
     >
-      <Image
-        src={logo}
-        alt="Kingschat logo"
-        className="w-8 h-8"
-      />
+      <Image src={logo} alt="Kingschat logo" className="w-8 h-8" />
       Continue with Kingschat
     </a>
   );

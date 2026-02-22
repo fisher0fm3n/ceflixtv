@@ -319,7 +319,7 @@ export default function LikedVideosPage() {
                             alt={video.videos_title}
                             fill
                             unoptimized
-                            className="object-cover transition-transform duration-200 group-hover:scale-105"
+                            className="object-cover h-full m-auto transition-transform duration-200 group-hover:scale-105"
                           />
                         </div>
                       </Link>
