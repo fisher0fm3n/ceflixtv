@@ -3,10 +3,10 @@ import {
   HomeIcon,
   TvIcon,
   SparklesIcon,
-  Squares2X2Icon,
   ClockIcon,
   HandThumbUpIcon,
   QueueListIcon,
+  SignalIcon,
 } from "@heroicons/react/24/outline";
 
 export type NavItem = {
@@ -17,6 +17,7 @@ export type NavItem = {
 
 export const mainNavItems: NavItem[] = [
   { href: "/", label: "Home", icon: HomeIcon },
+  { href: "/stations", label: "Live Stations", icon: SignalIcon },
   { href: "/ceclips", label: "CeClips", icon: SparklesIcon },
   { href: "/history", label: "History", icon: ClockIcon },
   { href: "/channels", label: "Channels", icon: TvIcon },
