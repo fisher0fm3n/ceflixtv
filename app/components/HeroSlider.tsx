@@ -1,20 +1,20 @@
 // app/components/HeroSlider.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import Image, { StaticImageData } from "next/image";
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/solid";
 import Link from "next/link";
 
 export type Slide = {
-  id: string;
-  background: StaticImageData; // 👈 imported image
-  logo: StaticImageData; // 👈 imported image
-  ageRating?: string;
-  meta?: string;
-  description: string;
-  primaryCta: string;
-  secondaryCta?: string;
+  id: number;
+  title: string;
+  logo: string; // URL
+  bg_img: string; // URL
+  highlight_text?: string;
+  btn_text: string;
+  url_type: "internal" | "external";
+  url: string; // internal path or external URL
 };
 
 type HeroSliderProps = {
@@ -22,15 +22,24 @@ type HeroSliderProps = {
   autoAdvanceMs?: number;
 };
 
-export default function HeroSlider({
-  slides,
-  autoAdvanceMs = 8000,
-}: HeroSliderProps) {
+export default function HeroSlider({ slides, autoAdvanceMs = 8000 }: HeroSliderProps) {
   const [index, setIndex] = useState(0);
-  const current = slides[index];
+
+  // Current slide safely (null if slides empty)
+  const current = useMemo(() => {
+    if (!slides || slides.length === 0) return null;
+    return slides[Math.min(index, slides.length - 1)];
+  }, [slides, index]);
+
+  // Ensure index is always in-range when slides load/change
+  useEffect(() => {
+    if (!slides || slides.length === 0) return;
+    setIndex((i) => Math.min(i, slides.length - 1));
+  }, [slides?.length]);
 
   function goTo(i: number) {
     const len = slides.length;
+    if (len === 0) return;
     setIndex((i + len) % len);
   }
 
@@ -49,17 +58,36 @@ export default function HeroSlider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, slides.length, autoAdvanceMs]);
 
+  // Placeholder while slides load
+  if (!current) {
+    return (
+      <section className="relative w-full h-[70vh] overflow-hidden bg-black">
+        <div className="absolute inset-0 bg-neutral-900" />
+        <div className="relative h-full flex items-end lg:items-center px-6 pb-8 sm:px-6 lg:px-6">
+          <div className="max-w-xl space-y-4">
+            <div className="h-10 w-64 bg-white/10 rounded animate-pulse" />
+            <div className="h-4 w-96 bg-white/10 rounded animate-pulse" />
+            <div className="h-10 w-40 bg-white/10 rounded animate-pulse" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const isExternal = current.url_type === "external";
+  const href = current.url || "#";
+
   return (
-    // <section className="relative w-full h-[70vh] md:h-[80vh] lg:h-[95vh] overflow-hidden bg-black">
     <section className="relative w-full h-[70vh] overflow-hidden bg-black">
       {/* Background */}
       <div className="absolute inset-0">
         <Image
-          src={current.background}
-          alt=""
+          src={current.bg_img}
+          alt={current.title}
           fill
           priority
           className="object-cover object-top"
+          sizes="100vw"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/10 to-black/20" />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/20" />
@@ -72,43 +100,48 @@ export default function HeroSlider({
           <div className="max-w-xs sm:max-w-sm md:max-w-md">
             <Image
               src={current.logo}
-              alt="Title logo"
-              className="w-[14rem] sm:w-[16rem] lg:w-[20rem]"
+              alt={current.title}
+              width={420}
+              height={200}
+              className="w-[14rem] sm:w-[16rem] lg:w-[20rem] h-auto"
+              priority
             />
           </div>
 
-          {/* Meta */}
-          {(current.ageRating || current.meta) && (
+          {/* Highlight */}
+          {current.highlight_text && (
             <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-neutral-300">
-              {current.ageRating && (
-                <span className="inline-flex items-center rounded-sm border border-white/40 bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold">
-                  {current.ageRating}
-                </span>
-              )}
-              {current.meta && (
-                <span className="text-neutral-300/90">{current.meta}</span>
-              )}
+              <span className="inline-flex items-center rounded-sm border border-white/40 bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold">
+                {current.highlight_text}
+              </span>
             </div>
           )}
 
-          {/* Description */}
-          <p className="text-sm sm:text-base text-neutral-200/90 max-w-lg leading-relaxed line-clamp-3">
-            {current.description}
-          </p>
+          {/* Title */}
+          {current.title && (
+            <p className="text-sm sm:text-base text-neutral-200/90 max-w-lg leading-relaxed line-clamp-2">
+              {current.title}
+            </p>
+          )}
 
-          {/* Buttons */}
+          {/* Button */}
           <div className="flex flex-wrap items-center gap-3 pt-1">
-            <Link
-              href="/videos/watch/1888611/my-glow-up-journey---episode-1-my-history"
-              className="cursor-pointer inline-flex items-center gap-2 rounded-md bg-red-600 hover:bg-red-500 px-5 py-2.5 text-sm font-semibold text-white transition"
-            >
-              {current.primaryCta}
-            </Link>
-
-            {current.secondaryCta && (
-              <button className="cursor-pointer inline-flex items-center gap-2 rounded-md bg-neutral-700/70 hover:bg-neutral-600 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white transition">
-                {current.secondaryCta}
-              </button>
+            {isExternal ? (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="cursor-pointer inline-flex items-center gap-2 rounded-md bg-red-600 hover:bg-red-500 px-5 py-2.5 text-sm font-semibold text-white transition"
+              >
+                {current.btn_text}
+              </a>
+            ) : (
+              <Link
+                href={href}
+                className="cursor-pointer inline-flex items-center gap-2 rounded-md bg-red-600 hover:bg-red-500 px-5 py-2.5 text-sm font-semibold text-white transition"
+              >
+                {current.btn_text}
+              </Link>
             )}
           </div>
         </div>

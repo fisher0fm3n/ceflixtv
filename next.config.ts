@@ -2,26 +2,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    // Either use domains:
-    domains: [
-      "res.cloudinary.com",
-      "cdnvideos.ceflix.org",
-      "d3adbm7ictuj27.cloudfront.net",
-      "d3c5pcohbexzc4.cloudfront.net",
-      "ceflixwebusergen-6923f64a.s3.amazonaws.com",
+    remotePatterns: [
+      { protocol: "https", hostname: "healingstreams.tv", pathname: "/**" },
+      { protocol: "https", hostname: "d1zx0zj5kmre28.cloudfront.net", pathname: "/**" },
+      { protocol: "https", hostname: "d3c5pcohbexzc4.cloudfront.net", pathname: "/**" },
+      { protocol: "https", hostname: "cdnvideos.ceflix.org", pathname: "/**" },
+      { protocol: "https", hostname: "webapi.ceflix.org", pathname: "/**" },
     ],
-
-    // or, if you want to be more explicit:
-    // remotePatterns: [
-    //   {
-    //     protocol: "https",
-    //     hostname: "res.cloudinary.com",
-    //   },
-    //   {
-    //     protocol: "https",
-    //     hostname: "cdnvideos.ceflix.org",
-    //   },
-    // ],
   },
   typescript: {
     // ❗ This lets production builds succeed even if there are TS errors

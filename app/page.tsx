@@ -8,10 +8,7 @@ import { useAuth } from "./components/AuthProvider";
 
 import InitialHomeGrid, { type Section } from "./components/HomeGrid";
 import ChannelSlider from "./components/ChannelSlider";
-import HeroSlider from "./components/HeroSlider";
-
-import psvBg from "./assets/images/homepage/psv-bg.png";
-import psvLogo from "./assets/images/homepage/psv-logo.png";
+import HeroSlider, { type Slide as HeroSlide } from "./components/HeroSlider";
 import CeflixTvMini from "./components/CeflixTvMini";
 
 const API_BASE = "https://webapi.ceflix.org/api/";
@@ -27,37 +24,47 @@ type SubscriptionChannel = {
 };
 
 const DEFAULT_CHANNELS: SubscriptionChannel[] = [
-  { id: 82, channel: "Haven TV", filename: "03559-havenchan.png", urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/" },
-  { id: 105, channel: "Pastor Chris Teaching", filename: "d0ff1-pstchristeachingthumbnail.jpg", urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/" },
-  { id: 164, channel: "Night of Bliss", filename: "8579f-vlcsnap-2016-01-13-15h35m45s321.png", urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/" },
-  { id: 175, channel: "Live Events Channel", filename: "e02af-1.png", urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/" },
-  { id: 335, channel: "Bright Side", filename: "6f17b-unnamed-copy.jpg", urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/" },
-  { id: 380, channel: "CeFlix News Channel", filename: "21cf4-new_thmbn.jpg", urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/" },
-  { id: 381, channel: "Special Live Events", filename: "154575-1649768876776983320507.jpg", urlprefix: "https://cdnvideos.ceflix.org/channel/thumbs/" },
-];
-
-type Slide = {
-  id: string;
-  background: any;
-  logo: any;
-  ageRating: string;
-  meta: string;
-  description: string;
-  primaryCta: string;
-  secondaryCta: string;
-};
-
-const SLIDES: Slide[] = [
   {
-    id: "psv",
-    background: psvBg,
-    logo: psvLogo,
-    ageRating: "G",
-    meta: "Sub | Dub • Faith, Lifestyle",
-    description:
-      "A raw and honest look into my glow up journey and how growing closer to God helped me discover my true self. Sharing how this transformation strengthened my faith and shaped my mindset. Reflecting on the impact it had on my relationships with family and friends. A journey of healing, purpose, and becoming who I was always meant to be.",
-    primaryCta: "Watch Episode 1",
-    // secondaryCta: "Add to Watchlist",
+    id: 82,
+    channel: "Haven TV",
+    filename: "03559-havenchan.png",
+    urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
+  },
+  {
+    id: 105,
+    channel: "Pastor Chris Teaching",
+    filename: "d0ff1-pstchristeachingthumbnail.jpg",
+    urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
+  },
+  {
+    id: 164,
+    channel: "Night of Bliss",
+    filename: "8579f-vlcsnap-2016-01-13-15h35m45s321.png",
+    urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
+  },
+  {
+    id: 175,
+    channel: "Live Events Channel",
+    filename: "e02af-1.png",
+    urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
+  },
+  {
+    id: 335,
+    channel: "Bright Side",
+    filename: "6f17b-unnamed-copy.jpg",
+    urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
+  },
+  {
+    id: 380,
+    channel: "CeFlix News Channel",
+    filename: "21cf4-new_thmbn.jpg",
+    urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
+  },
+  {
+    id: 381,
+    channel: "Special Live Events",
+    filename: "154575-1649768876776983320507.jpg",
+    urlprefix: "https://cdnvideos.ceflix.org/channel/thumbs/",
   },
 ];
 
@@ -86,14 +93,22 @@ async function homepageFetcher(url: string) {
   const res = await fetch(url, { method: "GET" });
   const json = await res.json();
 
-  if (!res.ok || !json.ok) {
+  // tolerate APIs that don't return { ok: true }
+  if (!res.ok) {
+    throw new Error(json?.error || "Failed to load home feed.");
+  }
+  if (json?.ok === false) {
     throw new Error(json?.error || "Failed to load home feed.");
   }
 
-  return {
-    sections: (json.data?.data || []) as Section[],
-    stations: (json.data?.stations || []) as any[],
-  };
+  // Support both shapes:
+  // A) { ok: true, data: { data: [], stations: [], homeSlides: [] } }
+  // B) { homeSlides: [], sections: [], stations: [] }
+  const sections = (json?.data?.data ?? json?.data?.sections ?? json?.sections ?? []) as Section[];
+  const stations = (json?.data?.stations ?? json?.stations ?? []) as any[];
+  const homeSlides = (json?.data?.homeSlides ?? json?.homeSlides ?? []) as HeroSlide[];
+
+  return { sections, stations, homeSlides };
 }
 
 async function subscriptionsFetcher([url, token]: [string, string]) {
@@ -124,22 +139,31 @@ export default function HomePage() {
 
   // ---- CACHED: homepage ----
   const HOME_LS_KEY = "ceflix:homepage:v1";
-  const homeFallback = useMemo(() => readLS<{ sections: Section[]; stations: any[] }>(HOME_LS_KEY), []);
+  const homeFallback = useMemo(
+    () =>
+      readLS<{
+        sections: Section[];
+        stations: any[];
+        homeSlides: HeroSlide[];
+      }>(HOME_LS_KEY),
+    []
+  );
 
   const {
     data: homeData,
     error: homeErr,
     isLoading: homeLoading,
   } = useSWR("/api/homepage", homepageFetcher, {
-    fallbackData: homeFallback,        // instant render from localStorage cache
+    fallbackData: homeFallback,
     revalidateOnFocus: true,
-    dedupingInterval: 60_000,          // 1 min: avoid refetch spam
+    dedupingInterval: 60_000,
     keepPreviousData: true,
     onSuccess: (data) => writeLS(HOME_LS_KEY, data),
   });
 
   const homeSections = homeData?.sections ?? [];
   const stations = homeData?.stations ?? [];
+  const slides = homeData?.homeSlides ?? [];
   const homeError = homeErr ? "Unable to load videos right now." : null;
 
   // ---- CACHED: subscriptions (per user token) ----
@@ -184,7 +208,7 @@ export default function HomePage() {
   return (
     <main className="bg-neutral-950 text-white min-h-screen mb-[10rem]">
       <div className="overflow-hidden">
-        <HeroSlider slides={SLIDES} autoAdvanceMs={8000} />
+        <HeroSlider slides={slides} autoAdvanceMs={8000} />
       </div>
 
       <section className="mt-6">
