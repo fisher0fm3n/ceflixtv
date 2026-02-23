@@ -13,12 +13,13 @@ export type NavItem = {
   href: string;
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  dividerAfter?: boolean;
 };
 
 export const mainNavItems: NavItem[] = [
   { href: "/", label: "Home", icon: HomeIcon },
   { href: "/stations", label: "Live Stations", icon: SignalIcon },
-  { href: "/ceclips", label: "CeClips", icon: SparklesIcon },
+  { href: "/ceclips", label: "CeClips", icon: SparklesIcon, dividerAfter: true},
   { href: "/history", label: "History", icon: ClockIcon },
   { href: "/channels", label: "Channels", icon: TvIcon },
   { href: "/likes", label: "Liked Videos", icon: HandThumbUpIcon },

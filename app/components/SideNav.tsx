@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "./AuthProvider";
 import { mainNavItems } from "./navconfig";
 import { DevicePhoneMobileIcon } from "@heroicons/react/24/outline";
+import { Fragment } from "react/jsx-runtime";
 
 type SideNavProps = {
   collapsed?: boolean;
@@ -61,23 +62,27 @@ export default function SideNav({
                     : pathname.startsWith(item.href);
 
                 const Icon = item.icon;
+
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cx(
-                      "mx-3 mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition",
-                      active
-                        ? "bg-neutral-800 text-white font-semibold"
-                        : "text-neutral-200 hover:bg-neutral-800/60",
+                  <Fragment key={item.href}>
+                    <Link
+                      href={item.href}
+                      className={cx(
+                        "mx-3 mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition",
+                        active
+                          ? "bg-neutral-800 text-white font-semibold"
+                          : "text-neutral-200 hover:bg-neutral-800/60",
+                      )}
+                      onClick={() => onClose?.()}
+                    >
+                      <Icon className="h-6 w-6 shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </Link>
+
+                    {item.dividerAfter && (
+                      <div className="mx-4 my-3 h-px bg-white/10" />
                     )}
-                    onClick={() => {
-                      if (onClose) onClose();
-                    }}
-                  >
-                    <Icon className="h-6 w-6 shrink-0" />
-                    <span className="truncate">{item.label}</span>
-                  </Link>
+                  </Fragment>
                 );
               })}
               <a
@@ -115,25 +120,31 @@ export default function SideNav({
               : pathname.startsWith(item.href);
 
           const Icon = item.icon;
+
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cx(
-                "mx-2 mb-1 flex items-center rounded-lg px-3 py-2 text-sm transition",
-                effectiveCollapsed ? "justify-center" : "gap-3",
-                active
-                  ? "bg-neutral-800 text-white font-semibold"
-                  : "text-neutral-200 hover:bg-neutral-800/60",
-              )}
-            >
-              <Icon className="h-6 w-6 shrink-0" />
-              <span
-                className={effectiveCollapsed ? "sr-only" : "truncate ml-3"}
+            <Fragment key={item.href}>
+              <Link
+                href={item.href}
+                className={cx(
+                  "mx-2 mb-1 flex items-center rounded-lg px-3 py-2 text-sm transition",
+                  effectiveCollapsed ? "justify-center" : "gap-3",
+                  active
+                    ? "bg-neutral-800 text-white font-semibold"
+                    : "text-neutral-200 hover:bg-neutral-800/60",
+                )}
               >
-                {item.label}
-              </span>
-            </Link>
+                <Icon className="h-6 w-6 shrink-0" />
+                <span
+                  className={effectiveCollapsed ? "sr-only" : "truncate ml-3"}
+                >
+                  {item.label}
+                </span>
+              </Link>
+
+              {item.dividerAfter && !effectiveCollapsed && (
+                <div className="mx-3 my-3 h-px bg-white/10" />
+              )}
+            </Fragment>
           );
         })}
         <a

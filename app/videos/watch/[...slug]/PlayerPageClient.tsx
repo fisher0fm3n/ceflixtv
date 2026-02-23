@@ -26,6 +26,9 @@ import VideoJsPlayer from "@/app/components/VideoJsPlayer";
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
 
+// ✅ Support endpoint
+const SUPPORT_ENDPOINT = "https://webapi.ceflix.org/api/user/channel/support";
+
 type Language = {
   id: string;
   slug: string;
@@ -203,6 +206,7 @@ export default function PlayerPage() {
   const [likesCount, setLikesCount] = useState(0);
   const [subscribed, setSubscribed] = useState(false);
   const [subscribers, setSubscribers] = useState(0);
+  const [support, setSupport] = useState(false);
 
   const [autoplay, setAutoplay] = useState(false);
   const [theatre, setTheatre] = useState(false);
@@ -238,8 +242,29 @@ export default function PlayerPage() {
 
   // auth prompt
   const [authPrompt, setAuthPrompt] = useState<
-    null | "like" | "subscribe" | "comment" | "report"
+    null | "like" | "subscribe" | "comment" | "report" | "support"
   >(null);
+
+  // ✅ SUPPORT MODAL STATE
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [supportKcUsername, setSupportKcUsername] = useState("");
+  const [supportPin, setSupportPin] = useState("");
+  const [supportAmount, setSupportAmount] = useState<string>("0");
+  const [supportMessage, setSupportMessage] = useState<string>("");
+  const [supportSubmitting, setSupportSubmitting] = useState(false);
+  const [supportFeedback, setSupportFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [supportResult, setSupportResult] = useState<null | {
+    payin_reference: string;
+    payout?: {
+      payout_amount: number;
+      client_reference: string;
+      payout_reference: string;
+      wallet_address: string;
+    } | null;
+  }>(null);
 
   const isLive = useMemo(() => !!videoUrl && videoUrl.endsWith(".m3u8"), [videoUrl]);
 
@@ -390,13 +415,117 @@ export default function PlayerPage() {
   };
 
   const requireAuth = (
-    action: "like" | "subscribe" | "comment" | "report",
+    action: "like" | "subscribe" | "comment" | "report" | "support",
   ): boolean => {
     if (!user || !token) {
       setAuthPrompt(action);
       return false;
     }
     return true;
+  };
+
+  // ✅ Open Support Modal (prefill kc_username with channel name)
+  const openSupportModal = () => {
+    if (!requireAuth("support")) return;
+    if (!video) return;
+
+    setSupportFeedback(null);
+    setSupportResult(null);
+
+    // prefill kc username as channel (can be edited)
+    setSupportKcUsername("");
+    setSupportPin("");
+    setSupportAmount("0");
+    setSupportMessage("");
+    setSupportOpen(true);
+  };
+
+  const submitSupport = async () => {
+    if (!video) return;
+    if (!token) return;
+
+    setSupportFeedback(null);
+    setSupportResult(null);
+
+    const amt = parseFloat(supportAmount);
+    if (!supportKcUsername.trim()) {
+      setSupportFeedback({ type: "error", message: "Espees username is required." });
+      return;
+    }
+    if (!supportPin.trim()) {
+      setSupportFeedback({ type: "error", message: "PIN is required." });
+      return;
+    }
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setSupportFeedback({ type: "error", message: "Enter a valid amount greater than 0." });
+      return;
+    }
+
+    // user_name payload (your backend expects it per your example)
+    const userName =
+      user?.email ? `kc:${user.email}` : user?.username ? `kc:${user.username}` : "kc:unknown";
+
+    const payload = {
+      id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : undefined,
+      token,
+      channel_id: Number(video.channel_id),
+      channel_name: video.channel,
+      user_name: userName,
+      user_message: supportMessage,
+      kc_username: supportKcUsername.trim(),
+      pin: supportPin.trim(),
+      amount: amt,
+    };
+
+    setSupportSubmitting(true);
+    try {
+      const res = await fetch(SUPPORT_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Application-Key": APP_KEY, // ✅ keep consistent with the rest of your API calls
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        // HTTP error (e.g., 500, 422)
+        const msg =
+          data?.message ||
+          (typeof data === "string" ? data : null) ||
+          `Request failed (${res.status})`;
+        setSupportFeedback({ type: "error", message: msg });
+        return;
+      }
+
+      if (!data?.status) {
+        setSupportFeedback({
+          type: "error",
+          message: data?.message || "Unable to process support payment. Please try again.",
+        });
+        return;
+      }
+
+      setSupportFeedback({ type: "success", message: data?.message || "Payment recorded." });
+      setSupportResult({
+        payin_reference: data?.data?.payin_reference,
+        payout: data?.data?.payout ?? null,
+      });
+
+      // clear pin after success
+      setSupportPin("");
+    } catch (e) {
+      console.error("Support payment error:", e);
+      setSupportFeedback({
+        type: "error",
+        message: "Network error. Please check your connection and try again.",
+      });
+    } finally {
+      setSupportSubmitting(false);
+    }
   };
 
   const saveVideoHistory = async (currentTimeMillis: number, durationMillis: number) => {
@@ -582,6 +711,7 @@ export default function PlayerPage() {
 
         setLikesCount(parseInt(v.likes ?? "0", 10) || 0);
         setLiked(!!videoJson.data.liked);
+        setSupport(!!videoJson.data.support);
         setSubscribed(!!videoJson.data.isSubscribed);
         setSubscribers(videoJson.data.subscribers);
 
@@ -881,10 +1011,154 @@ export default function PlayerPage() {
   } else if (authPrompt === "report") {
     authPromptTitle = "Report this video?";
     authPromptSubtitle = "Sign in to report inappropriate content.";
+  } else if (authPrompt === "support") {
+    authPromptTitle = "Support this channel?";
+    authPromptSubtitle = "Sign in to send support.";
   }
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white pt-4 pb-10">
+      {/* ✅ SUPPORT MODAL */}
+      {supportOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="mx-4 w-full max-w-md rounded-2xl bg-neutral-900/95 border border-white/10 px-5 py-4 shadow-xl">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <GiftIcon className="w-5 h-5" />
+                Gift {video.channel}
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  if (supportSubmitting) return;
+                  setSupportOpen(false);
+                  setSupportFeedback(null);
+                  setSupportResult(null);
+                }}
+                className="cursor-pointer text-sm text-neutral-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-neutral-300 mb-3">
+              Enter your Espees details and amount to support this channel.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-neutral-300 mb-1">Espees Username</label>
+                <input
+                  value={supportKcUsername}
+                  onChange={(e) => setSupportKcUsername(e.target.value)}
+                  placeholder=""
+                  className="w-full rounded-md bg-neutral-800 border border-neutral-700 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60"
+                  disabled={supportSubmitting}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-neutral-300 mb-1">PIN</label>
+                <input
+                  type="password"
+                  value={supportPin}
+                  onChange={(e) => setSupportPin(e.target.value)}
+                  placeholder="****"
+                  className="w-full rounded-md bg-neutral-800 border border-neutral-700 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60"
+                  disabled={supportSubmitting}
+                  autoComplete="off"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-neutral-300 mb-1">Amount</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.00000001"
+                  min="0"
+                  value={supportAmount}
+                  onChange={(e) => setSupportAmount(e.target.value)}
+                  className="w-full rounded-md bg-neutral-800 border border-neutral-700 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60"
+                  disabled={supportSubmitting}
+                />
+                <p className="mt-1 text-[11px] text-neutral-400">Amount is in Espees.</p>
+              </div>
+
+              {/* Optional message (kept, since backend supports it) */}
+              <div>
+                <label className="block text-xs text-neutral-300 mb-1">Message (optional)</label>
+                <textarea
+                  value={supportMessage}
+                  onChange={(e) => setSupportMessage(e.target.value)}
+                  rows={2}
+                  placeholder="Love your content, keep it up!"
+                  className="w-full rounded-md bg-neutral-800 border border-neutral-700 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60"
+                  disabled={supportSubmitting}
+                />
+              </div>
+
+              {supportFeedback && (
+                <p className={`text-xs ${supportFeedback.type === "success" ? "text-green-400" : "text-red-400"}`}>
+                  {supportFeedback.message}
+                </p>
+              )}
+
+              {supportSubmitting && (
+                <div className="flex items-center gap-2 text-xs text-neutral-300">
+                  <div className="h-3 w-3 rounded-full border border-neutral-400 border-t-transparent animate-spin" />
+                  <span>Processing payment…</span>
+                </div>
+              )}
+
+              {supportResult?.payin_reference && (
+                <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs">
+                  <p className="text-neutral-300">
+                    Reference:{" "}
+                    <span className="text-white font-semibold">{supportResult.payin_reference}</span>
+                  </p>
+                  {/* {supportResult.payout && (
+                    <p className="text-neutral-400 mt-1">
+                      Payout:{" "}
+                      <span className="text-white font-semibold">{supportResult.payout.payout_amount}</span>{" "}
+                      → {supportResult.payout.wallet_address}
+                    </p>
+                  )} */}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (supportSubmitting) return;
+                  setSupportOpen(false);
+                  setSupportFeedback(null);
+                  setSupportResult(null);
+                }}
+                className="cursor-pointer rounded-full border border-neutral-600 px-4 py-1.5 text-xs font-semibold text-neutral-200 hover:bg-neutral-800 disabled:opacity-60"
+                disabled={supportSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitSupport}
+                disabled={supportSubmitting}
+                className={`cursor-pointer rounded-full px-4 py-1.5 text-xs font-semibold ${
+                  supportSubmitting
+                    ? "bg-white text-black opacity-70 cursor-not-allowed"
+                    : "bg-white text-black hover:bg-white/80"
+                }`}
+              >
+                {supportSubmitting ? "Processing..." : "Support"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         className={`mx-auto px-4 lg:px-6 grid gap-3 ${
           theatre ? "max-w-[1400px] grid-cols-1" : "max-w-[110rem] grid-cols-1 lg:grid-cols-[8.6fr_3.4fr]"
@@ -901,7 +1175,6 @@ export default function PlayerPage() {
                 : undefined
             }
           >
-            {/* Aspect wrapper: always reserve height on mobile */}
             <div className={theatre && !isMobile ? "h-full relative" : "relative aspect-video"}>
               <VideoJsPlayer
                 src={videoUrl}
@@ -916,51 +1189,6 @@ export default function PlayerPage() {
                 className="absolute inset-0"
               />
             </div>
-
-            {/* AUTOPLAY PREVIEW OVERLAY */}
-            {showAutoplayPreview && autoplay && nextUpVideo && (
-              <div className="pointer-events-none absolute inset-0 flex items-end justify-center pb-8 mb-8">
-                <div className="pointer-events-auto flex w-full max-w-xl items-center gap-4 rounded-2xl bg-black/80 border border-white/10 px-4 py-3 shadow-2xl">
-                  <div className="relative h-20 w-36 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-900">
-                    <Image
-                      src={withCloudinaryPrefix2(nextUpVideo.thumbnail)}
-                      alt={nextUpVideo.videos_title}
-                      fill
-                      unoptimized
-                      className="object-cover"
-                    />
-                    <span className="absolute bottom-1 right-1 rounded-sm bg-black/80 px-1.5 py-0.5 text-[11px] font-semibold">
-                      {durationFmt(nextUpVideo.duration)}
-                    </span>
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-neutral-400">
-                      Up next in <span className="font-semibold text-white">{autoplayCountdown}</span>
-                    </p>
-                    <p className="mt-1 text-sm font-semibold line-clamp-2">{nextUpVideo.videos_title}</p>
-                    <p className="mt-0.5 text-[11px] text-neutral-400 line-clamp-1">{nextUpVideo.channel}</p>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <button
-                      type="button"
-                      onClick={handleAutoplayCancel}
-                      className="cursor-pointer rounded-full bg-neutral-700/90 px-4 py-1.5 text-xs font-semibold text-neutral-100 hover:bg-neutral-600"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAutoplayPlayNow}
-                      className="cursor-pointer rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-red-500"
-                    >
-                      Play now
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* AUTH PROMPT OVERLAY */}
             {authPrompt && (
@@ -985,102 +1213,6 @@ export default function PlayerPage() {
                   >
                     Not now
                   </button>
-                </div>
-              </div>
-            )}
-
-            {/* REPORT MODAL */}
-            {reportOpen && (
-              <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70">
-                <div className="mx-4 w-full max-w-md rounded-2xl bg-neutral-900/95 border border-white/10 px-5 py-4 shadow-xl">
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                      <FlagIcon className="w-5 h-5" />
-                      Report video
-                    </h2>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReportOpen(false);
-                        setReportFeedback(null);
-                      }}
-                      className="cursor-pointer text-sm text-neutral-400 hover:text-white"
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  <p className="text-xs text-neutral-300 mb-3">
-                    Select a reason and optionally add more details.
-                  </p>
-
-                  <div className="max-h-40 overflow-y-auto mb-3 space-y-2 text-sm">
-                    {reportOptions.map((option) => (
-                      <label key={option.id} className="flex items-center gap-2 cursor-pointer text-md">
-                        <input
-                          type="radio"
-                          name="report-flag"
-                          value={option.id}
-                          checked={selectedReport === option.id}
-                          onChange={() => setSelectedReport(option.id)}
-                          className="h-3 w-3 text-md cursor-pointer"
-                          disabled={reportSubmitting}
-                        />
-                        <span className="text-md">{option.title}</span>
-                      </label>
-                    ))}
-                    {reportOptions.length === 0 && (
-                      <p className="text-xs text-neutral-500">No report options available.</p>
-                    )}
-                  </div>
-
-                  <textarea
-                    value={reportMessage}
-                    onChange={(e) => setReportMessage(e.target.value)}
-                    placeholder="Additional details (optional)…"
-                    className="w-full rounded-md bg-neutral-800 border border-neutral-700 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-500 mb-3 disabled:opacity-60"
-                    rows={3}
-                    disabled={reportSubmitting}
-                  />
-
-                  {reportFeedback && (
-                    <p className={`mb-2 text-xs ${reportFeedback.type === "success" ? "text-green-400" : "text-red-400"}`}>
-                      {reportFeedback.message}
-                    </p>
-                  )}
-
-                  {reportSubmitting && (
-                    <div className="flex items-center gap-2 mb-3 text-xs text-neutral-300">
-                      <div className="h-3 w-3 rounded-full border border-neutral-400 border-t-transparent animate-spin" />
-                      <span>Submitting report…</span>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReportOpen(false);
-                        setReportFeedback(null);
-                      }}
-                      className="cursor-pointer rounded-full border border-neutral-600 px-4 py-1.5 text-xs font-semibold text-neutral-200 hover:bg-neutral-800"
-                      disabled={reportSubmitting}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleReportSubmit}
-                      disabled={reportSubmitting}
-                      className={`cursor-pointer rounded-full px-4 py-1.5 text-xs font-semibold ${
-                        reportSubmitting
-                          ? "bg-white text-black opacity-70 cursor-not-allowed"
-                          : "bg-white text-black hover:bg-white/80"
-                      }`}
-                    >
-                      {reportSubmitting ? "Submitting..." : "Submit report"}
-                    </button>
-                  </div>
                 </div>
               </div>
             )}
@@ -1163,7 +1295,7 @@ export default function PlayerPage() {
                     id={video.id}
                   />
 
-                  {/* Ellipsis menu (Support/Report/Theatre/Autoplay) */}
+                  {/* Ellipsis menu */}
                   <div ref={moreWrapRef} className="relative">
                     <button
                       ref={moreBtnRef}
@@ -1183,7 +1315,7 @@ export default function PlayerPage() {
                         ref={moreMenuRef}
                         role="menu"
                         className={[
-                          "absolute right-0 z-40 w-64 max-w-[90vw] max-h-[70vh] overflow-auto",
+                          "absolute right-[-6rem] sm:right-0 z-40 w-64 max-w-[90vw] max-h-[70vh] overflow-auto",
                           "rounded-2xl border border-white/10 bg-neutral-900/95 shadow-2xl backdrop-blur",
                           "transition-all duration-150 ease-out",
                           moreMenuPlacement === "top"
@@ -1191,19 +1323,21 @@ export default function PlayerPage() {
                             : "top-full mt-2 origin-top",
                         ].join(" ")}
                       >
-                        {/* Support */}
+                        {/* ✅ Support */}
+                        {support && (
                         <button
                           role="menuitem"
                           type="button"
                           onClick={() => {
                             setMoreMenuOpen(false);
-                            // TODO: open support modal
+                            openSupportModal();
                           }}
                           className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left text-sm hover:bg-white/5 active:bg-white/10"
                         >
                           <GiftIcon className="h-5 w-5 text-neutral-200" />
-                          <span className="font-medium">Support</span>
+                          <span className="font-medium">Gift Creator</span>
                         </button>
+                        )}
 
                         {/* Report */}
                         <button

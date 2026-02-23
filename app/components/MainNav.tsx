@@ -337,16 +337,16 @@ export default function MainNav({
                       </div>
 
                       <MobileRow
-                        href="/profile"
+                        href="/studio"
                         onClick={() => setMobileOpen(false)}
                       >
-                        Profile
-                      </MobileRow>
+                        Ceflix Studio
+                      </MobileRow> 
                       <MobileRow
-                        href="/my-list"
+                        href="/settings"
                         onClick={() => setMobileOpen(false)}
                       >
-                        My List
+                        Settings
                       </MobileRow>
 
                       <button
