@@ -87,7 +87,7 @@ export default function ShareModal({
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    className="rounded-full p-1 hover:bg-neutral-700"
+                    className="cursor-pointer rounded-full p-1 hover:bg-neutral-700"
                   >
                     <XMarkIcon className="h-6 w-6" aria-hidden="true" />
                   </button>
@@ -106,10 +106,11 @@ export default function ShareModal({
                       >
                         <div className="w-[60px] h-[60px] rounded-full bg-white p-2 flex items-center justify-center">
                           {/* replace src with your actual kingschat logo path */}
-                          <img
+                          <Image
                             src={kc_logo}
                             alt="Kingschat"
                             className="w-full h-full object-contain"
+                            unoptimized
                           />
                         </div>
                         <span className="mt-1 text-xs">Kingschat</span>

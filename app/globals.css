@@ -141,4 +141,211 @@ html, body {
   background: #c81e1e;
 }
 
+/* app/globals.css (add these overrides) */
+
+/* Constrain video.js to its parent (fixes .vjs_video_###-dimensions overflow) */
+.vjs-ceflix,
+.vjs-ceflix .vjs-tech,
+.vjs-ceflix .vjs-poster,
+.vjs-ceflix .vjs-text-track-display {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.vjs-ceflix[class*="-dimensions"] {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.vjs-ceflix {
+  overflow: hidden;
+}
+
+/* Optional: nicer dark control bar */
+.vjs-ceflix .vjs-control-bar {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.3));
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.vjs-ceflix .vjs-big-play-button {
+  border: 0;
+  border-radius: 999px;
+  width: 84px;
+  height: 84px;
+  line-height: 84px;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* ================================
+   Ceflix Video.js "YouTube-like" skin
+   Scope: .ceflix-player .vjs-ceflix
+   ================================ */
+
+.ceflix-player {
+  /* makes the player feel like a “card” */
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.55);
+}
+
+/* Fill parent always */
+.ceflix-player .video-js,
+.ceflix-player .vjs-tech,
+.ceflix-player .vjs-poster,
+.ceflix-player .vjs-text-track-display {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Neutralize generated -dimensions sizing fights */
+.ceflix-player .video-js[class*="-dimensions"] {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Round + clip everything inside */
+.ceflix-player .video-js {
+  overflow: hidden;
+  border-radius: inherit; /* uses rounded-2xl from wrapper */
+  background: #000;
+}
+
+/* Control bar: overlay with gradient like YouTube */
+.ceflix-player .vjs-control-bar {
+  height: 44px;
+  padding: 0 10px 8px 10px;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.75),
+    rgba(0, 0, 0, 0.35),
+    rgba(0, 0, 0, 0)
+  );
+  border-top: 0;
+  opacity: 1 !important;
+}
+
+/* Hide control bar until hover (desktop) */
+@media (hover: hover) and (pointer: fine) {
+  .ceflix-player .vjs-control-bar {
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 200ms ease, transform 200ms ease;
+  }
+
+  .ceflix-player .video-js:hover .vjs-control-bar,
+  .ceflix-player .video-js.vjs-user-active .vjs-control-bar {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Make the play button modern */
+.ceflix-player .vjs-big-play-button {
+  width: 86px;
+  height: 86px;
+  line-height: 86px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.ceflix-player .vjs-big-play-button:hover {
+  transform: scale(1.05);
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* Progress bar like YouTube: thin, grows on hover */
+.ceflix-player .vjs-progress-control {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 44px; /* sits above control bar */
+  height: 18px;
+  padding: 0 10px;
+}
+
+.ceflix-player .vjs-progress-holder {
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  transition: height 150ms ease;
+}
+
+.ceflix-player .vjs-play-progress {
+  border-radius: 999px;
+  background: #ef4444; /* Tailwind red-500-ish */
+}
+
+.ceflix-player .vjs-load-progress div {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ceflix-player .video-js:hover .vjs-progress-holder {
+    height: 5px;
+  }
+}
+
+/* Scrubber knob */
+.ceflix-player .vjs-play-progress:before {
+  top: -5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #ef4444;
+}
+
+/* Time text cleaner */
+.ceflix-player .vjs-time-control {
+  font-size: 12px;
+  line-height: 44px;
+  padding: 0 8px;
+  opacity: 0.95;
+}
+
+/* Buttons: consistent sizing */
+.ceflix-player .vjs-button > .vjs-icon-placeholder:before {
+  font-size: 18px;
+  line-height: 44px;
+}
+
+/* Volume panel: reduce bulk */
+.ceflix-player .vjs-volume-panel .vjs-volume-control {
+  width: 80px;
+}
+
+/* Settings menus: dark, rounded */
+.ceflix-player .vjs-menu-button-popup .vjs-menu {
+  background: rgba(18, 18, 18, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Mobile: always show controls, slightly taller for touch */
+@media (max-width: 768px) {
+  .ceflix-player .vjs-control-bar {
+    height: 52px;
+    padding-bottom: 10px;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .ceflix-player .vjs-progress-control {
+    bottom: 52px;
+  }
+
+  .ceflix-player .vjs-button > .vjs-icon-placeholder:before {
+    font-size: 20px;
+    line-height: 52px;
+  }
+
+  .ceflix-player .vjs-time-control {
+    line-height: 52px;
+    font-size: 12px;
+  }
+}
 /* Position Splide arrows on the right side, vertically centered */

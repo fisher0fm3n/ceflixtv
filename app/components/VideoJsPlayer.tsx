@@ -1,190 +1,135 @@
+// app/components/VideoJsPlayer.tsx
 "use client";
 
-import React, { useEffect, useMemo, useRef } from "react";
-import videojs, { type VideoJsPlayer as VjsPlayer, type VideoJsPlayerOptions } from "video.js";
-
-// Base Video.js CSS (required)
-import "video.js/dist/video-js.css";
-
-// Optional theme (nice out of the box)
-// Other options: city / fantasy / forest / sea
-import "@videojs/themes/dist/forest/index.css";
+import { useEffect, useRef } from "react";
+import videojs from "video.js";
 
 type Props = {
-  src: string;
+  src: string | null;
   poster?: string;
-  isMobile?: boolean; // pass your isMobile state
   autoplay?: boolean;
   muted?: boolean;
-  onReady?: (player: VjsPlayer) => void;
-  onTimeUpdate?: (currentTime: number, duration: number) => void;
+  playsInline?: boolean;
+  startTime?: number | null;
+  onProgress?: (currentTime: number, duration: number) => void;
+  onLoadedMetadata?: (duration: number) => void;
   onEnded?: () => void;
+  loading?: boolean;
+  className?: string;
 };
-
-function guessType(url: string) {
-  const u = url.toLowerCase();
-  if (u.includes(".m3u8")) return "application/x-mpegURL";
-  if (u.includes(".mpd")) return "application/dash+xml";
-  if (u.includes(".webm")) return "video/webm";
-  return "video/mp4";
-}
 
 export default function VideoJsPlayer({
   src,
   poster,
-  isMobile = false,
   autoplay = true,
   muted = true,
-  onReady,
-  onTimeUpdate,
+  playsInline = true,
+  startTime,
+  onProgress,
+  onLoadedMetadata,
   onEnded,
+  loading = false,
+  className = "",
 }: Props) {
-  const videoElRef = useRef<HTMLVideoElement | null>(null);
-  const playerRef = useRef<VjsPlayer | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const playerRef = useRef<any>(null);
+  const didSeekRef = useRef(false);
 
-  const options: VideoJsPlayerOptions = useMemo(() => {
-    // Controls can be configured via children options :contentReference[oaicite:4]{index=4}
-    // We'll keep the bar tight on mobile by disabling the inline volume panel there.
-    return {
+  // Create the player once (when src becomes available)
+  useEffect(() => {
+    if (!containerRef.current) return;
+    if (playerRef.current) return;
+    if (!src) return;
+
+    // Create <video> and let video.js own it (React-safe)
+    const videoEl = document.createElement("video");
+    videoEl.className = "video-js vjs-big-play-centered vjs-ceflix";
+    videoEl.setAttribute("playsinline", String(playsInline));
+    videoEl.style.width = "100%";
+    videoEl.style.height = "100%";
+
+    containerRef.current.appendChild(videoEl);
+
+    const type = src.endsWith(".m3u8")
+      ? "application/x-mpegURL"
+      : "video/mp4";
+
+    const player = (playerRef.current = videojs(videoEl, {
       autoplay,
-      muted,
       controls: true,
       preload: "auto",
-      fluid: true, // responsive sizing
+      playsinline: playsInline,
+
+      // IMPORTANT: Let your Tailwind layout control sizing
+      fluid: false,
+      responsive: false,
+
+      sources: [{ src, type }],
       poster,
+    }));
 
-      // Mobile friendly:
-      playsinline: true,
+    player.on("timeupdate", () => {
+      onProgress?.(player.currentTime() || 0, player.duration() || 0);
+    });
 
-      controlBar: {
-        // Keep it clean
-        pictureInPictureToggle: false,
+    player.on("loadedmetadata", () => {
+      const dur = player.duration() || 0;
+      onLoadedMetadata?.(dur);
 
-        // This is the main “volume takes too much space” fix:
-        // On mobile, hide the volume panel entirely (keep mute)
-        volumePanel: isMobile
-          ? false
-          : { inline: true },
-
-        // Always keep mute available
-        muteToggle: true,
-      },
-
-      sources: [{ src, type: guessType(src) }],
-    };
-  }, [autoplay, muted, poster, src, isMobile]);
-
-  useEffect(() => {
-    if (!videoElRef.current) return;
-
-    // Init once
-    if (!playerRef.current) {
-      const player = (playerRef.current = videojs(videoElRef.current, options, () => {
-        onReady?.(player);
-      }));
-
-      // Wiring events
-      if (onEnded) player.on("ended", onEnded);
-
-      if (onTimeUpdate) {
-        const handler = () => {
-          const t = player.currentTime() || 0;
-          const d = player.duration() || 0;
-          onTimeUpdate(t, d);
-        };
-        player.on("timeupdate", handler);
+      // Seek once per source-load
+      if (!didSeekRef.current && startTime && startTime > 0) {
+        didSeekRef.current = true;
+        try {
+          player.currentTime(startTime);
+        } catch {}
       }
+    });
 
-      return;
-    }
+    player.on("ended", () => onEnded?.());
 
-    // Update source without destroying the player (better UX)
+    return () => {};
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src]);
+
+  // Update src when it changes (after player exists)
+  useEffect(() => {
     const player = playerRef.current;
+    if (!player) return;
+    if (!src) return;
 
-    // Update poster
-    if (poster) player.poster(poster);
+    didSeekRef.current = false;
 
-    // Update source
-    player.src({ src, type: guessType(src) });
+    const type = src.endsWith(".m3u8")
+      ? "application/x-mpegURL"
+      : "video/mp4";
 
-    // Try to play (may be blocked on mobile if not muted/user gesture)
-    if (autoplay) {
-      player.play().catch(() => {});
-    }
-  }, [options, src, poster, autoplay, onReady, onEnded, onTimeUpdate]);
+    player.poster(poster || "");
+    player.src({ src, type });
 
+    if (autoplay) player.play().catch(() => {});
+  }, [src, poster, autoplay]);
+
+  // Dispose on unmount
   useEffect(() => {
     return () => {
-      if (playerRef.current) {
-        playerRef.current.dispose();
+      const player = playerRef.current;
+      if (player) {
+        player.dispose();
         playerRef.current = null;
+      }
+      if (containerRef.current) {
+        containerRef.current.innerHTML = "";
       }
     };
   }, []);
 
   return (
-    <>
-      <div className="vjs-wrap">
-        <video
-          ref={videoElRef}
-          className="video-js vjs-theme-forest vjs-big-play-centered"
-        />
-      </div>
+    <div className={`relative w-full h-full overflow-hidden ${className}`}>
+      <div ref={containerRef} className="absolute inset-0" />
 
-      {/* Nice styling overrides (works with any theme) */}
-      <style jsx global>{`
-        /* Keep the control bar compact and touch-friendly */
-        .vjs-wrap .video-js .vjs-control-bar {
-          background: linear-gradient(to top, rgba(0,0,0,.75), rgba(0,0,0,.15));
-        }
-
-        .vjs-wrap .video-js .vjs-button > .vjs-icon-placeholder:before {
-          font-size: 1.2rem;
-          line-height: 2.2rem;
-        }
-
-        /* Make timeline easier to grab */
-        .vjs-wrap .video-js .vjs-progress-control {
-          min-width: 10rem;
-        }
-
-        .vjs-wrap .video-js .vjs-progress-holder {
-          height: 0.45rem;
-        }
-
-        .vjs-wrap .video-js .vjs-play-progress,
-        .vjs-wrap .video-js .vjs-load-progress {
-          height: 0.45rem;
-        }
-
-        /* Mobile: tighten everything + keep it from wrapping */
-        @media (max-width: 768px) {
-          .vjs-wrap .video-js .vjs-control-bar {
-            height: 2.5rem;
-            padding: 0 0.4rem;
-          }
-
-          .vjs-wrap .video-js .vjs-control {
-            width: 2.2rem;
-          }
-
-          .vjs-wrap .video-js .vjs-current-time,
-          .vjs-wrap .video-js .vjs-time-divider,
-          .vjs-wrap .video-js .vjs-duration {
-            display: none;
-          }
-
-          /* Prevent controls from wrapping to a second line */
-          .vjs-wrap .video-js .vjs-control-bar {
-            flex-wrap: nowrap;
-          }
-        }
-
-        /* Rounded corners if your container has overflow hidden */
-        .vjs-wrap .video-js {
-          border-radius: 0.5rem;
-        }
-      `}</style>
-    </>
+      {loading && (
+        <div className="absolute inset-0 animate-pulse bg-neutral-800/80" />
+      )}
+    </div>
   );
 }

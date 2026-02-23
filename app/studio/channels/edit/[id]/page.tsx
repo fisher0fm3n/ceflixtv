@@ -203,7 +203,7 @@ export default function EditChannelPage() {
         },
         body: JSON.stringify({
           token,
-          walletaddress: cleaned,
+          wallet_address: cleaned,
         }),
       });
 

@@ -4,13 +4,11 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import {
-  ChevronRightIcon,
-  PencilIcon,
-} from "@heroicons/react/24/outline";
+import { ChevronRightIcon, PencilIcon } from "@heroicons/react/24/outline";
 import { useAuth } from "../../components/AuthProvider";
 import ChannelVideos from "./Videos";
 import RowSlider from "../../components/RowSliderChannel";
+import Image from "next/image";
 
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
@@ -22,7 +20,11 @@ const CLOUDINARY_PREFIX =
 // Otherwise, prefix it with the Cloudinary fetch URL.
 function withCloudinaryPrefix(src: string | null): string {
   if (!src) return "";
-  if (src.toLowerCase().includes("cloudinary") || src.toLowerCase().includes("cloudfront")) return src;
+  if (
+    src.toLowerCase().includes("cloudinary") ||
+    src.toLowerCase().includes("cloudfront")
+  )
+    return src;
   return `${CLOUDINARY_PREFIX}${encodeURIComponent(src)}`;
 }
 
@@ -231,7 +233,7 @@ export default function ChannelPageClient({ channelId }: ClientProps) {
 
         const videos: ChannelVideo[] = payload.videos || [];
         const sorted = [...videos].sort(
-          (a, b) => (b.uploadtime ?? 0) - (a.uploadtime ?? 0)
+          (a, b) => (b.uploadtime ?? 0) - (a.uploadtime ?? 0),
         );
         const first = sorted[0] ?? null;
         setHighlight(first);
@@ -277,7 +279,7 @@ export default function ChannelPageClient({ channelId }: ClientProps) {
     image: withCloudinaryPrefix(video.thumbnail),
     subtitle: truncate(video.description, 80),
     meta: `${abbreviateViews(video.numOfViews)} Views • ${timeSince(
-      video.uploadtime
+      video.uploadtime,
     )}`,
     tags: [duration(video.duration)],
   }));
@@ -319,8 +321,10 @@ export default function ChannelPageClient({ channelId }: ClientProps) {
             alt="cover"
             className="w-full relative bg-white object-cover object-center h-full"
             src={withCloudinaryPrefix(
-              data.channel.cover || "/images/channel/background.jpg"
+              data.channel.cover || "/images/channel/background.jpg",
             )}
+            unoptimized
+            fill
           />
         </div>
 
@@ -331,8 +335,12 @@ export default function ChannelPageClient({ channelId }: ClientProps) {
               <Image
                 className="rounded-full aspect-square object-cover max-w-[6rem] max-h-[6rem] w-full h-full lg:max-w-[10rem] lg:max-h-[10rem]"
                 src={withCloudinaryPrefix(
-                  data.channel.url || "/images/channel/background.jpg"
+                  data.channel.url || "/images/channel/background.jpg",
                 )}
+                alt="Channel avatar"
+                width={160}
+                height={160}
+                unoptimized
               />
               <div className="pb-8 lg:pb-0 text-left gap-8">
                 <p className="text-2xl lg:text-3xl font-extrabold">
@@ -425,28 +433,39 @@ export default function ChannelPageClient({ channelId }: ClientProps) {
                   <div className="flex flex-col lg:flex-row pt-4 my-8 md:gap-x-4">
                     <div className="relative thumbnail">
                       <div className="relative w-full min-w-[24rem] lg:max-w-[24rem]">
-                        {/* Placeholder block while image loads */}
-                        {!highlightImageLoaded && (
-                          <div className="w-full aspect-video rounded-md bg-neutral-800 animate-pulse" />
-                        )}
+                        <div className="relative w-full aspect-video overflow-hidden rounded-md bg-black">
+                          {/* Skeleton overlay */}
+                          {!highlightImageLoaded && (
+                            <div className="absolute inset-0 bg-neutral-800 animate-pulse z-10" />
+                          )}
 
-                        <Link
-                          href={`/videos/watch/${
-                            highlight.id
-                          }/${highlight.videos_title
-                            .replace(/[\s+-]/g, "-")
-                            .toLowerCase()}`}
-                        >
-                          <Image
-                            alt="cover"
-                            className={`rounded-md w-full aspect-video object-contain bg-black ${
-                              highlightImageLoaded ? "block" : "hidden"
-                            }`}
-                            src={withCloudinaryPrefix(highlight.thumbnail)}
-                            onLoad={() => setHighlightImageLoaded(true)}
-                            onError={() => setHighlightImageLoaded(true)}
-                          />
-                        </Link>
+                          <Link
+                            href={`/videos/watch/${highlight.id}/${highlight.videos_title
+                              .replace(/[\s+-]/g, "-")
+                              .toLowerCase()}`}
+                            className="block absolute inset-0"
+                          >
+                            <Image
+                              alt={highlight.videos_title}
+                              src={withCloudinaryPrefix(highlight.thumbnail)}
+                              fill
+                              unoptimized
+                              // Use opacity instead of display:none to avoid deadlock
+                              className={`object-contain transition-opacity duration-300 ${
+                                highlightImageLoaded
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              }`}
+                              // Next/Image: this is more reliable than onLoad for your use-case
+                              onLoadingComplete={() =>
+                                setHighlightImageLoaded(true)
+                              }
+                              onError={() => setHighlightImageLoaded(true)}
+                              sizes="(max-width: 1024px) 100vw, 384px"
+                              priority
+                            />
+                          </Link>
+                        </div>
                       </div>
                     </div>
                     <div className="text-white max-w-[38rem]">
@@ -463,7 +482,7 @@ export default function ChannelPageClient({ channelId }: ClientProps) {
                       </Link>
                       <div className="mt-2 mb-4 flex flex-row gap-x-4 text-sm font-medium">
                         {`${abbreviateViews(
-                          highlight.numOfViews
+                          highlight.numOfViews,
                         )} Views • ${timeSince(highlight.uploadtime)}`}
                       </div>
                       <p className="text-md lime-clamp-3">
