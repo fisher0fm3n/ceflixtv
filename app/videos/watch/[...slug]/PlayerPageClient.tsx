@@ -781,7 +781,7 @@ export default function PlayerPage() {
 
         setLikesCount(parseInt(v.likes ?? "0", 10) || 0);
         setLiked(!!videoJson.data.liked);
-        setSupport(!!videoJson.data.support);
+        setSupport(!!videoJson.data.creator_support);
         setSubscribed(!!videoJson.data.isSubscribed);
         setSubscribers(videoJson.data.subscribers);
 
@@ -1439,17 +1439,19 @@ export default function PlayerPage() {
                     id={video.id}
                   />
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      openSupportModal();
-                    }}
-                    className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-xs md:text-sm font-semibold hover:bg-neutral-700 active:bg-neutral-600"
-                  >
-                    <GiftIcon className="w-4 h-4" />
-                    <span>Gift Creator</span>
-                  </button>
+                  {support && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoreMenuOpen(false);
+                        openSupportModal();
+                      }}
+                      className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-xs md:text-sm font-semibold hover:bg-neutral-700 active:bg-neutral-600"
+                    >
+                      <GiftIcon className="w-4 h-4" />
+                      <span>Gift Creator</span>
+                    </button>
+                  )}
 
                   {/* Ellipsis menu */}
                   <div ref={moreWrapRef} className="relative">

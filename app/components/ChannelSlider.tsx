@@ -100,7 +100,7 @@ export default function ChannelSlider({
                               alt={item.name}
                               fill
                               sizes="(max-width: 768px) 25vw, 10vw"
-                              className="object-cover"
+                              className="object-contain"
                               unoptimized
                             />
                           </div>
