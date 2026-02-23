@@ -66,6 +66,7 @@ export default function RowSlider({ title, items }: RowSliderProps) {
                       fill
                       sizes="(max-width: 768px) 90vw, 25vw"
                       className="w-full aspect-video object-contain bg-black block"
+                      unoptimized
                     />
 
                     {item.duration && (

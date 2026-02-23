@@ -335,7 +335,7 @@ function SearchPageContent() {
                   className="flex flex-col sm:flex-row gap-3 sm:gap-4 rounded-lg hover:bg-neutral-900/70 transition p-4 -mx-2"
                 >
                   <div className="relative w-full sm:w-90 aspect-video rounded-md overflow-hidden bg-neutral-900 flex-shrink-0">
-                    <img
+                    <Image
                       src={v.thumbnail}
                       alt={v.videos_title}
                       fill

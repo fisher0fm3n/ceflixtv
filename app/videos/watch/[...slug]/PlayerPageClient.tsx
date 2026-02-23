@@ -23,6 +23,7 @@ import { useAuth } from "../../../components/AuthProvider";
 import ShareModal from "../../../components/ShareModal";
 import VideoJsPlayer from "@/app/components/VideoJsPlayer";
 
+const DEFAULT_AVATAR = "https://ceflix.org/images/avatar.png";
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
 
@@ -233,6 +234,11 @@ export default function PlayerPage() {
   const durationRef = useRef(0);
   const durationUpdatedRef = useRef(false);
 
+  const INITIAL_COMMENTS = 6;
+  const COMMENTS_STEP = 10;
+
+  const [visibleComments, setVisibleComments] = useState(INITIAL_COMMENTS);
+
   // Report
   const [reportOptions, setReportOptions] = useState<ReportFlag[]>([]);
   const [selectedReport, setSelectedReport] = useState<number | null>(null);
@@ -283,6 +289,10 @@ export default function PlayerPage() {
   const moreWrapRef = useRef<HTMLDivElement | null>(null);
   const moreBtnRef = useRef<HTMLButtonElement | null>(null);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setVisibleComments(INITIAL_COMMENTS);
+  }, [currentVideoId]);
 
   // responsive breakpoint
   useEffect(() => {
@@ -792,6 +802,8 @@ export default function PlayerPage() {
         if (commentsJson.status) setComments(commentsJson.data || []);
         else setComments([]);
 
+        setVisibleComments(INITIAL_COMMENTS);
+
         // Count views
         if (user && token) {
           void fetch(API_BASE + "countvideoview", {
@@ -918,6 +930,7 @@ export default function PlayerPage() {
           com_time: Date.now() / 1000,
         };
         setComments((prev) => [newComment, ...prev]);
+        setVisibleComments((prev) => Math.max(prev, INITIAL_COMMENTS)); // keeps at least 6 visible
         setCommentText("");
       }
     } catch (err) {
@@ -1060,7 +1073,7 @@ export default function PlayerPage() {
 
           <aside className="col-span-8 lg:col-span-4 xl:col-span-3">
             <Skeleton className="h-5 w-40 mb-3" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-1 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-1 gap-2 px-4">
               {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
@@ -1111,7 +1124,7 @@ export default function PlayerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white pt-4 pb-10">
+    <div className="min-h-screen bg-neutral-950 text-white pb-10">
       {/* ✅ SUPPORT MODAL */}
       {supportOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
@@ -1268,7 +1281,7 @@ export default function PlayerPage() {
       )}
 
       <div
-        className={`mx-auto px-4 lg:px-6 grid gap-3 ${
+        className={`mx-auto lg:px-6 grid gap-3 ${
           theatre
             ? "max-w-[1400px] grid-cols-1"
             : "max-w-[110rem] grid-cols-1 lg:grid-cols-[8.6fr_3.4fr]"
@@ -1278,7 +1291,7 @@ export default function PlayerPage() {
         <div className="min-w-0">
           {/* Player container */}
           <div
-            className="relative w-full bg-black overflow-hidden mb-3 rounded-lg"
+            className="relative w-full bg-black overflow-hidden mb-3 lg:rounded-lg"
             style={
               theatre && !isMobile
                 ? {
@@ -1343,7 +1356,7 @@ export default function PlayerPage() {
           </div>
 
           {/* Main content */}
-          <div className="grid grid-cols-3 gap-8">
+          <div className="grid grid-cols-3 gap-8 px-4 lg:px-0">
             <div
               className={theatre ? "col-span-3 lg:col-span-2" : "col-span-3"}
             >
@@ -1461,7 +1474,7 @@ export default function PlayerPage() {
                       onClick={() => setMoreMenuOpen((v) => !v)}
                       aria-haspopup="menu"
                       aria-expanded={moreMenuOpen}
-                      className={`cursor-pointer inline-flex h-10 w-10 items-center justify-center rounded-full bg-neutral-800 hover:bg-neutral-700 active:bg-neutral-600 ${
+                      className={`cursor-pointer inline-flex h-8 w-8 items-center justify-center rounded-full bg-neutral-800 hover:bg-neutral-700 active:bg-neutral-600 ${
                         moreMenuOpen ? "ring-2 ring-white/10" : ""
                       }`}
                     >
@@ -1661,21 +1674,29 @@ export default function PlayerPage() {
                 </div>
 
                 <div className="space-y-6">
-                  {comments.map((c) => (
-                    <div key={c.id} className="flex items-start gap-3">
-                      <div className="relative h-11 w-11 rounded-full overflow-hidden bg-neutral-700">
+                  {comments.slice(0, visibleComments).map((c) => (
+                    <div key={c.id} className="flex items-start gap-3 min-w-0">
+                      <div className="relative h-11 w-11 rounded-full overflow-hidden bg-neutral-700 aspect-square">
                         <Image
                           src={withCloudinaryPrefix(
-                            c.profile_pic ||
-                              "https://ceflix.org/images/avatar.png",
+                            c.profile_pic && c.profile_pic.trim()
+                              ? c.profile_pic
+                              : DEFAULT_AVATAR,
                           )}
-                          alt={`${c.fname} ${c.lname}`}
+                          alt=""
                           fill
                           unoptimized
                           className="object-cover"
+                          onError={(e) => {
+                            const img =
+                              e.currentTarget as unknown as HTMLImageElement;
+                            if (img.src !== DEFAULT_AVATAR)
+                              img.src = DEFAULT_AVATAR;
+                          }}
                         />
                       </div>
-                      <div>
+
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 text-sm">
                           <span className="text-white font-bold">
                             {c.fname} {c.lname}
@@ -1684,10 +1705,28 @@ export default function PlayerPage() {
                             {timeSince(c.com_time)}
                           </span>
                         </div>
-                        <p className="text-sm mt-1">{c.comment}</p>
+
+                        <p className="text-sm mt-1 whitespace-pre-wrap break-words">
+                          {c.comment}
+                        </p>
                       </div>
                     </div>
                   ))}
+                  {comments.length > visibleComments && (
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setVisibleComments((prev) =>
+                            Math.min(prev + COMMENTS_STEP, comments.length),
+                          )
+                        }
+                        className="cursor-pointer rounded-full border border-neutral-700 px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-900"
+                      >
+                        Show more
+                      </button>
+                    </div>
+                  )}
                   {comments.length === 0 && (
                     <p className="text-xs text-neutral-500">
                       No comments yet. Be the first to comment.
@@ -1765,7 +1804,7 @@ export default function PlayerPage() {
               </h3>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-1 px-4">
               {upNext
                 .filter((v) => v.isLive === "0")
                 .map((item) => (
