@@ -70,7 +70,7 @@ function LoginPageContent() {
               Log In
             </button>
             <Link
-              href={`/register?next=${encodeURIComponent(redirectTo)}`}
+              href={`/register`}
               className="py-2 rounded-lg text-neutral-300 hover:text-white transition cursor-pointer"
             >
               Create Account

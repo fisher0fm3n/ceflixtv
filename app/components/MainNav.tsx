@@ -236,7 +236,7 @@ export default function MainNav({
               initialized && (
                 <div className="flex items-center gap-2">
                   <Link
-                    href="/login?mode=signup"
+                    href="/register"
                     className="hidden md:inline-flex items-center rounded-full bg-white text-neutral-900 font-semibold text-sm px-4 py-1.5 hover:brightness-95"
                   >
                     Sign Up

@@ -98,7 +98,7 @@ function RegisterPageContent() {
       }
 
       setSuccess("Account created. Redirecting to login…");
-      setTimeout(() => router.push(`/login?next=${encodeURIComponent(redirectTo)}`), 700);
+      setTimeout(() => router.push(`/login`), 700);
       return;
     }
 
@@ -128,7 +128,7 @@ function RegisterPageContent() {
       }
 
       setSuccess("Account created. Redirecting to login…");
-      setTimeout(() => router.push(`/login?next=${encodeURIComponent(redirectTo)}`), 700);
+      setTimeout(() => router.push(`/login`), 700);
     } catch {
       setErr("Network error. Please check your connection and try again.");
     }
@@ -153,7 +153,7 @@ function RegisterPageContent() {
           {/* tabs */}
           <div className="mt-2 mx-8 grid grid-cols-2 text-center text-sm rounded-xl bg-neutral-800/60 p-1">
             <Link
-              href={`/login?next=${encodeURIComponent(redirectTo)}`}
+              href={`/login`}
               className="py-2 rounded-lg text-neutral-300 hover:text-white transition cursor-pointer"
             >
               Log In
@@ -380,7 +380,7 @@ function RegisterPageContent() {
               <p className="text-center text-xs text-neutral-500 pt-2">
                 Already have an account?{" "}
                 <Link
-                  href={`/login?next=${encodeURIComponent(redirectTo)}`}
+                  href={`/login`}
                   className="cursor-pointer text-neutral-300 hover:text-white underline underline-offset-2"
                 >
                   Log in
