@@ -65,6 +65,16 @@ export default function CreateChannelPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
 
+  // ✅ Wallet (optional at creation)
+  const [walletAddress, setWalletAddress] = useState("");
+  const [walletError, setWalletError] = useState<string | null>(null);
+
+  const isLikelyWallet = (value: string) => {
+    const v = value.trim();
+    if (!v) return true; // allow empty
+    return /^0x[a-fA-F0-9]{40}$/.test(v);
+  };
+
   // -------------------------
   // Helpers
   // -------------------------
@@ -88,7 +98,8 @@ export default function CreateChannelPage() {
     !!categoryVal &&
     !!thumbnail &&
     !!cover &&
-    !processing;
+    !processing &&
+    isLikelyWallet(walletAddress);
 
   // -------------------------
   // File selection + cropping
@@ -238,8 +249,18 @@ export default function CreateChannelPage() {
     setProgress(0);
     setCreated(false);
 
+    const cleanedWallet = walletAddress.trim();
+    if (!isLikelyWallet(cleanedWallet)) {
+      setError(true);
+      setErrorMessage(
+        "Please enter a valid wallet address (e.g. 0x…) or leave it blank.",
+      );
+      setProcessing(false);
+      return;
+    }
+
     try {
-      const body = {
+      const body: any = {
         token,
         category: categoryVal.id,
         channel_title: name,
@@ -248,6 +269,11 @@ export default function CreateChannelPage() {
         cover,
         thumbnail,
       };
+
+      // ✅ only include if provided
+      if (cleanedWallet) {
+        body.wallet_address = cleanedWallet;
+      }
 
       const req = await fetch(API_BASE + "channel/new", {
         method: "POST",
@@ -266,7 +292,7 @@ export default function CreateChannelPage() {
       if (!res.status) {
         setError(true);
         setErrorMessage(
-          res.message || "Something went wrong creating your channel."
+          res.message || "Something went wrong creating your channel.",
         );
         setProgress(0);
       } else {
@@ -419,11 +445,45 @@ export default function CreateChannelPage() {
               />
             </div>
 
+            {/* ✅ Wallet Address (optional) */}
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Wallet address{" "}
+                <span className="text-[11px] text-neutral-400">
+                  (optional — for monetization payouts)
+                </span>
+              </label>
+
+              <input
+                type="text"
+                value={walletAddress}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setWalletAddress(next);
+
+                  // live validation
+                  if (!isLikelyWallet(next)) {
+                    setWalletError(
+                      "Please enter a valid wallet address (e.g. 0x…) or leave blank.",
+                    );
+                  } else {
+                    setWalletError(null);
+                  }
+                }}
+                className="w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm text-white shadow-sm outline-none focus:ring-1 focus:ring-red-600"
+                placeholder="0x…"
+              />
+
+              {walletError && (
+                <p className="mt-2 text-xs text-red-400">{walletError}</p>
+              )}
+            </div>
+
             {/* Required branding hints */}
             <div className="text-xs text-neutral-400">
               <p>
-                <span className="text-red-500">*</span> Profile picture and cover
-                image are required.
+                <span className="text-red-500">*</span> Profile picture and
+                cover image are required.
               </p>
             </div>
 

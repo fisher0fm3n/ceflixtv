@@ -576,7 +576,7 @@ export default function EditVideoPage() {
                 <button
                   type="button"
                   onClick={() => setAddLangOpen((v) => !v)}
-                  className="px-3 py-1.5 rounded-full bg-red-700 hover:bg-red-600 text-xs font-semibold"
+                  className="px-3 py-1.5 rounded-full bg-red-700 hover:bg-red-600 text-xs font-semibold cursor-pointer"
                 >
                   {addLangOpen ? "Close" : "Add"} language
                 </button>
@@ -616,7 +616,7 @@ export default function EditVideoPage() {
                       type="button"
                       onClick={addLanguage}
                       disabled={processing}
-                      className={`px-4 py-1.5 rounded-full text-xs font-semibold ${
+                      className={`px-4 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${
                         processing
                           ? "bg-red-900 text-neutral-300 cursor-not-allowed"
                           : "bg-red-700 hover:bg-red-600 text-white"
