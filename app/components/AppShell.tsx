@@ -17,7 +17,7 @@ export default function AppShell({ children }: Props) {
   const pathname = usePathname();
   const isPlayerPage =
     pathname.startsWith("/videos") || pathname.startsWith("/ceclips");
-  const isLoginPage = pathname.startsWith("/login");
+  const isLoginPage = pathname.startsWith("/login") || pathname.startsWith("/password/reset") || pathname.startsWith("/register");
 
   // null = not yet initialised from storage/route
   const [sideCollapsed, setSideCollapsed] = useState<boolean | null>(null);

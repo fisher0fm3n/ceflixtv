@@ -35,7 +35,7 @@ export default function MainNav({
   const router = useRouter();
   const { user, token, logout, initialized } = useAuth();
 
-  if (pathname.startsWith("/login")) return null;
+  if (pathname.startsWith("/login") || pathname.startsWith("/password/reset") || pathname.startsWith("/register")) return null;
 
   const loggedIn = Boolean(token && user);
   const displayName =

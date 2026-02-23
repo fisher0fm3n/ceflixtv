@@ -167,25 +167,25 @@ export default function HomePage() {
   const homeError = homeErr ? "Unable to load videos right now." : null;
 
   // ---- CACHED: subscriptions (per user token) ----
-  const SUBS_LS_KEY = token ? `ceflix:subs:v1:${token.slice(0, 12)}` : null;
-  const subsFallback = useMemo(
-    () => (SUBS_LS_KEY ? readLS<SubscriptionChannel[]>(SUBS_LS_KEY) : undefined),
-    [SUBS_LS_KEY]
-  );
+  // const SUBS_LS_KEY = token ? `ceflix:subs:v1:${token.slice(0, 12)}` : null;
+  // const subsFallback = useMemo(
+  //   () => (SUBS_LS_KEY ? readLS<SubscriptionChannel[]>(SUBS_LS_KEY) : undefined),
+  //   [SUBS_LS_KEY]
+  // );
 
-  const {
-    data: subs,
-    error: subsErr,
-    isLoading: subsLoading,
-  } = useSWR(token ? [`${API_BASE}user/subscriptions`, token] : null, subscriptionsFetcher, {
-    fallbackData: subsFallback,
-    revalidateOnFocus: true,
-    dedupingInterval: 60_000,
-    keepPreviousData: true,
-    onSuccess: (data) => {
-      if (SUBS_LS_KEY) writeLS(SUBS_LS_KEY, data);
-    },
-  });
+  // const {
+  //   data: subs,
+  //   error: subsErr,
+  //   isLoading: subsLoading,
+  // } = useSWR(token ? [`${API_BASE}user/subscriptions`, token] : null, subscriptionsFetcher, {
+  //   fallbackData: subsFallback,
+  //   revalidateOnFocus: true,
+  //   dedupingInterval: 60_000,
+  //   keepPreviousData: true,
+  //   onSuccess: (data) => {
+  //     if (SUBS_LS_KEY) writeLS(SUBS_LS_KEY, data);
+  //   },
+  // });
 
   if (!initialized) {
     return (
@@ -195,15 +195,15 @@ export default function HomePage() {
     );
   }
 
-  let channelsToShow: SubscriptionChannel[] = [];
-  if (!token) {
-    channelsToShow = DEFAULT_CHANNELS;
-  } else if (!subsLoading && subs && subs.length > 0) {
-    channelsToShow = subs;
-  }
+  // let channelsToShow: SubscriptionChannel[] = [];
+  // if (!token) {
+  //   channelsToShow = DEFAULT_CHANNELS;
+  // } else if (!subsLoading && subs && subs.length > 0) {
+  //   channelsToShow = subs;
+  // }
 
-  const sliderLoading = !!token && subsLoading;
-  const subsError = token && subsErr ? "Could not load your subscriptions." : null;
+  // const sliderLoading = !!token && subsLoading;
+  // const subsError = token && subsErr ? "Could not load your subscriptions." : null;
 
   return (
     <main className="bg-neutral-950 text-white min-h-screen mb-[10rem]">
@@ -212,11 +212,7 @@ export default function HomePage() {
       </div>
 
       <section className="mt-6">
-        {subsError && <div className="text-sm text-red-400 mb-2">{subsError}</div>}
-
-        {(sliderLoading || channelsToShow.length > 0) && (
-          <ChannelSlider title={"Live Stations"} items={stations} loading={sliderLoading} />
-        )}
+          <ChannelSlider title={"Live Stations"} items={stations} />
       </section>
 
       <InitialHomeGrid sections={homeSections} loading={homeLoading} error={homeError} />

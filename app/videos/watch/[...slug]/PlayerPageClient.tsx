@@ -223,7 +223,7 @@ export default function PlayerPage() {
 
   // Autoplay preview
   const [showAutoplayPreview, setShowAutoplayPreview] = useState(false);
-  const [autoplayCountdown, setAutoplayCountdown] = useState(10);
+  const [autoplayCountdown, setAutoplayCountdown] = useState(4);
   const autoplayTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Resume time from API (seconds)
@@ -399,7 +399,7 @@ export default function PlayerPage() {
         autoplayTimerRef.current = null;
       }
       setShowAutoplayPreview(false);
-      setAutoplayCountdown(10);
+      setAutoplayCountdown(4);
     }
   }, [autoplay]);
 
@@ -409,7 +409,7 @@ export default function PlayerPage() {
       autoplayTimerRef.current = null;
     }
     setShowAutoplayPreview(false);
-    setAutoplayCountdown(10);
+    setAutoplayCountdown(4);
 
     playbackTimeRef.current = 0;
     durationRef.current = 0;
@@ -956,11 +956,41 @@ export default function PlayerPage() {
     }
   };
 
-  // First non-live up next video
-  const nextUpVideo = useMemo(
-    () => upNext.filter((v) => v.isLive === "0")[0] ?? null,
-    [upNext],
+// Build a non-live playlist queue (stable order)
+const playlistQueue = useMemo(
+  () => upNext.filter((v) => v.isLive === "0"),
+  [upNext],
+);
+
+// Find current index inside the queue
+const currentQueueIndex = useMemo(() => {
+  if (!currentVideoId) return -1;
+  return playlistQueue.findIndex(
+    (v) => String(v.id) === String(currentVideoId),
   );
+}, [playlistQueue, currentVideoId]);
+
+// Next video (wrap to first if last)
+const nextUpVideo = useMemo(() => {
+  if (!playlistQueue.length) return null;
+
+  // If current isn't in the queue, fallback to first
+  if (currentQueueIndex < 0) return playlistQueue[0];
+
+  const nextIndex =
+    currentQueueIndex + 1 < playlistQueue.length ? currentQueueIndex + 1 : 0;
+
+  return playlistQueue[nextIndex] ?? null;
+}, [playlistQueue, currentQueueIndex]);
+
+const playNextInQueue = () => {
+  if (!autoplay) return;
+  if (!nextUpVideo) return;
+
+  setCurrentVideoId(nextUpVideo.id);
+  updateUrlForVideo(nextUpVideo.id, nextUpVideo.videos_title);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
 
   const playFirstUpNext = () => {
     if (!autoplay || !upNext.length) return;
@@ -977,7 +1007,7 @@ export default function PlayerPage() {
     if (autoplayTimerRef.current) return;
 
     setShowAutoplayPreview(true);
-    setAutoplayCountdown(10);
+    setAutoplayCountdown(4);
 
     autoplayTimerRef.current = setInterval(() => {
       setAutoplayCountdown((prev) => {
@@ -1002,7 +1032,7 @@ export default function PlayerPage() {
     )
       return;
     setShowAutoplayPreview(false);
-    playFirstUpNext();
+    playNextInQueue();
   }, [autoplayCountdown, autoplay, nextUpVideo, showAutoplayPreview]);
 
   const handleAutoplayCancel = () => {
@@ -1011,7 +1041,7 @@ export default function PlayerPage() {
       autoplayTimerRef.current = null;
     }
     setShowAutoplayPreview(false);
-    setAutoplayCountdown(10);
+    setAutoplayCountdown(4);
   };
 
   const handleAutoplayPlayNow = () => {
@@ -1020,7 +1050,7 @@ export default function PlayerPage() {
       autoplayTimerRef.current = null;
     }
     setShowAutoplayPreview(false);
-    playFirstUpNext();
+    playNextInQueue();
   };
 
   const handleVideoEnded = () => {
@@ -1322,6 +1352,58 @@ export default function PlayerPage() {
                 className="absolute inset-0"
               />
             </div>
+
+            {/* AUTOPLAY PREVIEW OVERLAY */}
+            {showAutoplayPreview && autoplay && nextUpVideo && (
+              <div className="pointer-events-none absolute inset-0 z-30 flex items-end justify-center pb-8">
+                <div className="pointer-events-auto mx-4 flex w-full max-w-xl items-center gap-4 rounded-2xl bg-black/80 border border-white/10 px-4 py-3 shadow-2xl">
+                  <div className="relative h-20 w-36 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-900">
+                    <Image
+                      src={withCloudinaryPrefix2(nextUpVideo.thumbnail)}
+                      alt={nextUpVideo.videos_title}
+                      fill
+                      unoptimized
+                      className="object-cover"
+                    />
+                    <span className="absolute bottom-1 right-1 rounded-sm bg-black/80 px-1.5 py-0.5 text-[11px] font-semibold">
+                      {durationFmt(nextUpVideo.duration)}
+                    </span>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-neutral-400">
+                      Up next in{" "}
+                      <span className="font-semibold text-white">
+                        {autoplayCountdown}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-sm font-semibold line-clamp-2">
+                      {nextUpVideo.videos_title}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-neutral-400 line-clamp-1">
+                      {nextUpVideo.channel}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAutoplayCancel}
+                      className="cursor-pointer rounded-full bg-neutral-700/90 px-4 py-1.5 text-xs font-semibold text-neutral-100 hover:bg-neutral-600"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAutoplayPlayNow}
+                      className="cursor-pointer rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-red-500"
+                    >
+                      Play now
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* AUTH PROMPT OVERLAY */}
             {authPrompt && (

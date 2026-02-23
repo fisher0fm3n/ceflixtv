@@ -28,7 +28,7 @@ export default function SideNav({
   const isPlayerPage =
     pathname.startsWith("/videos") || pathname.startsWith("/ceclips");
 
-  if (pathname.startsWith("/login")) return null;
+  if (pathname.startsWith("/login")  || pathname.startsWith("/password/reset")) return null;
 
   const effectiveCollapsed =
     typeof collapsedProp === "boolean"
