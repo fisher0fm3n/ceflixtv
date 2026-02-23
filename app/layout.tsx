@@ -1,7 +1,6 @@
 // app/layout.tsx
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import "video.js/dist/video-js.css";
 import "./globals.css";
 import "./styles.scss";
 
