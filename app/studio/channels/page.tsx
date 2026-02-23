@@ -222,7 +222,7 @@ export default function UserChannelsPage() {
           <button
             type="button"
             onClick={() => router.push("/studio/channels/create")}
-            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-neutral-200 transition"
+            className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-neutral-200 transition"
           >
             <PlusCircleIcon className="h-4 w-4" />
             New channel

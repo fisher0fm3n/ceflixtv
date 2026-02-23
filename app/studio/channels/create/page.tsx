@@ -81,6 +81,15 @@ export default function CreateChannelPage() {
       reader.readAsDataURL(file);
     });
 
+  // ✅ Must have picture + cover + required fields before enabling submit
+  const canSubmit =
+    !!name.trim() &&
+    !!description.trim() &&
+    !!categoryVal &&
+    !!thumbnail &&
+    !!cover &&
+    !processing;
+
   // -------------------------
   // File selection + cropping
   // -------------------------
@@ -140,6 +149,7 @@ export default function CreateChannelPage() {
     setThumbnail(dataUrl);
     setShowThumbCropper(false);
     setRawThumbImage("");
+    setThumbError(null);
   };
 
   const applyCoverCrop = () => {
@@ -156,6 +166,7 @@ export default function CreateChannelPage() {
     setCover(dataUrl);
     setShowCoverCropper(false);
     setRawCoverImage("");
+    setCoverError(null);
   };
 
   // -------------------------
@@ -201,9 +212,23 @@ export default function CreateChannelPage() {
     e.preventDefault();
     if (!token) return;
 
+    // Basic required validation
     if (!name.trim() || !description.trim() || !categoryVal) {
       setError(true);
       setErrorMessage("Please ensure that all required fields are complete.");
+      return;
+    }
+
+    // ✅ Compulsory thumbnail + cover
+    if (!thumbnail) {
+      setError(true);
+      setErrorMessage("Please upload a profile picture.");
+      return;
+    }
+
+    if (!cover) {
+      setError(true);
+      setErrorMessage("Please upload a cover image.");
       return;
     }
 
@@ -219,7 +244,6 @@ export default function CreateChannelPage() {
         category: categoryVal.id,
         channel_title: name,
         description,
-        // tags were not sent in original create, but you can add if the API supports it:
         // tags,
         cover,
         thumbnail,
@@ -249,9 +273,7 @@ export default function CreateChannelPage() {
         setProgress(100);
         setCreated(true);
 
-        // If API returns channel id, you can redirect:
-        const newId =
-          res.data?.id || res.id || res.channel_id || undefined;
+        const newId = res.data?.id || res.id || res.channel_id || undefined;
 
         if (newId) {
           router.push(`/channel/${newId}`);
@@ -331,7 +353,9 @@ export default function CreateChannelPage() {
 
             {/* Name */}
             <div>
-              <label className="block text-sm font-medium mb-1">Name</label>
+              <label className="block text-sm font-medium mb-1">
+                Name <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
                 value={name}
@@ -343,7 +367,7 @@ export default function CreateChannelPage() {
             {/* Description */}
             <div>
               <label className="block text-sm font-medium mb-1">
-                Description
+                Description <span className="text-red-500">*</span>
               </label>
               <textarea
                 rows={4}
@@ -356,7 +380,7 @@ export default function CreateChannelPage() {
             {/* Category */}
             <div>
               <label className="block text-sm font-medium mb-1">
-                Channel Category
+                Channel Category <span className="text-red-500">*</span>
               </label>
               <select
                 value={categoryVal ? String(categoryVal.id) : ""}
@@ -378,7 +402,7 @@ export default function CreateChannelPage() {
               </select>
             </div>
 
-            {/* Optional tags (if you want to keep it) */}
+            {/* Optional tags */}
             <div>
               <label className="block text-sm font-medium mb-1">
                 Channel Tags{" "}
@@ -395,14 +419,22 @@ export default function CreateChannelPage() {
               />
             </div>
 
+            {/* Required branding hints */}
+            <div className="text-xs text-neutral-400">
+              <p>
+                <span className="text-red-500">*</span> Profile picture and cover
+                image are required.
+              </p>
+            </div>
+
             {/* Actions */}
             <div className="mt-3 flex items-center gap-3 flex-wrap">
               <button
                 type="submit"
-                disabled={processing}
+                disabled={!canSubmit}
                 className={`rounded-md px-4 py-2 text-sm font-semibold shadow-sm ${
-                  processing
-                    ? "bg-white text-black cursor-not-allowed"
+                  !canSubmit
+                    ? "bg-white/60 text-black cursor-not-allowed"
                     : "bg-white hover:bg-white/80 text-black cursor-pointer"
                 }`}
               >
@@ -433,7 +465,9 @@ export default function CreateChannelPage() {
 
           {/* Picture */}
           <section className="rounded-xl bg-neutral-900 border border-neutral-800 p-5 space-y-4">
-            <h2 className="text-sm font-semibold">Picture</h2>
+            <h2 className="text-sm font-semibold">
+              Picture <span className="text-red-500">*</span>
+            </h2>
             <p className="text-xs text-neutral-400 max-w-xl">
               Your profile picture will appear where your channel is presented
               on Ceflix, like next to your videos and comments.
@@ -461,6 +495,11 @@ export default function CreateChannelPage() {
                 <p className="text-xs text-neutral-400">
                   Recommended: at least 98 × 98px, JPG or PNG, 2MB or less.
                 </p>
+                {!thumbnail && (
+                  <p className="text-xs text-red-400">
+                    Profile picture is required.
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col items-start gap-3 text-sm text-neutral-300">
@@ -541,7 +580,9 @@ export default function CreateChannelPage() {
 
           {/* Cover Image */}
           <section className="rounded-xl bg-neutral-900 border border-neutral-800 p-5 space-y-4">
-            <h2 className="text-sm font-semibold">Cover image</h2>
+            <h2 className="text-sm font-semibold">
+              Cover image <span className="text-red-500">*</span>
+            </h2>
             <p className="text-xs text-neutral-400 max-w-xl">
               This image appears across the top of your channel.
             </p>
@@ -568,6 +609,11 @@ export default function CreateChannelPage() {
                 <p className="text-xs text-neutral-400">
                   Recommended: at least 1500 × 400px, JPG or PNG, 2MB or less.
                 </p>
+                {!cover && (
+                  <p className="text-xs text-red-400">
+                    Cover image is required.
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col items-start gap-3 text-sm text-neutral-300">

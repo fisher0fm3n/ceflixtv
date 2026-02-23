@@ -89,6 +89,7 @@ export default function EditChannelPage() {
   const [processing, setProcessing] = useState(false);
   const [brandingSaving, setBrandingSaving] = useState(false);
 
+  const walletLocked = Boolean(channelData?.wallet_address?.trim());
   // -------------------------
   // Helpers
   // -------------------------
@@ -219,7 +220,7 @@ export default function EditChannelPage() {
 
       // keep local channelData in sync for display elsewhere
       setChannelData((prev) =>
-        prev ? { ...prev, wallet_address: cleaned } : prev
+        prev ? { ...prev, wallet_address: cleaned } : prev,
       );
     } catch (err) {
       console.error("Failed to update wallet address", err);
@@ -230,6 +231,7 @@ export default function EditChannelPage() {
   }
 
   const handleWalletSaveClick = () => {
+    if (walletLocked) return;
     if (!walletDirty || walletSaving) return;
     void updateWalletAddress(walletAddress);
   };
@@ -563,68 +565,85 @@ export default function EditChannelPage() {
                   (for monetization payouts)
                 </span>
               </label>
+
               <input
                 type="text"
                 value={walletAddress}
+                readOnly={walletLocked}
                 onChange={(e) => {
+                  if (walletLocked) return; // extra guard
                   setWalletAddress(e.target.value);
                   setWalletDirty(true);
                   setWalletSaved(false);
                   setWalletError(null);
                 }}
-                className="w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm text-white shadow-sm outline-none focus:ring-1 focus:ring-red-600"
+                className={`w-full rounded-md px-3 py-2 text-sm text-white shadow-sm outline-none border ${
+                  walletLocked
+                    ? "bg-neutral-900 border-neutral-800 text-neutral-400 cursor-not-allowed"
+                    : "bg-neutral-950 border-neutral-700 focus:ring-1 focus:ring-red-600"
+                }`}
                 placeholder="0x…"
               />
 
-              {walletDirty && (
-                <p className="mt-2 text-[11px] text-amber-300">
-                  You have unsaved changes to your wallet address.
+              {walletLocked ? (
+                <p className="mt-2 text-[11px] text-neutral-400">
+                  Wallet address is locked once set. Contact support if you need
+                  to change it.
                 </p>
+              ) : (
+                <>
+                  {walletDirty && (
+                    <p className="mt-2 text-[11px] text-amber-300">
+                      You have unsaved changes to your wallet address.
+                    </p>
+                  )}
+
+                  {walletError && (
+                    <p className="mt-2 text-xs text-red-400">{walletError}</p>
+                  )}
+
+                  {walletSaved && (
+                    <p className="mt-2 text-xs text-emerald-400">
+                      Wallet address saved
+                    </p>
+                  )}
+
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleWalletSaveClick}
+                      disabled={!walletDirty || walletSaving}
+                      className={`inline-flex items-center px-3 py-2 rounded-md text-sm font-semibold shadow-sm ${
+                        !walletDirty || walletSaving
+                          ? "bg-neutral-700 text-neutral-300 cursor-not-allowed"
+                          : "bg-white text-black hover:bg-white/80 cursor-pointer"
+                      }`}
+                    >
+                      {walletSaving ? "Saving…" : "Save wallet"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWalletAddress(
+                          (channelData?.wallet_address || "").trim(),
+                        );
+                        setWalletDirty(false);
+                        setWalletError(null);
+                        setWalletSaved(false);
+                      }}
+                      disabled={!walletDirty || walletSaving}
+                      className={`inline-flex items-center px-3 py-2 rounded-md text-sm font-semibold ${
+                        !walletDirty || walletSaving
+                          ? "border border-neutral-800 text-neutral-500 cursor-not-allowed"
+                          : "border border-neutral-700 text-neutral-200 hover:bg-neutral-950 cursor-pointer"
+                      }`}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
               )}
-
-              {walletError && (
-                <p className="mt-2 text-xs text-red-400">{walletError}</p>
-              )}
-
-              {walletSaved && (
-                <p className="mt-2 text-xs text-emerald-400">
-                  Wallet address saved
-                </p>
-              )}
-
-              <div className="mt-3 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleWalletSaveClick}
-                  disabled={!walletDirty || walletSaving}
-                  className={`inline-flex items-center px-3 py-2 rounded-md text-sm font-semibold shadow-sm ${
-                    !walletDirty || walletSaving
-                      ? "bg-neutral-700 text-neutral-300 cursor-not-allowed"
-                      : "bg-white text-black hover:bg-white/80 cursor-pointer"
-                  }`}
-                >
-                  {walletSaving ? "Saving…" : "Save wallet"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    // revert to what came from userchannel
-                    setWalletAddress((channelData?.wallet_address || "").trim());
-                    setWalletDirty(false);
-                    setWalletError(null);
-                    setWalletSaved(false);
-                  }}
-                  disabled={!walletDirty || walletSaving}
-                  className={`inline-flex items-center px-3 py-2 rounded-md text-sm font-semibold ${
-                    !walletDirty || walletSaving
-                      ? "border border-neutral-800 text-neutral-500 cursor-not-allowed"
-                      : "border border-neutral-700 text-neutral-200 hover:bg-neutral-950 cursor-pointer"
-                  }`}
-                >
-                  Cancel
-                </button>
-              </div>
             </div>
 
             {/* Actions */}

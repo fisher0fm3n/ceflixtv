@@ -95,29 +95,29 @@ export default function HeroSlider({ slides, autoAdvanceMs = 8000 }: HeroSliderP
       </div>
 
       {/* Content */}
-      <div className="relative h-full flex items-end lg:items-center px-6 pb-8 sm:px-6 lg:px-6">
+      <div className="relative h-full flex items-end lg:items-center px-6 pb-8 sm:px-6 lg:px-6 mx-[3rem]">
         <div className="max-w-xl space-y-5 md:space-y-6">
           {/* Logo */}
-          <div className="max-w-xs sm:max-w-sm md:max-w-md mb-14">
+          <div className="max-w-xs sm:max-w-sm md:max-w-md mb-8 m-auto sm:m-0">
             <Image
               src={current.logo}
               alt={current.title}
               width={380}
               height={180}
-              className="w-[14rem] sm:w-[16rem] lg:w-[18rem] h-auto"
+              className="w-[14rem] sm:w-[16rem] lg:w-[18rem] h-auto m-auto sm:m-0" 
               priority
             />
           </div>
 
           {/* Title */}
           {current.desc && (
-            <p className="text-sm sm:text-base text-neutral-200/90 max-w-lg leading-relaxed line-clamp-3">
+            <p className="text-center sm:text-left text-md sm:text-base text-neutral-200/90 max-w-lg leading-relaxed line-clamp-3">
               {current.desc}
             </p>
           )}
 
           {/* Button */}
-          <div className="flex flex-wrap items-center gap-3 pt-1">
+          <div className="flex flex-wrap items-center gap-3 pt-1 justify-center sm:justify-start">
             {isExternal ? (
               <a
                 href={href}
