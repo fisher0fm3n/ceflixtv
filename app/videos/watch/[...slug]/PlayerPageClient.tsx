@@ -1760,11 +1760,11 @@ const playNextInQueue = () => {
                     <div key={c.id} className="flex items-start gap-3 min-w-0">
                       <div className="relative h-11 w-11 rounded-full overflow-hidden bg-neutral-700 aspect-square">
                         <Image
-                          src={withCloudinaryPrefix(
-                            c.profile_pic && c.profile_pic.trim()
+                          src={
+                            c.profile_pic
                               ? c.profile_pic
-                              : DEFAULT_AVATAR,
-                          )}
+                              : DEFAULT_AVATAR
+                          }
                           alt=""
                           fill
                           unoptimized

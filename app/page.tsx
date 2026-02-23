@@ -23,50 +23,50 @@ type SubscriptionChannel = {
   url?: string | null;
 };
 
-const DEFAULT_CHANNELS: SubscriptionChannel[] = [
-  {
-    id: 82,
-    channel: "Haven TV",
-    filename: "03559-havenchan.png",
-    urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
-  },
-  {
-    id: 105,
-    channel: "Pastor Chris Teaching",
-    filename: "d0ff1-pstchristeachingthumbnail.jpg",
-    urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
-  },
-  {
-    id: 164,
-    channel: "Night of Bliss",
-    filename: "8579f-vlcsnap-2016-01-13-15h35m45s321.png",
-    urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
-  },
-  {
-    id: 175,
-    channel: "Live Events Channel",
-    filename: "e02af-1.png",
-    urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
-  },
-  {
-    id: 335,
-    channel: "Bright Side",
-    filename: "6f17b-unnamed-copy.jpg",
-    urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
-  },
-  {
-    id: 380,
-    channel: "CeFlix News Channel",
-    filename: "21cf4-new_thmbn.jpg",
-    urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
-  },
-  {
-    id: 381,
-    channel: "Special Live Events",
-    filename: "154575-1649768876776983320507.jpg",
-    urlprefix: "https://cdnvideos.ceflix.org/channel/thumbs/",
-  },
-];
+// const DEFAULT_CHANNELS: SubscriptionChannel[] = [
+//   {
+//     id: 82,
+//     channel: "Haven TV",
+//     filename: "03559-havenchan.png",
+//     urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
+//   },
+//   {
+//     id: 105,
+//     channel: "Pastor Chris Teaching",
+//     filename: "d0ff1-pstchristeachingthumbnail.jpg",
+//     urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
+//   },
+//   {
+//     id: 164,
+//     channel: "Night of Bliss",
+//     filename: "8579f-vlcsnap-2016-01-13-15h35m45s321.png",
+//     urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
+//   },
+//   {
+//     id: 175,
+//     channel: "Live Events Channel",
+//     filename: "e02af-1.png",
+//     urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
+//   },
+//   {
+//     id: 335,
+//     channel: "Bright Side",
+//     filename: "6f17b-unnamed-copy.jpg",
+//     urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
+//   },
+//   {
+//     id: 380,
+//     channel: "CeFlix News Channel",
+//     filename: "21cf4-new_thmbn.jpg",
+//     urlprefix: "https://d3c5pcohbexzc4.cloudfront.net/channel/thumbs/",
+//   },
+//   {
+//     id: 381,
+//     channel: "Special Live Events",
+//     filename: "154575-1649768876776983320507.jpg",
+//     urlprefix: "https://cdnvideos.ceflix.org/channel/thumbs/",
+//   },
+// ];
 
 // ---- small helpers: localStorage cache ----
 function readLS<T>(key: string): T | undefined {
