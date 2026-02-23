@@ -201,7 +201,7 @@ export default function ChannelVideos({ data }: Props) {
                     </Link>
                   )}
                   <span className="text-sm">
-                    {abbreviateViews(item.numOfViews)} Views •{" "}
+                    {/* {abbreviateViews(item.numOfViews)} Views •{" "} */}
                     {timeSince(item.uploadtime)}
                   </span>
                 </div>

@@ -160,7 +160,9 @@ function formatTitle(title: string) {
 
 function Skeleton({ className = "" }: { className?: string }) {
   return (
-    <div className={`animate-pulse bg-neutral-800/80 rounded-md ${className}`} />
+    <div
+      className={`animate-pulse bg-neutral-800/80 rounded-md ${className}`}
+    />
   );
 }
 
@@ -175,7 +177,9 @@ export default function PlayerPage() {
 
   const possiblePlaylist = slugArray[1];
   const initialPlaylistId =
-    possiblePlaylist && /^\d+$/.test(possiblePlaylist) ? possiblePlaylist : null;
+    possiblePlaylist && /^\d+$/.test(possiblePlaylist)
+      ? possiblePlaylist
+      : null;
 
   const [currentVideoId, setCurrentVideoId] = useState<string | null>(
     initialVideoId ?? null,
@@ -266,11 +270,16 @@ export default function PlayerPage() {
     } | null;
   }>(null);
 
-  const isLive = useMemo(() => !!videoUrl && videoUrl.endsWith(".m3u8"), [videoUrl]);
+  const isLive = useMemo(
+    () => !!videoUrl && videoUrl.endsWith(".m3u8"),
+    [videoUrl],
+  );
 
   // More menu (ellipsis) + auto flip
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const [moreMenuPlacement, setMoreMenuPlacement] = useState<"top" | "bottom">("top");
+  const [moreMenuPlacement, setMoreMenuPlacement] = useState<"top" | "bottom">(
+    "top",
+  );
   const moreWrapRef = useRef<HTMLDivElement | null>(null);
   const moreBtnRef = useRef<HTMLButtonElement | null>(null);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
@@ -303,7 +312,8 @@ export default function PlayerPage() {
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       if (!moreWrapRef.current) return;
-      if (!moreWrapRef.current.contains(e.target as Node)) setMoreMenuOpen(false);
+      if (!moreWrapRef.current.contains(e.target as Node))
+        setMoreMenuOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setMoreMenuOpen(false);
@@ -351,7 +361,9 @@ export default function PlayerPage() {
         });
         const data = await res.json();
         if (data?.status && Array.isArray(data.data)) {
-          setReportOptions(data.data.map((f: any) => ({ id: f.id, title: f.title })));
+          setReportOptions(
+            data.data.map((f: any) => ({ id: f.id, title: f.title })),
+          );
         }
       } catch (err) {
         console.error("Error fetching report flags", err);
@@ -449,7 +461,10 @@ export default function PlayerPage() {
 
     const amt = parseFloat(supportAmount);
     if (!supportKcUsername.trim()) {
-      setSupportFeedback({ type: "error", message: "Espees username is required." });
+      setSupportFeedback({
+        type: "error",
+        message: "Espees username is required.",
+      });
       return;
     }
     if (!supportPin.trim()) {
@@ -457,16 +472,25 @@ export default function PlayerPage() {
       return;
     }
     if (!Number.isFinite(amt) || amt <= 0) {
-      setSupportFeedback({ type: "error", message: "Enter a valid amount greater than 0." });
+      setSupportFeedback({
+        type: "error",
+        message: "Enter a valid amount greater than 0.",
+      });
       return;
     }
 
     // user_name payload (your backend expects it per your example)
-    const userName =
-      user?.email ? `kc:${user.email}` : user?.username ? `kc:${user.username}` : "kc:unknown";
+    const userName = user?.email
+      ? `kc:${user.email}`
+      : user?.username
+        ? `kc:${user.username}`
+        : "kc:unknown";
 
     const payload = {
-      id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : undefined,
+      id:
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : undefined,
       token,
       channel_id: Number(video.channel_id),
       channel_name: video.channel,
@@ -483,7 +507,7 @@ export default function PlayerPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Accept": "application/json",
+          Accept: "application/json",
           "Application-Key": APP_KEY, // ✅ keep consistent with the rest of your API calls
         },
         body: JSON.stringify(payload),
@@ -504,12 +528,17 @@ export default function PlayerPage() {
       if (!data?.status) {
         setSupportFeedback({
           type: "error",
-          message: data?.message || "Unable to process support payment. Please try again.",
+          message:
+            data?.message ||
+            "Unable to process support payment. Please try again.",
         });
         return;
       }
 
-      setSupportFeedback({ type: "success", message: data?.message || "Payment recorded." });
+      setSupportFeedback({
+        type: "success",
+        message: data?.message || "Payment recorded.",
+      });
       setSupportResult({
         payin_reference: data?.data?.payin_reference,
         payout: data?.data?.payout ?? null,
@@ -528,13 +557,19 @@ export default function PlayerPage() {
     }
   };
 
-  const saveVideoHistory = async (currentTimeMillis: number, durationMillis: number) => {
+  const saveVideoHistory = async (
+    currentTimeMillis: number,
+    durationMillis: number,
+  ) => {
     try {
       if (!token || !currentVideoId) return;
 
       const req = await fetch(`${API_BASE}savevideotime`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Application-Key": APP_KEY },
+        headers: {
+          "Content-Type": "application/json",
+          "Application-Key": APP_KEY,
+        },
         body: JSON.stringify({
           token,
           video: currentVideoId,
@@ -552,7 +587,10 @@ export default function PlayerPage() {
 
   const updatedVideoDuration = async (durationInSeconds: number) => {
     try {
-      if (!token || !currentVideoId) throw new Error("Token or video id is not available for authentication.");
+      if (!token || !currentVideoId)
+        throw new Error(
+          "Token or video id is not available for authentication.",
+        );
 
       const response = await fetch(`${API_BASE}updatevideoduration`, {
         method: "POST",
@@ -569,11 +607,14 @@ export default function PlayerPage() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Failed to update video duration. Status: ${response.status}, Message: ${errorText}`);
+        throw new Error(
+          `Failed to update video duration. Status: ${response.status}, Message: ${errorText}`,
+        );
       }
 
       const res = await response.json();
-      if (!res.status) throw new Error("API error: " + (res.message || "Unknown error"));
+      if (!res.status)
+        throw new Error("API error: " + (res.message || "Unknown error"));
     } catch (error: any) {
       console.error("Error in updatedVideoDuration:", error.message);
     }
@@ -584,7 +625,10 @@ export default function PlayerPage() {
     setReportFeedback(null);
 
     if (!selectedReport) {
-      setReportFeedback({ type: "error", message: "Please select a reason for reporting." });
+      setReportFeedback({
+        type: "error",
+        message: "Please select a reason for reporting.",
+      });
       return;
     }
     if (!requireAuth("report")) return;
@@ -594,7 +638,10 @@ export default function PlayerPage() {
 
       const res = await fetch(`${API_BASE}video/report`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Application-Key": APP_KEY },
+        headers: {
+          "Content-Type": "application/json",
+          "Application-Key": APP_KEY,
+        },
         body: JSON.stringify({
           video: currentVideoId,
           flag: selectedReport,
@@ -605,16 +652,25 @@ export default function PlayerPage() {
 
       const result = await res.json();
       if (result.status) {
-        setReportFeedback({ type: "success", message: "Report submitted successfully." });
+        setReportFeedback({
+          type: "success",
+          message: "Report submitted successfully.",
+        });
         setSelectedReport(null);
         setReportMessage("");
         setTimeout(() => setReportOpen(false), 1500);
       } else {
-        setReportFeedback({ type: "error", message: "Failed to submit report. Please try again." });
+        setReportFeedback({
+          type: "error",
+          message: "Failed to submit report. Please try again.",
+        });
       }
     } catch (error) {
       console.error("Report submit error:", error);
-      setReportFeedback({ type: "error", message: "Failed to submit report. Please try again." });
+      setReportFeedback({
+        type: "error",
+        message: "Failed to submit report. Please try again.",
+      });
     } finally {
       setReportSubmitting(false);
     }
@@ -623,8 +679,16 @@ export default function PlayerPage() {
   // Save progress on unmount
   useEffect(() => {
     return () => {
-      if (token && currentVideoId && playbackTimeRef.current > 0 && durationRef.current > 0) {
-        void saveVideoHistory(playbackTimeRef.current * 1000, durationRef.current * 1000);
+      if (
+        token &&
+        currentVideoId &&
+        playbackTimeRef.current > 0 &&
+        durationRef.current > 0
+      ) {
+        void saveVideoHistory(
+          playbackTimeRef.current * 1000,
+          durationRef.current * 1000,
+        );
       }
     };
   }, [currentVideoId, token]);
@@ -690,20 +754,26 @@ export default function PlayerPage() {
 
         const apiTime = videoJson.data?.time;
         const parsedTime =
-          typeof apiTime === "number" ? apiTime : apiTime != null ? parseFloat(String(apiTime)) : 0;
+          typeof apiTime === "number"
+            ? apiTime
+            : apiTime != null
+              ? parseFloat(String(apiTime))
+              : 0;
         setResumeTime(!isNaN(parsedTime) && parsedTime > 0 ? parsedTime : null);
 
         if (Array.isArray(videoJson.data.pool) && videoJson.data.pool.length) {
-          const mappedPool: UpNextItem[] = videoJson.data.pool.map((item: any) => ({
-            id: String(item.id),
-            videos_title: item.videos_title,
-            thumbnail: item.thumbnail,
-            duration: String(item.duration ?? 0),
-            numOfViews: String(item.numOfViews ?? 0),
-            uploadtime: String(item.uploadtime ?? ""),
-            channel: item.channel,
-            isLive: (item.isLive ?? "0") as "0" | "1",
-          }));
+          const mappedPool: UpNextItem[] = videoJson.data.pool.map(
+            (item: any) => ({
+              id: String(item.id),
+              videos_title: item.videos_title,
+              thumbnail: item.thumbnail,
+              duration: String(item.duration ?? 0),
+              numOfViews: String(item.numOfViews ?? 0),
+              uploadtime: String(item.uploadtime ?? ""),
+              channel: item.channel,
+              isLive: (item.isLive ?? "0") as "0" | "1",
+            }),
+          );
           setUpNext(mappedPool);
         } else {
           setUpNext(videoJson.data.upnext || []);
@@ -715,7 +785,8 @@ export default function PlayerPage() {
         setSubscribed(!!videoJson.data.isSubscribed);
         setSubscribers(videoJson.data.subscribers);
 
-        if (videoJson.data.playlist) setPlaylistTitle(videoJson.data.playlist.playlist_title || "");
+        if (videoJson.data.playlist)
+          setPlaylistTitle(videoJson.data.playlist.playlist_title || "");
         else setPlaylistTitle(null);
 
         if (commentsJson.status) setComments(commentsJson.data || []);
@@ -739,7 +810,10 @@ export default function PlayerPage() {
         } else {
           void fetch(API_BASE + "video/offline-view-count", {
             method: "POST",
-            headers: { "Content-Type": "application/json", "Application-Key": APP_KEY },
+            headers: {
+              "Content-Type": "application/json",
+              "Application-Key": APP_KEY,
+            },
             body: JSON.stringify({ video: id, device: navigator.userAgent }),
           });
         }
@@ -758,7 +832,8 @@ export default function PlayerPage() {
   }, [currentVideoId, token, user, initialPlaylistId]);
 
   useEffect(() => {
-    if (video?.videos_title) document.title = `${video.videos_title} - Ceflix Tv`;
+    if (video?.videos_title)
+      document.title = `${video.videos_title} - Ceflix Tv`;
   }, [video?.videos_title]);
 
   const handleChangeLanguage = (lang: Language | null) => {
@@ -802,7 +877,10 @@ export default function PlayerPage() {
     try {
       await fetch(API_BASE + "channel/subscribe", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Application-Key": APP_KEY },
+        headers: {
+          "Content-Type": "application/json",
+          "Application-Key": APP_KEY,
+        },
         body: JSON.stringify({ channel: video.channel_id, token }),
       });
     } catch (err) {
@@ -818,7 +896,10 @@ export default function PlayerPage() {
     try {
       const res = await fetch(API_BASE + "video/comment/add", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Application-Key": APP_KEY },
+        headers: {
+          "Content-Type": "application/json",
+          "Application-Key": APP_KEY,
+        },
         body: JSON.stringify({
           comment: commentText.trim(),
           video: currentVideoId,
@@ -832,7 +913,8 @@ export default function PlayerPage() {
           comment: commentText.trim(),
           fname: user.fname ?? "",
           lname: user.lname ?? "",
-          profile_pic: user.profile_pic || "https://ceflix.org/images/avatar.png",
+          profile_pic:
+            user.profile_pic || "https://ceflix.org/images/avatar.png",
           com_time: Date.now() / 1000,
         };
         setComments((prev) => [newComment, ...prev]);
@@ -862,7 +944,10 @@ export default function PlayerPage() {
   };
 
   // First non-live up next video
-  const nextUpVideo = useMemo(() => upNext.filter((v) => v.isLive === "0")[0] ?? null, [upNext]);
+  const nextUpVideo = useMemo(
+    () => upNext.filter((v) => v.isLive === "0")[0] ?? null,
+    [upNext],
+  );
 
   const playFirstUpNext = () => {
     if (!autoplay || !upNext.length) return;
@@ -896,7 +981,13 @@ export default function PlayerPage() {
   };
 
   useEffect(() => {
-    if (!autoplay || !nextUpVideo || !showAutoplayPreview || autoplayCountdown !== 0) return;
+    if (
+      !autoplay ||
+      !nextUpVideo ||
+      !showAutoplayPreview ||
+      autoplayCountdown !== 0
+    )
+      return;
     setShowAutoplayPreview(false);
     playFirstUpNext();
   }, [autoplayCountdown, autoplay, nextUpVideo, showAutoplayPreview]);
@@ -971,7 +1062,10 @@ export default function PlayerPage() {
             <Skeleton className="h-5 w-40 mb-3" />
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-1 gap-2">
               {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="w-full p-2 sm:max-w-sm flex flex-col lg:flex-row gap-2 rounded-lg">
+                <div
+                  key={i}
+                  className="w-full p-2 sm:max-w-sm flex flex-col lg:flex-row gap-2 rounded-lg"
+                >
                   <div className="relative w-full lg:w-40 flex-shrink-0 aspect-video rounded-md overflow-hidden bg-neutral-900">
                     <Skeleton className="w-full h-full rounded-none" />
                   </div>
@@ -1047,7 +1141,9 @@ export default function PlayerPage() {
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs text-neutral-300 mb-1">Espees Username</label>
+                <label className="block text-xs text-neutral-300 mb-1">
+                  Espees Username
+                </label>
                 <input
                   value={supportKcUsername}
                   onChange={(e) => setSupportKcUsername(e.target.value)}
@@ -1058,7 +1154,9 @@ export default function PlayerPage() {
               </div>
 
               <div>
-                <label className="block text-xs text-neutral-300 mb-1">PIN</label>
+                <label className="block text-xs text-neutral-300 mb-1">
+                  PIN
+                </label>
                 <input
                   type="password"
                   value={supportPin}
@@ -1071,7 +1169,9 @@ export default function PlayerPage() {
               </div>
 
               <div>
-                <label className="block text-xs text-neutral-300 mb-1">Amount</label>
+                <label className="block text-xs text-neutral-300 mb-1">
+                  Amount
+                </label>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -1082,12 +1182,16 @@ export default function PlayerPage() {
                   className="w-full rounded-md bg-neutral-800 border border-neutral-700 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60"
                   disabled={supportSubmitting}
                 />
-                <p className="mt-1 text-[11px] text-neutral-400">Amount is in Espees.</p>
+                <p className="mt-1 text-[11px] text-neutral-400">
+                  Amount is in Espees.
+                </p>
               </div>
 
               {/* Optional message (kept, since backend supports it) */}
               <div>
-                <label className="block text-xs text-neutral-300 mb-1">Message (optional)</label>
+                <label className="block text-xs text-neutral-300 mb-1">
+                  Message (optional)
+                </label>
                 <textarea
                   value={supportMessage}
                   onChange={(e) => setSupportMessage(e.target.value)}
@@ -1099,7 +1203,9 @@ export default function PlayerPage() {
               </div>
 
               {supportFeedback && (
-                <p className={`text-xs ${supportFeedback.type === "success" ? "text-green-400" : "text-red-400"}`}>
+                <p
+                  className={`text-xs ${supportFeedback.type === "success" ? "text-green-400" : "text-red-400"}`}
+                >
                   {supportFeedback.message}
                 </p>
               )}
@@ -1115,7 +1221,9 @@ export default function PlayerPage() {
                 <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs">
                   <p className="text-neutral-300">
                     Reference:{" "}
-                    <span className="text-white font-semibold">{supportResult.payin_reference}</span>
+                    <span className="text-white font-semibold">
+                      {supportResult.payin_reference}
+                    </span>
                   </p>
                   {/* {supportResult.payout && (
                     <p className="text-neutral-400 mt-1">
@@ -1161,7 +1269,9 @@ export default function PlayerPage() {
 
       <div
         className={`mx-auto px-4 lg:px-6 grid gap-3 ${
-          theatre ? "max-w-[1400px] grid-cols-1" : "max-w-[110rem] grid-cols-1 lg:grid-cols-[8.6fr_3.4fr]"
+          theatre
+            ? "max-w-[1400px] grid-cols-1"
+            : "max-w-[110rem] grid-cols-1 lg:grid-cols-[8.6fr_3.4fr]"
         }`}
       >
         {/* LEFT */}
@@ -1171,11 +1281,21 @@ export default function PlayerPage() {
             className="relative w-full bg-black overflow-hidden mb-3 rounded-lg"
             style={
               theatre && !isMobile
-                ? { maxHeight: "calc(100vh - 189px)", height: "42.25vw", minHeight: "480px" }
+                ? {
+                    maxHeight: "calc(100vh - 189px)",
+                    height: "42.25vw",
+                    minHeight: "480px",
+                  }
                 : undefined
             }
           >
-            <div className={theatre && !isMobile ? "h-full relative" : "relative aspect-video"}>
+            <div
+              className={
+                theatre && !isMobile
+                  ? "h-full relative"
+                  : "relative aspect-video"
+              }
+            >
               <VideoJsPlayer
                 src={videoUrl}
                 poster={withCloudinaryPrefix(video.thumbnail)}
@@ -1194,8 +1314,12 @@ export default function PlayerPage() {
             {authPrompt && (
               <div className="pointer-events-none absolute inset-0 flex items-end justify-center">
                 <div className="pointer-events-auto mx-4 max-w-xs w-full rounded-2xl bg-neutral-900/95 border border-white/10 px-5 py-4 text-center shadow-xl">
-                  <p className="text-lg font-semibold mb-1">{authPromptTitle}</p>
-                  <p className="text-md text-neutral-300 mb-4">{authPromptSubtitle}</p>
+                  <p className="text-lg font-semibold mb-1">
+                    {authPromptTitle}
+                  </p>
+                  <p className="text-md text-neutral-300 mb-4">
+                    {authPromptSubtitle}
+                  </p>
                   <button
                     type="button"
                     onClick={() => {
@@ -1220,7 +1344,9 @@ export default function PlayerPage() {
 
           {/* Main content */}
           <div className="grid grid-cols-3 gap-8">
-            <div className={theatre ? "col-span-3 lg:col-span-2" : "col-span-3"}>
+            <div
+              className={theatre ? "col-span-3 lg:col-span-2" : "col-span-3"}
+            >
               <h1 className="mt-2 text-xl md:text-2xl font-extrabold tracking-tight">
                 {video.videos_title}
                 {selectedLangSlug ? ` [${selectedLangSlug.toUpperCase()}]` : ""}
@@ -1236,7 +1362,8 @@ export default function PlayerPage() {
                   >
                     <Image
                       src={withCloudinaryPrefix(
-                        (video.channel_prefix || "") + (video.channel_file || "") || video.thumbnail,
+                        (video.channel_prefix || "") +
+                          (video.channel_file || "") || video.thumbnail,
                       )}
                       alt={video.channel}
                       fill
@@ -1246,18 +1373,29 @@ export default function PlayerPage() {
                   </Link>
 
                   <div>
-                    <Link href={`/channel/${video.channel_id}`} className="flex items-center gap-1">
-                      <span className="text-sm font-semibold">{video.channel}</span>
-                      {video.isVerified === "1" && <CheckBadgeIcon className="w-4 h-4 text-blue-400" />}
+                    <Link
+                      href={`/channel/${video.channel_id}`}
+                      className="flex items-center gap-1"
+                    >
+                      <span className="text-sm font-semibold">
+                        {video.channel}
+                      </span>
+                      {video.isVerified === "1" && (
+                        <CheckBadgeIcon className="w-4 h-4 text-blue-400" />
+                      )}
                     </Link>
-                    <p className="text-sm text-neutral-400">{formatSubscribers(subscribers)}</p>
+                    <p className="text-sm text-neutral-400">
+                      {formatSubscribers(subscribers)}
+                    </p>
                   </div>
 
                   <button
                     type="button"
                     onClick={handleToggleSubscribe}
                     className={`cursor-pointer ml-2 text-xs md:text-sm font-semibold rounded-full px-4 py-2 ${
-                      subscribed ? "bg-neutral-700 text-white hover:bg-neutral-700/80" : "bg-white text-black hover:bg-white/80"
+                      subscribed
+                        ? "bg-neutral-700 text-white hover:bg-neutral-700/80"
+                        : "bg-white text-black hover:bg-white/80"
                     }`}
                   >
                     {subscribed ? "Subscribed" : "Subscribe"}
@@ -1272,7 +1410,11 @@ export default function PlayerPage() {
                     onClick={handleToggleLike}
                     className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-xs md:text-sm font-semibold hover:bg-neutral-700 active:bg-neutral-600"
                   >
-                    {liked ? <ThumbsUpSolid className="w-4 h-4 text-red-400" /> : <ThumbsUpOutline className="w-4 h-4" />}
+                    {liked ? (
+                      <ThumbsUpSolid className="w-4 h-4 text-red-400" />
+                    ) : (
+                      <ThumbsUpOutline className="w-4 h-4" />
+                    )}
                     <span>{likesCount}</span>
                   </button>
 
@@ -1290,10 +1432,24 @@ export default function PlayerPage() {
                     open={shareOpen}
                     setOpen={setShareOpen}
                     title={video.videos_title}
-                    url={typeof window !== "undefined" ? window.location.href : ""}
+                    url={
+                      typeof window !== "undefined" ? window.location.href : ""
+                    }
                     hashtags={["ceflix"]}
                     id={video.id}
                   />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      openSupportModal();
+                    }}
+                    className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-xs md:text-sm font-semibold hover:bg-neutral-700 active:bg-neutral-600"
+                  >
+                    <GiftIcon className="w-4 h-4" />
+                    <span>Gift Creator</span>
+                  </button>
 
                   {/* Ellipsis menu */}
                   <div ref={moreWrapRef} className="relative">
@@ -1324,20 +1480,20 @@ export default function PlayerPage() {
                         ].join(" ")}
                       >
                         {/* ✅ Support */}
-                        {support && (
-                        <button
-                          role="menuitem"
-                          type="button"
-                          onClick={() => {
-                            setMoreMenuOpen(false);
-                            openSupportModal();
-                          }}
-                          className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left text-sm hover:bg-white/5 active:bg-white/10"
-                        >
-                          <GiftIcon className="h-5 w-5 text-neutral-200" />
-                          <span className="font-medium">Gift Creator</span>
-                        </button>
-                        )}
+                        {/* {support && (
+                          <button
+                            role="menuitem"
+                            type="button"
+                            onClick={() => {
+                              setMoreMenuOpen(false);
+                              openSupportModal();
+                            }}
+                            className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left text-sm hover:bg-white/5 active:bg-white/10"
+                          >
+                            <GiftIcon className="h-5 w-5 text-neutral-200" />
+                            <span className="font-medium">Gift Creator</span>
+                          </button>
+                        )} */}
 
                         {/* Report */}
                         <button
@@ -1365,7 +1521,9 @@ export default function PlayerPage() {
                           className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left text-sm hover:bg-white/5 active:bg-white/10"
                         >
                           <RectangleGroupIcon className="h-5 w-5 text-neutral-200" />
-                          <span className="font-medium">{theatre ? "Exit theatre mode" : "Theatre mode"}</span>
+                          <span className="font-medium">
+                            {theatre ? "Exit theatre mode" : "Theatre mode"}
+                          </span>
                         </button>
 
                         {!isLive && (
@@ -1373,8 +1531,12 @@ export default function PlayerPage() {
                             <div className="mx-2 h-px bg-white/10" />
                             <div className="flex w-full items-center justify-between gap-3 px-4 py-3">
                               <div className="flex items-center gap-3">
-                                <span className={`h-2.5 w-2.5 rounded-full ${autoplay ? "bg-red-500" : "bg-neutral-500"}`} />
-                                <span className="text-sm font-medium">Autoplay</span>
+                                <span
+                                  className={`h-2.5 w-2.5 rounded-full ${autoplay ? "bg-red-500" : "bg-neutral-500"}`}
+                                />
+                                <span className="text-sm font-medium">
+                                  Autoplay
+                                </span>
                               </div>
 
                               <Switch
@@ -1382,7 +1544,10 @@ export default function PlayerPage() {
                                 onChange={(v) => {
                                   setAutoplay(() => {
                                     try {
-                                      localStorage.setItem("ceflix.autoplay", JSON.stringify(v));
+                                      localStorage.setItem(
+                                        "ceflix.autoplay",
+                                        JSON.stringify(v),
+                                      );
                                     } catch {}
                                     return v;
                                   });
@@ -1405,12 +1570,15 @@ export default function PlayerPage() {
               {/* Description */}
               <div className="mt-4 rounded-lg bg-neutral-900/80 px-4 py-3 text-sm">
                 <p className="font-semibold text-neutral-100">
-                  {formatViews(video.numOfViews)} • {timeSince(video.uploadtime)}
+                  {/* {formatViews(video.numOfViews)} •{" "} */}
+                  {timeSince(video.uploadtime)}
                 </p>
 
                 {video.description && (
                   <p className="mt-2 whitespace-pre-line text-neutral-100">
-                    {!video.description || video.description.length <= 220 || showFullDescription
+                    {!video.description ||
+                    video.description.length <= 220 ||
+                    showFullDescription
                       ? video.description
                       : `${video.description.slice(0, 220)}…`}
                   </p>
@@ -1430,13 +1598,17 @@ export default function PlayerPage() {
               {/* Languages */}
               {languages.length > 0 && (
                 <div className="mt-3 bg-neutral-900/80 border border-neutral-800 rounded-lg p-3">
-                  <p className="text-xs font-semibold mb-2">Available languages</p>
+                  <p className="text-xs font-semibold mb-2">
+                    Available languages
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={() => handleChangeLanguage(null)}
                       className={`cursor-pointer text-xs rounded-full px-3 py-1 ${
-                        !selectedLangSlug ? "bg-red-600" : "bg-neutral-700 hover:bg-neutral-600"
+                        !selectedLangSlug
+                          ? "bg-red-600"
+                          : "bg-neutral-700 hover:bg-neutral-600"
                       }`}
                     >
                       Default
@@ -1447,7 +1619,9 @@ export default function PlayerPage() {
                         type="button"
                         onClick={() => handleChangeLanguage(lang)}
                         className={`cursor-pointer text-xs rounded-full px-3 py-1 ${
-                          selectedLangSlug === lang.slug ? "bg-red-600" : "bg-neutral-700 hover:bg-neutral-600"
+                          selectedLangSlug === lang.slug
+                            ? "bg-red-600"
+                            : "bg-neutral-700 hover:bg-neutral-600"
                         }`}
                       >
                         {lang.translation}
@@ -1471,7 +1645,9 @@ export default function PlayerPage() {
                     className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-500"
                   />
                   <div className="mt-2 flex items-center justify-between text-xs">
-                    {postingComment && <span className="text-white">Posting…</span>}
+                    {postingComment && (
+                      <span className="text-white">Posting…</span>
+                    )}
                     <button
                       type="button"
                       onClick={handlePostComment}
@@ -1487,7 +1663,10 @@ export default function PlayerPage() {
                     <div key={c.id} className="flex items-start gap-3">
                       <div className="relative h-11 w-11 rounded-full overflow-hidden bg-neutral-700">
                         <Image
-                          src={withCloudinaryPrefix(c.profile_pic || "https://ceflix.org/images/avatar.png")}
+                          src={withCloudinaryPrefix(
+                            c.profile_pic ||
+                              "https://ceflix.org/images/avatar.png",
+                          )}
                           alt={`${c.fname} ${c.lname}`}
                           fill
                           unoptimized
@@ -1499,14 +1678,18 @@ export default function PlayerPage() {
                           <span className="text-white font-bold">
                             {c.fname} {c.lname}
                           </span>
-                          <span className="text-neutral-400">{timeSince(c.com_time)}</span>
+                          <span className="text-neutral-400">
+                            {timeSince(c.com_time)}
+                          </span>
                         </div>
                         <p className="text-sm mt-1">{c.comment}</p>
                       </div>
                     </div>
                   ))}
                   {comments.length === 0 && (
-                    <p className="text-xs text-neutral-500">No comments yet. Be the first to comment.</p>
+                    <p className="text-xs text-neutral-500">
+                      No comments yet. Be the first to comment.
+                    </p>
                   )}
                 </div>
               </div>
@@ -1515,7 +1698,11 @@ export default function PlayerPage() {
             {/* Up next sidebar when in theatre mode */}
             {theatre && (
               <aside className="mt-6 col-span-3 lg:col-span-1">
-                {playlistTitle && <h3 className="text-md font-bold mb-2 text-white">Playlist - {playlistTitle}</h3>}
+                {playlistTitle && (
+                  <h3 className="text-md font-bold mb-2 text-white">
+                    Playlist - {playlistTitle}
+                  </h3>
+                )}
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-1">
                   {upNext
                     .filter((v) => v.isLive === "0")
@@ -1545,15 +1732,22 @@ export default function PlayerPage() {
                         </div>
 
                         <div className="flex-1 min-w-0 mt-1 lg:mt-0">
-                          <p className="text-sm font-semibold line-clamp-2">{item.videos_title}</p>
-                          <p className="text-xs text-neutral-400 mt-1 line-clamp-1">{item.channel}</p>
+                          <p className="text-sm font-semibold line-clamp-2">
+                            {item.videos_title}
+                          </p>
+                          <p className="text-xs text-neutral-400 mt-1 line-clamp-1">
+                            {item.channel}
+                          </p>
                           <p className="text-xs text-neutral-500 mt-0.5">
-                            {formatViews(item.numOfViews)} • {timeSince(item.uploadtime)}
+                            {/* {formatViews(item.numOfViews)} •{" "} */}
+                            {timeSince(item.uploadtime)}
                           </p>
                         </div>
                       </button>
                     ))}
-                  {upNext.length === 0 && <p className="text-xs text-neutral-500">No more videos.</p>}
+                  {upNext.length === 0 && (
+                    <p className="text-xs text-neutral-500">No more videos.</p>
+                  )}
                 </div>
               </aside>
             )}
@@ -1563,7 +1757,11 @@ export default function PlayerPage() {
         {/* RIGHT (non-theatre) */}
         {!theatre && (
           <aside className="min-w-0">
-            {playlistTitle && <h3 className="text-md font-bold mb-2 text-white">Playlist - {playlistTitle}</h3>}
+            {playlistTitle && (
+              <h3 className="text-md font-bold mb-2 text-white">
+                Playlist - {playlistTitle}
+              </h3>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-1">
               {upNext
@@ -1594,20 +1792,29 @@ export default function PlayerPage() {
                     </div>
 
                     <div className="flex-1 min-w-0 mt-1 lg:mt-0">
-                      <p className="text-sm font-semibold line-clamp-2">{item.videos_title}</p>
+                      <p className="text-sm font-semibold line-clamp-2">
+                        {item.videos_title}
+                      </p>
                       {String(item.id) === String(currentVideoId) && (
-                        <p className="text-[11px] text-red-400 font-semibold mt-0.5">Now playing</p>
+                        <p className="text-[11px] text-red-400 font-semibold mt-0.5">
+                          Now playing
+                        </p>
                       )}
-                      <p className="text-xs text-neutral-400 mt-1 line-clamp-1">{item.channel}</p>
+                      <p className="text-xs text-neutral-400 mt-1 line-clamp-1">
+                        {item.channel}
+                      </p>
                       <p className="text-xs text-neutral-500 mt-0.5">
-                        {formatViews(item.numOfViews)} • {timeSince(item.uploadtime)}
+                        {/* {formatViews(item.numOfViews)} •{" "} */}
+                        {timeSince(item.uploadtime)}
                       </p>
                     </div>
                   </button>
                 ))}
 
               {upNext.length === 0 && (
-                <p className="text-xs text-neutral-500 col-span-full">No more videos.</p>
+                <p className="text-xs text-neutral-500 col-span-full">
+                  No more videos.
+                </p>
               )}
             </div>
           </aside>

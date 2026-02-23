@@ -332,7 +332,7 @@ export default function HistoryPage() {
                           alt={item.videos_title}
                           fill
                           unoptimized
-                          className="object-contain group-hover:scale-105 transition"
+                          className="object-contain group-hover:scale-105 transition h-full m-auto"
                         />
                         {progressPercent > 0 && (
                           <div className="absolute bottom-0 left-0 w-full h-1.5 bg-black/60">
@@ -382,8 +382,8 @@ export default function HistoryPage() {
                           )}
                         </Link>
 
-                        <span>•</span>
-                        <span>{formatViews(item.numOfViews)}</span>
+                        {/* <span>•</span>
+                        <span>{formatViews(item.numOfViews)}</span> */}
                         <span>•</span>
                         <span>{timeSince(item.uploadtime)}</span>
                       </div>

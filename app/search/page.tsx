@@ -354,8 +354,9 @@ function SearchPageContent() {
                       {v.videos_title}
                     </h2>
                     <p className="text-sm py-1 text-neutral-400 mb-1">
-                      {views} views
-                      {since && ` • ${since}`}
+                      {/* {views} views
+                      {since && ` • ${since}`} */}
+                      {since && `${since}`}
                       {v.isPremium === "1" && " • Premium"}
                     </p>
                     {v.description && (

@@ -365,10 +365,10 @@ export default function LikedVideosPage() {
                             {video.channel || "Unknown channel"}
                           </p>
                           <p className="text-[11px] flex flex-wrap items-center gap-x-1 gap-y-0.5">
-                            <span className="inline-flex items-center gap-1">
+                            {/* <span className="inline-flex items-center gap-1">
                               {abbreviateViews(video.numOfViews)}
-                            </span>
-                            <span>•</span>
+                            </span> */}
+                            {/* <span>•</span> */}
                             <span>{timeSinceUnix(video.uploadtime)}</span>
                           </p>
                         </div>

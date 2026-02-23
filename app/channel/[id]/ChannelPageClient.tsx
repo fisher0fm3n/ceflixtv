@@ -278,9 +278,10 @@ export default function ChannelPageClient({ channelId }: ClientProps) {
     title: truncate(video.videos_title, 60),
     image: withCloudinaryPrefix(video.thumbnail),
     subtitle: truncate(video.description, 80),
-    meta: `${abbreviateViews(video.numOfViews)} Views • ${timeSince(
-      video.uploadtime,
-    )}`,
+    meta: `${timeSince(video.uploadtime)}`,
+    // meta: `${abbreviateViews(video.numOfViews)} Views • ${timeSince(
+    //   video.uploadtime,
+    // )}`,
     tags: [duration(video.duration)],
   }));
 
@@ -481,9 +482,10 @@ export default function ChannelPageClient({ channelId }: ClientProps) {
                         </h1>
                       </Link>
                       <div className="mt-2 mb-4 flex flex-row gap-x-4 text-sm font-medium">
-                        {`${abbreviateViews(
+                        {`${timeSince(highlight.uploadtime)}`}
+                        {/* {`${abbreviateViews(
                           highlight.numOfViews,
-                        )} Views • ${timeSince(highlight.uploadtime)}`}
+                        )} Views • ${timeSince(highlight.uploadtime)}`} */}
                       </div>
                       <p className="text-md lime-clamp-3">
                         {truncate(highlight.description, 300)}

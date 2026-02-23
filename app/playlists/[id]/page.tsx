@@ -430,7 +430,7 @@ export default function PlaylistPage() {
                 alt={playlist.playlist_title}
                 fill
                 unoptimized
-                className="object-cover"
+                className="object-cover h-full"
               />
             </div>
             <div>

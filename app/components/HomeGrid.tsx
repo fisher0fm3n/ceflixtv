@@ -260,7 +260,8 @@ export default function InitialHomeGrid({ sections, loading, error }: Props) {
                       {video.channelName}
                     </p>
                     <p className="mt-0.5 text-xs text-neutral-500">
-                      {video.numOfViews} views · {video.timeAgo}
+                                            {video.timeAgo}
+                      {/* {video.numOfViews} views · {video.timeAgo} */}
                     </p>
                   </div>
                 </div>
