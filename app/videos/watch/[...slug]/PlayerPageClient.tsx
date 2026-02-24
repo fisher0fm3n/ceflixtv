@@ -28,7 +28,7 @@ const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
 
 // ✅ Support endpoint
-const SUPPORT_ENDPOINT = "http://127.0.0.1:8000/api/user/channel/support";
+const SUPPORT_ENDPOINT = "https://webapi.ceflix.org/api/user/channel/support";
 
 type Language = {
   id: string;
