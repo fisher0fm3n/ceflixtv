@@ -8,7 +8,7 @@ type Props = {
   src: string | null;
   poster?: string;
   autoplay?: boolean;
-  muted?: boolean;
+  muted?: boolean; // IMPORTANT: if autoplay=true, you almost always want muted=true
   playsInline?: boolean;
   startTime?: number | null;
   onProgress?: (currentTime: number, duration: number) => void;
@@ -22,7 +22,7 @@ export default function VideoJsPlayer({
   src,
   poster,
   autoplay = true,
-  muted = true,
+  muted,
   playsInline = true,
   startTime,
   onProgress,
@@ -35,38 +35,50 @@ export default function VideoJsPlayer({
   const playerRef = useRef<any>(null);
   const didSeekRef = useRef(false);
 
-  // Create the player once (when src becomes available)
+  const getType = (u: string) =>
+    u.endsWith(".m3u8") ? "application/x-mpegURL" : "video/mp4";
+
+  // Create player once (when src becomes available)
   useEffect(() => {
     if (!containerRef.current) return;
     if (playerRef.current) return;
     if (!src) return;
 
-    // Create <video> and let video.js own it (React-safe)
     const videoEl = document.createElement("video");
     videoEl.className = "video-js vjs-big-play-centered vjs-ceflix";
-    videoEl.setAttribute("playsinline", String(playsInline));
     videoEl.style.width = "100%";
     videoEl.style.height = "100%";
 
+    // ✅ playsinline for iOS/Safari
+    if (playsInline) {
+      videoEl.setAttribute("playsinline", "true");
+      videoEl.setAttribute("webkit-playsinline", "true");
+    }
+
+    // ✅ MUST be muted at the element level for autoplay to work in browsers
+    // If you're trying to autoplay, force muted true (otherwise many browsers block)
+    const shouldMuteForAutoplay = !!muted;
+
+    videoEl.muted = shouldMuteForAutoplay;
+    if (shouldMuteForAutoplay) videoEl.setAttribute("muted", "");
+    else videoEl.removeAttribute("muted");
+
     containerRef.current.appendChild(videoEl);
 
-    const type = src.endsWith(".m3u8")
-      ? "application/x-mpegURL"
-      : "video/mp4";
-
     const player = (playerRef.current = videojs(videoEl, {
-      autoplay,
+      autoplay, // we'll still call play() manually after we set muted
+      muted: shouldMuteForAutoplay, // ✅ also tell video.js
       controls: true,
       preload: "auto",
       playsinline: playsInline,
-
-      // IMPORTANT: Let your Tailwind layout control sizing
       fluid: false,
       responsive: false,
-
-      sources: [{ src, type }],
+      sources: [{ src, type: getType(src) }],
       poster,
     }));
+
+    // ✅ Ensure player is muted BEFORE any play attempt
+    player.muted(shouldMuteForAutoplay);
 
     player.on("timeupdate", () => {
       onProgress?.(player.currentTime() || 0, player.duration() || 0);
@@ -76,12 +88,27 @@ export default function VideoJsPlayer({
       const dur = player.duration() || 0;
       onLoadedMetadata?.(dur);
 
-      // Seek once per source-load
       if (!didSeekRef.current && startTime && startTime > 0) {
         didSeekRef.current = true;
         try {
           player.currentTime(startTime);
         } catch {}
+      }
+
+      // ✅ attempt autoplay after metadata (most reliable moment)
+      if (autoplay) {
+        // keep muted true for autoplay compliance
+        // some browsers need BOTH element + player muted before play
+        try {
+          const el = player.el()?.querySelector("video") as HTMLVideoElement | null;
+          if (el) {
+          }
+        } catch {}
+
+        player.play().catch(() => {
+          // Autoplay may still be blocked if browser requires user gesture in some edge cases.
+          // In that case, the big play button will still work.
+        });
       }
     });
 
@@ -91,7 +118,7 @@ export default function VideoJsPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
 
-  // Update src when it changes (after player exists)
+  // Update src/poster/autoplay/muted after player exists
   useEffect(() => {
     const player = playerRef.current;
     if (!player) return;
@@ -99,15 +126,28 @@ export default function VideoJsPlayer({
 
     didSeekRef.current = false;
 
-    const type = src.endsWith(".m3u8")
-      ? "application/x-mpegURL"
-      : "video/mp4";
+    const shouldMuteForAutoplay = !!muted;
 
+    // ✅ sync poster + src
     player.poster(poster || "");
-    player.src({ src, type });
+    player.src({ src, type: getType(src) });
 
-    if (autoplay) player.play().catch(() => {});
-  }, [src, poster, autoplay]);
+    // ✅ sync muted state (player + underlying element)
+    player.muted(shouldMuteForAutoplay);
+    try {
+      const el = player.el()?.querySelector("video") as HTMLVideoElement | null;
+      if (el) {
+        el.muted = shouldMuteForAutoplay;
+        if (shouldMuteForAutoplay) el.setAttribute("muted", "");
+        else el.removeAttribute("muted");
+      }
+    } catch {}
+
+    // ✅ attempt autoplay after src change
+    if (autoplay) {
+      player.play().catch(() => {});
+    }
+  }, [src, poster, autoplay, muted]);
 
   // Dispose on unmount
   useEffect(() => {
@@ -126,7 +166,6 @@ export default function VideoJsPlayer({
   return (
     <div className={`relative w-full h-full overflow-hidden ${className}`}>
       <div ref={containerRef} className="absolute inset-0" />
-
       {loading && (
         <div className="absolute inset-0 animate-pulse bg-neutral-800/80" />
       )}

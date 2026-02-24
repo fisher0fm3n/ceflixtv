@@ -107,7 +107,7 @@ const durationFmt = (seconds: number | string) => {
 };
 
 const CLOUDINARY_PREFIX =
-  "https://res.cloudinary.com/raves-music/image/fetch/w_350/";
+  "https://res.cloudinary.com/raves-music/image/fetch/w_850/";
 function withCloudinaryPrefix(src: string | null): string {
   if (!src) return "";
   const s = src.toLowerCase();
@@ -118,7 +118,7 @@ function withCloudinaryPrefix2(src: string | null): string {
   if (!src) return "";
   const s = src.toLowerCase();
   if (s.includes("cloudinary") || s.includes("cloudfront")) return src;
-  return `https://res.cloudinary.com/raves-music/image/fetch/w_1200/${encodeURIComponent(
+  return `https://res.cloudinary.com/raves-music/image/fetch/w_850/${encodeURIComponent(
     src,
   )}`;
 }
@@ -1343,6 +1343,7 @@ const playNextInQueue = () => {
                 src={videoUrl}
                 poster={withCloudinaryPrefix(video.thumbnail)}
                 autoplay
+                muted={false}
                 playsInline
                 loading={loading}
                 startTime={resumeTime}

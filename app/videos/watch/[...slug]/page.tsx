@@ -6,7 +6,7 @@ const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
 
 const CLOUDINARY_PREFIX =
-  "https://res.cloudinary.com/raves-music/image/fetch/w_1200/";
+  "https://res.cloudinary.com/raves-music/image/fetch/w_850/";
 
 // --- Types just for SEO ---
 type SeoVideo = {

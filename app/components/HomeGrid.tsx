@@ -20,7 +20,7 @@ export type Section = {
 };
 
 const CLOUDINARY_PREFIX =
-  "https://res.cloudinary.com/raves-music/image/fetch/w_450/";
+  "https://res.cloudinary.com/raves-music/image/fetch/w_850/";
 
 function withCloudinaryPrefix(src: string) {
   if (!src) return src;

@@ -1,7 +1,7 @@
 "use client";
 
 const CLOUDINARY_PREFIX =
-  "https://res.cloudinary.com/raves-music/image/fetch/w_350/";
+  "https://res.cloudinary.com/raves-music/image/fetch/w_850/";
 
 // If URL already contains "cloudinary" or "cloudfront", leave it as is.
 // Otherwise, prefix it with the Cloudinary fetch URL.
