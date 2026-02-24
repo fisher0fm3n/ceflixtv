@@ -28,7 +28,7 @@ const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
 
 // ✅ Support endpoint
-const SUPPORT_ENDPOINT = "https://webapi.ceflix.org/api/user/channel/support";
+const SUPPORT_ENDPOINT = "http://127.0.0.1:8000/api/user/channel/support";
 
 type Language = {
   id: string;
@@ -1239,7 +1239,7 @@ const playNextInQueue = () => {
                   value={supportMessage}
                   onChange={(e) => setSupportMessage(e.target.value)}
                   rows={2}
-                  placeholder="Love your content, keep it up!"
+                  placeholder=""
                   className="w-full rounded-md bg-neutral-800 border border-neutral-700 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60"
                   disabled={supportSubmitting}
                 />
