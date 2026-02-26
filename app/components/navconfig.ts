@@ -19,9 +19,15 @@ export type NavItem = {
 export const mainNavItems: NavItem[] = [
   { href: "/", label: "Home", icon: HomeIcon },
   { href: "/stations", label: "Live Stations", icon: SignalIcon },
-  { href: "/ceclips", label: "CeClips", icon: SparklesIcon, dividerAfter: true},
-  { href: "/history", label: "History", icon: ClockIcon },
+  {
+    href: "/ceclips",
+    label: "CeClips",
+    icon: SparklesIcon,
+    dividerAfter: true,
+  },
+  { href: "/subscriptions", label: "Subscriptions", icon: ClockIcon },
   { href: "/channels", label: "Channels", icon: TvIcon },
+  { href: "/history", label: "History", icon: ClockIcon },
   { href: "/likes", label: "Liked Videos", icon: HandThumbUpIcon },
   { href: "/playlists", label: "Playlists", icon: QueueListIcon },
 ];

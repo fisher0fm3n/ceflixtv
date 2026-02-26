@@ -224,50 +224,69 @@ export default function PlaylistPage() {
     [videos]
   );
 
-  async function getPlaylist() {
-    if (!token || !playlistId) return;
+async function getPlaylist() {
+  if (!playlistId) return;
 
-    setLoading(true);
-    setError(null);
+  setLoading(true);
+  setError(null);
 
-    try {
-      const req = await fetch(API_BASE + "playlist", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Application-Key": APP_KEY,
-          "X-TOKEN": token,
-        },
-        body: JSON.stringify({ playlist: playlistId, token }),
-      });
+  try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Application-Key": APP_KEY,
+    };
 
-      const res = await req.json();
+    // only send auth header if logged in
+    if (token) headers["X-TOKEN"] = token;
 
-      if (!res.status) {
-        setError("Unable to load this playlist.");
-        setData(null);
-        setVideos([]);
-      } else {
-        const payload: PlaylistResponse = res.data;
-        setData(payload);
-        setVideos(payload.videos || []);
+    const req = await fetch(API_BASE + "playlist", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        playlist: playlistId,
+        ...(token ? { token } : {}), // only include token if present
+      }),
+    });
 
-        // prime edit fields
-        setEditTitle(payload.playlist.playlist_title || "");
-        setEditDescription(payload.playlist.playlist_description || "");
-        setEditVisibility(
-          (payload.playlist.visibility as "public" | "private") || "public"
-        );
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Something went wrong while loading the playlist.");
+    const res = await req.json();
+
+    if (!res.status) {
+      setError("Playlist not found or unavailable.");
       setData(null);
       setVideos([]);
-    } finally {
-      setLoading(false);
+      return;
     }
+
+    const payload: PlaylistResponse = res.data;
+
+    // ✅ HARD PRIVACY RULE:
+    // If it's private and you're not the owner, do not show it.
+    const isPrivate = payload.playlist.visibility === "private";
+    if (isPrivate && !payload.canModify) {
+      setError("Playlist not found or unavailable."); // avoid leaking existence
+      setData(null);
+      setVideos([]);
+      return;
+    }
+
+    setData(payload);
+    setVideos(payload.videos || []);
+
+    // prime edit fields (only really used if canModify is true)
+    setEditTitle(payload.playlist.playlist_title || "");
+    setEditDescription(payload.playlist.playlist_description || "");
+    setEditVisibility(
+      (payload.playlist.visibility as "public" | "private") || "public"
+    );
+  } catch (err) {
+    console.error(err);
+    setError("Something went wrong while loading the playlist.");
+    setData(null);
+    setVideos([]);
+  } finally {
+    setLoading(false);
   }
+}
 
   async function handleDeletePlaylist() {
     if (!token || !playlistId) return;
@@ -333,46 +352,10 @@ export default function PlaylistPage() {
     }
   }
 
-  useEffect(() => {
-    if (!isLoggedIn) {
-      setLoading(false);
-      return;
-    }
-    getPlaylist();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoggedIn, token, playlistId]);
-
-  // Require sign-in (API always uses token)
-  if (!isLoggedIn) {
-    return (
-      <main className="min-h-screen bg-neutral-950 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-10 pb-10">
-          <button
-            type="button"
-            className="mb-4 cursor-pointer inline-flex items-center gap-1 text-sm text-neutral-300 hover:text-white"
-            onClick={() => router.back()}
-          >
-            <ArrowLeftIcon className="h-4 w-4" />
-            Back
-          </button>
-          <h1 className="text-2xl font-bold mb-3 flex items-center gap-2">
-            <ListBulletIcon className="h-6 w-6" />
-            Playlist
-          </h1>
-          <p className="text-neutral-400 text-sm mb-4">
-            Sign in to view this playlist.
-          </p>
-          <button
-            type="button"
-            onClick={() => router.push("/login")}
-            className="cursor-pointer rounded-full bg-white px-5 py-2 text-sm font-semibold text-black hover:bg-neutral-200 transition"
-          >
-            Sign in
-          </button>
-        </div>
-      </main>
-    );
-  }
+useEffect(() => {
+  getPlaylist();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [token, playlistId]);
 
   if (loading) {
     return <PlaylistSkeleton />;

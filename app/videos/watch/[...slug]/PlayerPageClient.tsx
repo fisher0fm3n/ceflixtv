@@ -312,7 +312,7 @@ export default function PlayerPage() {
   const [newPlaylistTitle, setNewPlaylistTitle] = useState("");
   const [newPlaylistVisibility, setNewPlaylistVisibility] = useState<
     "public" | "private"
-  >("private");
+  >("public");
   const [creatingPlaylist, setCreatingPlaylist] = useState(false);
 
   const [playlistUpdatingId, setPlaylistUpdatingId] = useState<number | null>(
@@ -449,6 +449,14 @@ export default function PlayerPage() {
       return;
     }
 
+    if (!currentVideoId) {
+      setPlaylistFeedback({
+        type: "error",
+        message: "Video id not available.",
+      });
+      return;
+    }
+
     setCreatingPlaylist(true);
     setPlaylistFeedback(null);
 
@@ -461,6 +469,7 @@ export default function PlayerPage() {
         },
         body: JSON.stringify({
           token,
+          video: Number(currentVideoId), // ✅ pass video id on create
           title,
           visibility: newPlaylistVisibility,
         }),
@@ -468,30 +477,42 @@ export default function PlayerPage() {
 
       const data = await res.json().catch(() => null);
 
-      if (data?.status) {
-        setPlaylistFeedback({
-          type: "success",
-          message: `Playlist "${title}" created.`,
-        });
-        setNewPlaylistTitle("");
-        setCreatePlaylistMode(false);
+      if (!res.ok) {
+        throw new Error(data?.message || `Request failed (${res.status})`);
+      }
 
-        // refresh list and (optionally) auto-add current video to the new playlist:
-        await fetchPlaylists();
-
-        // If you want to auto-add the current video to the newly created playlist:
-        if (data?.data?.id && currentVideoId) {
-          await toggleVideoInPlaylist(
-            Number(data.data.id),
-            data.data.playlist_title || title,
-          );
-        }
-      } else {
+      if (!data?.status || !data?.data) {
         setPlaylistFeedback({
           type: "error",
           message: data?.message || "Failed to create playlist.",
         });
+        return;
       }
+
+      const created: Playlist = {
+        id: Number(data.data.id),
+        playlist_title: data.data.playlist_title,
+        playlist_thumbnail: data.data.playlist_thumbnail ?? null,
+        videos_payload:
+          data.data.videos_payload != null
+            ? String(data.data.videos_payload)
+            : null,
+        visibility: data.data.visibility === "public" ? "public" : "private",
+      };
+
+      // ✅ instantly add it to the list at the top
+      setPlaylists((prev) => [created, ...prev]);
+
+      setPlaylistFeedback({
+        type: "success",
+        message: `Playlist "${created.playlist_title}" created.`,
+      });
+
+      setNewPlaylistTitle("");
+      setCreatePlaylistMode(false);
+
+      // Optional: refresh in background to stay perfectly in sync (not required)
+      // await fetchPlaylists();
     } catch (e) {
       setPlaylistFeedback({
         type: "error",
@@ -1533,8 +1554,8 @@ export default function PlayerPage() {
                     className="w-full rounded-md bg-neutral-800 border border-neutral-700 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-500"
                     disabled={creatingPlaylist}
                   >
+                                        <option value="public">Public</option>
                     <option value="private">Private</option>
-                    <option value="public">Public</option>
                   </select>
                 </div>
 
