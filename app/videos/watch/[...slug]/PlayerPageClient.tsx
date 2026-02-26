@@ -18,6 +18,7 @@ import {
   HandThumbUpIcon as ThumbsUpSolid,
 } from "@heroicons/react/24/solid";
 import { Switch } from "@headlessui/react";
+import { ListBulletIcon, PlusIcon } from "@heroicons/react/24/outline";
 
 import { useAuth } from "../../../components/AuthProvider";
 import ShareModal from "../../../components/ShareModal";
@@ -79,6 +80,14 @@ type Comment = {
 type ReportFlag = {
   id: number;
   title: string;
+};
+
+type Playlist = {
+  id: number;
+  playlist_title: string;
+  playlist_thumbnail: string | null;
+  videos_payload: string | null;
+  visibility: "public" | "private";
 };
 
 function timeSince(unix: number | string) {
@@ -289,6 +298,217 @@ export default function PlayerPage() {
   const moreWrapRef = useRef<HTMLDivElement | null>(null);
   const moreBtnRef = useRef<HTMLButtonElement | null>(null);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // ✅ PLAYLIST MODAL STATE
+  const [playlistOpen, setPlaylistOpen] = useState(false);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [playlistsLoading, setPlaylistsLoading] = useState(false);
+  const [playlistFeedback, setPlaylistFeedback] = useState<null | {
+    type: "success" | "error";
+    message: string;
+  }>(null);
+
+  const [createPlaylistMode, setCreatePlaylistMode] = useState(false);
+  const [newPlaylistTitle, setNewPlaylistTitle] = useState("");
+  const [newPlaylistVisibility, setNewPlaylistVisibility] = useState<
+    "public" | "private"
+  >("private");
+  const [creatingPlaylist, setCreatingPlaylist] = useState(false);
+
+  const [playlistUpdatingId, setPlaylistUpdatingId] = useState<number | null>(
+    null,
+  );
+
+  const isInPlaylist = (videoId: string | null, payload: string | null) => {
+    if (!videoId || !payload) return false;
+    try {
+      return payload
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .includes(String(videoId));
+    } catch {
+      return false;
+    }
+  };
+
+  const fetchPlaylists = async () => {
+    if (!token) return;
+    setPlaylistsLoading(true);
+    setPlaylistFeedback(null);
+    try {
+      const res = await fetch(`${API_BASE}user/playlists`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Application-Key": APP_KEY,
+        },
+        body: JSON.stringify({ token }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.status && Array.isArray(data.data)) {
+        setPlaylists(data.data as Playlist[]);
+      } else {
+        setPlaylists([]);
+        setPlaylistFeedback({
+          type: "error",
+          message: data?.message || "Failed to load playlists.",
+        });
+      }
+    } catch (e) {
+      setPlaylistFeedback({
+        type: "error",
+        message: "Network error loading playlists.",
+      });
+    } finally {
+      setPlaylistsLoading(false);
+    }
+  };
+
+  const toggleVideoInPlaylist = async (
+    playlistId: number,
+    playlistName: string,
+  ) => {
+    if (!currentVideoId || !token) return;
+
+    setPlaylistUpdatingId(playlistId);
+    setPlaylistFeedback(null);
+
+    // ✅ OPTIMISTIC UPDATE (instant UI)
+    setPlaylists((prev) =>
+      prev.map((pl) => {
+        if (pl.id !== playlistId) return pl;
+
+        const ids = (pl.videos_payload ?? "")
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean);
+
+        const vid = String(currentVideoId);
+        const exists = ids.includes(vid);
+
+        const nextIds = exists ? ids.filter((x) => x !== vid) : [...ids, vid];
+
+        return { ...pl, videos_payload: nextIds.join(",") };
+      }),
+    );
+
+    try {
+      const res = await fetch(`${API_BASE}user/playlist/insert`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Application-Key": APP_KEY,
+        },
+        body: JSON.stringify({
+          token,
+          playlist: playlistId,
+          video: currentVideoId,
+        }),
+      });
+
+      // Some endpoints don’t return JSON reliably on PATCH — don’t fail because of that.
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.message || `Request failed (${res.status})`);
+      }
+
+      // ✅ Success (even if data.status is missing/false)
+      setPlaylistFeedback({
+        type: "success",
+        message: `"${playlistName}" updated.`,
+      });
+    } catch (e) {
+      // ❌ Only rollback when it truly fails
+      await fetchPlaylists(); // or remove this if you prefer to trust optimistic update
+      setPlaylistFeedback({
+        type: "error",
+        message: "Failed to update playlist. Please try again.",
+      });
+    } finally {
+      setPlaylistUpdatingId(null);
+    }
+  };
+
+  const createPlaylist = async () => {
+    if (!requireAuth("like")) return;
+    if (!token) return;
+
+    const title = newPlaylistTitle.trim();
+    if (!title) {
+      setPlaylistFeedback({
+        type: "error",
+        message: "Playlist title is required.",
+      });
+      return;
+    }
+
+    setCreatingPlaylist(true);
+    setPlaylistFeedback(null);
+
+    try {
+      const res = await fetch(`${API_BASE}user/playlist/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Application-Key": APP_KEY,
+        },
+        body: JSON.stringify({
+          token,
+          title,
+          visibility: newPlaylistVisibility,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (data?.status) {
+        setPlaylistFeedback({
+          type: "success",
+          message: `Playlist "${title}" created.`,
+        });
+        setNewPlaylistTitle("");
+        setCreatePlaylistMode(false);
+
+        // refresh list and (optionally) auto-add current video to the new playlist:
+        await fetchPlaylists();
+
+        // If you want to auto-add the current video to the newly created playlist:
+        if (data?.data?.id && currentVideoId) {
+          await toggleVideoInPlaylist(
+            Number(data.data.id),
+            data.data.playlist_title || title,
+          );
+        }
+      } else {
+        setPlaylistFeedback({
+          type: "error",
+          message: data?.message || "Failed to create playlist.",
+        });
+      }
+    } catch (e) {
+      setPlaylistFeedback({
+        type: "error",
+        message: "Network error creating playlist.",
+      });
+    } finally {
+      setCreatingPlaylist(false);
+    }
+  };
+
+  const openPlaylistModal = async () => {
+    if (!requireAuth("like")) return;
+    setPlaylistOpen(true);
+    setCreatePlaylistMode(false);
+    setPlaylistFeedback(null);
+    await fetchPlaylists();
+  };
 
   useEffect(() => {
     setVisibleComments(INITIAL_COMMENTS);
@@ -956,41 +1176,41 @@ export default function PlayerPage() {
     }
   };
 
-// Build a non-live playlist queue (stable order)
-const playlistQueue = useMemo(
-  () => upNext.filter((v) => v.isLive === "0"),
-  [upNext],
-);
-
-// Find current index inside the queue
-const currentQueueIndex = useMemo(() => {
-  if (!currentVideoId) return -1;
-  return playlistQueue.findIndex(
-    (v) => String(v.id) === String(currentVideoId),
+  // Build a non-live playlist queue (stable order)
+  const playlistQueue = useMemo(
+    () => upNext.filter((v) => v.isLive === "0"),
+    [upNext],
   );
-}, [playlistQueue, currentVideoId]);
 
-// Next video (wrap to first if last)
-const nextUpVideo = useMemo(() => {
-  if (!playlistQueue.length) return null;
+  // Find current index inside the queue
+  const currentQueueIndex = useMemo(() => {
+    if (!currentVideoId) return -1;
+    return playlistQueue.findIndex(
+      (v) => String(v.id) === String(currentVideoId),
+    );
+  }, [playlistQueue, currentVideoId]);
 
-  // If current isn't in the queue, fallback to first
-  if (currentQueueIndex < 0) return playlistQueue[0];
+  // Next video (wrap to first if last)
+  const nextUpVideo = useMemo(() => {
+    if (!playlistQueue.length) return null;
 
-  const nextIndex =
-    currentQueueIndex + 1 < playlistQueue.length ? currentQueueIndex + 1 : 0;
+    // If current isn't in the queue, fallback to first
+    if (currentQueueIndex < 0) return playlistQueue[0];
 
-  return playlistQueue[nextIndex] ?? null;
-}, [playlistQueue, currentQueueIndex]);
+    const nextIndex =
+      currentQueueIndex + 1 < playlistQueue.length ? currentQueueIndex + 1 : 0;
 
-const playNextInQueue = () => {
-  if (!autoplay) return;
-  if (!nextUpVideo) return;
+    return playlistQueue[nextIndex] ?? null;
+  }, [playlistQueue, currentQueueIndex]);
 
-  setCurrentVideoId(nextUpVideo.id);
-  updateUrlForVideo(nextUpVideo.id, nextUpVideo.videos_title);
-  window.scrollTo({ top: 0, behavior: "smooth" });
-};
+  const playNextInQueue = () => {
+    if (!autoplay) return;
+    if (!nextUpVideo) return;
+
+    setCurrentVideoId(nextUpVideo.id);
+    updateUrlForVideo(nextUpVideo.id, nextUpVideo.videos_title);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const playFirstUpNext = () => {
     if (!autoplay || !upNext.length) return;
@@ -1155,6 +1375,288 @@ const playNextInQueue = () => {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white pb-10">
+      {/* 🎵 PLAYLIST MODAL */}
+      {playlistOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="mx-4 w-full max-w-md rounded-2xl bg-neutral-900/95 border border-white/10 px-5 py-4 shadow-xl">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <ListBulletIcon className="w-5 h-5" />
+                Save to playlist
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    playlistsLoading ||
+                    creatingPlaylist ||
+                    playlistUpdatingId
+                  )
+                    return;
+                  setPlaylistOpen(false);
+                  setPlaylistFeedback(null);
+                }}
+                className="cursor-pointer text-sm text-neutral-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-neutral-300 mb-3">
+              Add this video to one or more playlists.
+            </p>
+
+            {/* List */}
+            <div className="space-y-2 max-h-56 overflow-y-auto">
+              {playlistsLoading ? (
+                <div className="text-xs text-neutral-300 flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full border border-neutral-400 border-t-transparent animate-spin" />
+                  <span>Loading playlists…</span>
+                </div>
+              ) : playlists.length === 0 ? (
+                <p className="text-xs text-neutral-500">No playlists yet.</p>
+              ) : (
+                playlists.map((pl) => {
+                  const checked = isInPlaylist(
+                    currentVideoId,
+                    pl.videos_payload,
+                  );
+                  const rowBusy = playlistUpdatingId === pl.id;
+
+                  return (
+                    <button
+                      key={pl.id}
+                      type="button"
+                      onClick={() =>
+                        toggleVideoInPlaylist(pl.id, pl.playlist_title)
+                      }
+                      disabled={rowBusy}
+                      className={[
+                        "flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left",
+                        "border-white/10 hover:bg-white/5 active:bg-white/10",
+                        rowBusy
+                          ? "opacity-70 cursor-not-allowed"
+                          : "cursor-pointer",
+                      ].join(" ")}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate">
+                          {pl.playlist_title}
+                        </p>
+                        <p className="text-xs text-neutral-400">
+                          {pl.visibility === "public" ? "Public" : "Private"}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        {rowBusy ? (
+                          <div className="h-4 w-4 rounded-full border border-neutral-400 border-t-transparent animate-spin" />
+                        ) : (
+                          <div
+                            className={[
+                              "h-4 w-4 rounded border",
+                              checked
+                                ? "bg-red-600 border-red-600"
+                                : "border-neutral-500",
+                            ].join(" ")}
+                          />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Feedback */}
+            {playlistFeedback && (
+              <p
+                className={`mt-3 text-xs ${
+                  playlistFeedback.type === "success"
+                    ? "text-green-400"
+                    : "text-red-400"
+                }`}
+              >
+                {playlistFeedback.message}
+              </p>
+            )}
+
+            {/* Footer */}
+            <div className="mt-4 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setCreatePlaylistMode((v) => !v)}
+                className="cursor-pointer inline-flex items-center gap-2 text-xs font-semibold text-neutral-200 hover:text-white"
+              >
+                <PlusIcon className="w-4 h-4" />
+                {createPlaylistMode ? "Cancel" : "Create playlist"}
+              </button>
+
+              <button
+                type="button"
+                onClick={fetchPlaylists}
+                className="cursor-pointer rounded-full border border-white/10 bg-neutral-900/60 px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-800"
+                disabled={
+                  playlistsLoading || creatingPlaylist || !!playlistUpdatingId
+                }
+              >
+                Refresh
+              </button>
+            </div>
+
+            {/* Create */}
+            {createPlaylistMode && (
+              <div className="mt-4 rounded-xl border border-white/10 bg-black/30 p-3 space-y-3">
+                <div>
+                  <label className="block text-xs text-neutral-300 mb-1">
+                    Title
+                  </label>
+                  <input
+                    value={newPlaylistTitle}
+                    onChange={(e) => setNewPlaylistTitle(e.target.value)}
+                    className="w-full rounded-md bg-neutral-800 border border-neutral-700 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-500"
+                    disabled={creatingPlaylist}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-neutral-300 mb-1">
+                    Visibility
+                  </label>
+                  <select
+                    value={newPlaylistVisibility}
+                    onChange={(e) =>
+                      setNewPlaylistVisibility(
+                        e.target.value === "public" ? "public" : "private",
+                      )
+                    }
+                    className="w-full rounded-md bg-neutral-800 border border-neutral-700 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-500"
+                    disabled={creatingPlaylist}
+                  >
+                    <option value="private">Private</option>
+                    <option value="public">Public</option>
+                  </select>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={createPlaylist}
+                    disabled={creatingPlaylist}
+                    className={`cursor-pointer rounded-full px-4 py-2 text-xs font-semibold ${
+                      creatingPlaylist
+                        ? "bg-white text-black opacity-70 cursor-not-allowed"
+                        : "bg-white text-black hover:bg-white/80"
+                    }`}
+                  >
+                    {creatingPlaylist ? "Creating..." : "Create"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {/* 🚩 REPORT MODAL */}
+      {reportOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="mx-4 w-full max-w-md rounded-2xl bg-neutral-900/95 border border-white/10 px-5 py-4 shadow-xl">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <FlagIcon className="w-5 h-5" />
+                Report video
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  if (reportSubmitting) return;
+                  setReportOpen(false);
+                  setReportFeedback(null);
+                }}
+                className="cursor-pointer text-sm text-neutral-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-neutral-300 mb-3">
+              Please select a reason for reporting this content.
+            </p>
+
+            {/* Reasons */}
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {reportOptions.map((opt) => (
+                <label
+                  key={opt.id}
+                  className={`flex items-center gap-3 rounded-lg border px-3 py-2 cursor-pointer ${
+                    selectedReport === opt.id
+                      ? "border-red-500 bg-red-500/10"
+                      : "border-white/10 hover:bg-white/5"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="report_reason"
+                    checked={selectedReport === opt.id}
+                    onChange={() => setSelectedReport(opt.id)}
+                    className="hidden"
+                  />
+                  <span className="text-sm">{opt.title}</span>
+                </label>
+              ))}
+            </div>
+
+            {/* Message */}
+            <div className="mt-3">
+              <label className="block text-xs text-neutral-300 mb-1">
+                Additional details (optional)
+              </label>
+              <textarea
+                rows={3}
+                value={reportMessage}
+                onChange={(e) => setReportMessage(e.target.value)}
+                className="w-full rounded-md bg-neutral-800 border border-neutral-700 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-500"
+                disabled={reportSubmitting}
+              />
+            </div>
+
+            {reportFeedback && (
+              <p
+                className={`mt-2 text-xs ${
+                  reportFeedback.type === "success"
+                    ? "text-green-400"
+                    : "text-red-400"
+                }`}
+              >
+                {reportFeedback.message}
+              </p>
+            )}
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setReportOpen(false)}
+                disabled={reportSubmitting}
+                className="cursor-pointer rounded-full border border-neutral-600 px-4 py-1.5 text-xs font-semibold text-neutral-200 hover:bg-neutral-800 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleReportSubmit}
+                disabled={reportSubmitting}
+                className={`cursor-pointer rounded-full px-4 py-1.5 text-xs font-semibold ${
+                  reportSubmitting
+                    ? "bg-white text-black opacity-70 cursor-not-allowed"
+                    : "bg-white text-black hover:bg-white/80"
+                }`}
+              >
+                {reportSubmitting ? "Submitting..." : "Submit report"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* ✅ SUPPORT MODAL */}
       {supportOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
@@ -1514,6 +2016,15 @@ const playNextInQueue = () => {
                     <span>{likesCount}</span>
                   </button>
 
+                  <button
+                    type="button"
+                    onClick={openPlaylistModal}
+                    className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-xs md:text-sm font-semibold hover:bg-neutral-700 active:bg-neutral-600"
+                  >
+                    <ListBulletIcon className="w-4 h-4" />
+                    <span>Playlist</span>
+                  </button>
+
                   {/* Share */}
                   <button
                     type="button"
@@ -1761,11 +2272,7 @@ const playNextInQueue = () => {
                     <div key={c.id} className="flex items-start gap-3 min-w-0">
                       <div className="relative h-11 w-11 rounded-full overflow-hidden bg-neutral-700 aspect-square">
                         <Image
-                          src={
-                            c.profile_pic
-                              ? c.profile_pic
-                              : DEFAULT_AVATAR
-                          }
+                          src={c.profile_pic ? c.profile_pic : DEFAULT_AVATAR}
                           alt=""
                           fill
                           unoptimized

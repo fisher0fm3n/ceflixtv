@@ -510,7 +510,6 @@ export default function ChannelPageClient({ channelId }: ClientProps) {
           {/* VIDEOS VIEW */}
           {view === "videos" && (
             <div className="mt-8">
-              <h1 className="mb-4 text-lg font-semibold text:white">Videos</h1>
               <ChannelVideos
                 data={data}
                 channelProfilePicture={data.channel.url}
