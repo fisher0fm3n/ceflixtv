@@ -12,9 +12,11 @@ import {
   FlagIcon,
   GiftIcon,
   EllipsisHorizontalIcon,
+  HeartIcon as HeartIconOutline,
 } from "@heroicons/react/24/outline";
 import {
   CheckBadgeIcon,
+  HeartIcon,
   HandThumbUpIcon as ThumbsUpSolid,
 } from "@heroicons/react/24/solid";
 import { Switch } from "@headlessui/react";
@@ -2030,9 +2032,9 @@ export default function PlayerPage() {
                     className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-xs md:text-sm font-semibold hover:bg-neutral-700 active:bg-neutral-600"
                   >
                     {liked ? (
-                      <ThumbsUpSolid className="w-4 h-4 text-red-400" />
+                      <HeartIcon className="w-4 h-4 text-red-500" />
                     ) : (
-                      <ThumbsUpOutline className="w-4 h-4" />
+                      <HeartIconOutline className="w-4 h-4" />
                     )}
                     <span>{likesCount}</span>
                   </button>

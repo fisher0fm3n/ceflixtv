@@ -17,6 +17,11 @@ const nextConfig = {
       { protocol: "https", hostname: "cdnvideos.ceflix.org", pathname: "/**" },
       { protocol: "https", hostname: "webapi.ceflix.org", pathname: "/**" },
       { protocol: "https", hostname: "res.cloudinary.com", pathname: "/**" },
+      {
+        protocol: "https",
+        hostname: "d3adbm7ictuj27.cloudfront.net",
+        pathname: "/**",
+      },
     ],
   },
   typescript: {
