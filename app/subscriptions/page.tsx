@@ -39,24 +39,48 @@ type Meta = {
   last_page: number;
 };
 
-function timeSince(unixSeconds: string | number) {
+const CLOUDINARY_PREFIX =
+  "https://res.cloudinary.com/raves-music/image/fetch/w_850/";
+
+// If URL already contains "cloudinary", leave it as is.
+// Otherwise, prefix it with the Cloudinary fetch URL.
+function withCloudinaryPrefix(src: string | null): string {
+  if (!src) return "";
+  if (
+    src.toLowerCase().includes("cloudinary") ||
+    src.toLowerCase().includes("cloudfront")
+  )
+    return src;
+  return `${CLOUDINARY_PREFIX}${encodeURIComponent(src)}`;
+}
+
+function timeSince(unix: number | string) {
   const ts =
-    typeof unixSeconds === "string" ? parseInt(unixSeconds, 10) : unixSeconds;
-  if (!Number.isFinite(ts)) return "";
-  const diff = Date.now() - ts * 1000;
+    typeof unix === "string" ? parseInt(unix, 10) * 1000 : unix * 1000;
+
+  const diff = Date.now() - ts;
   const minutes = Math.floor(diff / 60000);
+
+  const fmt = (n: number, unit: string) =>
+    `${n} ${unit}${n === 1 ? "" : "s"} ago`;
+
   if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 60) return fmt(minutes, "minute");
+
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return fmt(hours, "hour");
+
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
+  if (days < 7) return fmt(days, "day");
+
   const weeks = Math.floor(days / 7);
-  if (weeks < 4) return `${weeks}w ago`;
+  if (weeks < 4) return fmt(weeks, "week");
+
   const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo ago`;
+  if (months < 12) return fmt(months, "month");
+
   const years = Math.floor(days / 365);
-  return `${years}y ago`;
+  return fmt(years, "year");
 }
 
 function durationFmt(seconds: number | string | null) {
@@ -303,7 +327,7 @@ export default function SubscriptionsFeedPage() {
               href="/subscriptions/channels"
               className="w-full sm:w-auto inline-flex justify-center rounded-full border border-white/10 bg-neutral-900/60 px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-800"
             >
-              View subscribed channels
+              View followed channels
             </Link>
 
             <button
@@ -395,7 +419,7 @@ export default function SubscriptionsFeedPage() {
                   {/* Thumbnail */}
                   <div className="relative aspect-video bg-black">
                     <Image
-                      src={v.thumbnail}
+                      src={withCloudinaryPrefix(v.thumbnail)}
                       alt={v.videos_title}
                       fill
                       unoptimized

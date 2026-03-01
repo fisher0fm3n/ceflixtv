@@ -93,21 +93,32 @@ type Playlist = {
 };
 
 function timeSince(unix: number | string) {
-  const ts = typeof unix === "string" ? parseInt(unix, 10) * 1000 : unix * 1000;
+  const ts =
+    typeof unix === "string" ? parseInt(unix, 10) * 1000 : unix * 1000;
+
   const diff = Date.now() - ts;
   const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "Just Now";
-  if (minutes < 60) return `${minutes} Minutes ago`;
+
+  const fmt = (n: number, unit: string) =>
+    `${n} ${unit}${n === 1 ? "" : "s"} ago`;
+
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return fmt(minutes, "minute");
+
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} Hours ago`;
+  if (hours < 24) return fmt(hours, "hour");
+
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} Days ago`;
+  if (days < 7) return fmt(days, "day");
+
   const weeks = Math.floor(days / 7);
-  if (weeks < 4) return `${weeks} Weeks ago`;
+  if (weeks < 4) return fmt(weeks, "week");
+
   const months = Math.floor(days / 30);
-  if (months < 12) return `${months} Months ago`;
+  if (months < 12) return fmt(months, "month");
+
   const years = Math.floor(days / 365);
-  return `${years}y ago`;
+  return fmt(years, "year");
 }
 
 const durationFmt = (seconds: number | string) => {
@@ -136,7 +147,7 @@ function withCloudinaryPrefix2(src: string | null): string {
 
 function formatSubscribers(v: string | number) {
   const num = typeof v === "string" ? parseInt(v, 10) : v;
-  if (!Number.isFinite(num)) return "0 subscribers";
+  if (!Number.isFinite(num)) return "0 followers";
   if (num < 1000) return `${num} subscriber${num === 1 ? "" : "s"}`;
   const units = ["K", "M", "B"];
   let u = -1;
@@ -145,7 +156,7 @@ function formatSubscribers(v: string | number) {
     n /= 1000;
     u++;
   }
-  return `${n.toFixed(1).replace(/\.0$/, "")}${units[u]} subscribers`;
+  return `${n.toFixed(1).replace(/\.0$/, "")}${units[u]} followers`;
 }
 
 function formatViews(v: string | number) {
@@ -2019,7 +2030,7 @@ export default function PlayerPage() {
                         : "bg-white text-black hover:bg-white/80"
                     }`}
                   >
-                    {subscribed ? "Subscribed" : "Subscribe"}
+                    {subscribed ? "Followed" : "Follow"}
                   </button>
                 </div>
 

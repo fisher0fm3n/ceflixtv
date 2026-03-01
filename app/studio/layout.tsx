@@ -5,7 +5,7 @@ import React from "react";
 export const metadata: Metadata = {
   title: "Studio - Ceflix Tv",
   description:
-    "Manage your Ceflix Tv studio: upload videos, track views, subscribers, and control your channels.",
+    "Manage your Ceflix Tv studio: upload videos, track views, followers, and control your channels.",
   openGraph: {
     title: "Studio - Ceflix Tv",
     description: "Studio dashboard for creators on Ceflix Tv.",

@@ -183,7 +183,7 @@ export default function DashboardPage() {
             <StatCard title="Channels" value={stats.channels} />
             <StatCard title="Videos" value={stats.videos} />
             <StatCard title="Views" value={stats.video_views} />
-            <StatCard title="Subscribers" value={stats.subscribers} />
+            <StatCard title="followers" value={stats.subscribers} />
           </div>
         )}
 
