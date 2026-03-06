@@ -2030,7 +2030,7 @@ export default function PlayerPage() {
                         : "bg-white text-black hover:bg-white/80"
                     }`}
                   >
-                    {subscribed ? "Followed" : "Follow"}
+                    {subscribed ? "Following" : "Follow"}
                   </button>
                 </div>
 

@@ -12,7 +12,7 @@ export default function CeflixTvMini({
 }) {
   const src = useMemo(
     () =>
-      "https://wmoy83z4d2a7-hls-live.5centscdn.com/9634_push_5066_001/2146503b3b9298d00d082150a88a7327.sdp/live/9634_push_5066_001ceflixplay/chunks.m3u8",
+      "https://wmoy83z4d2a7-hls-live.5centscdn.com/9634_push_5066_001/2146503b3b9298d00d082150a88a7327.sdp/playlist.m3u8",
     []
   );
 
