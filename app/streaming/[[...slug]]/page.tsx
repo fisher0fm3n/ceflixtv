@@ -282,6 +282,12 @@ export default function StreamingDashboardPage() {
   const [success, setSuccess] = useState("");
   const router = useRouter();
 
+  useEffect(() => {
+    if (!token || !user) {
+      router.replace("/");
+    }
+  }, [token, user, router]);
+
   async function apiPost(
     path: string,
     body: any,
@@ -621,6 +627,10 @@ export default function StreamingDashboardPage() {
     };
     reader.readAsDataURL(file);
   };
+
+  if (!token || !user) {
+    return null;
+  }
 
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
