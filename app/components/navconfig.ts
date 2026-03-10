@@ -28,7 +28,7 @@ export const mainNavItems: NavItem[] = [
   },
   { href: "/subscriptions", label: "Subscriptions", icon: ClockIcon },
   { href: "/channels", label: "Channels", icon: TvIcon },
-    { href: "/streaming", label: "Live Streaming", icon: VideoCameraIcon },
+    // { href: "/streaming", label: "Live Streaming", icon: VideoCameraIcon },
   { href: "/history", label: "History", icon: ClockIcon },
   { href: "/likes", label: "Liked Videos", icon: HandThumbUpIcon },
   { href: "/playlists", label: "Playlists", icon: QueueListIcon },
