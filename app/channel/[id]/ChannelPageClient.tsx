@@ -359,7 +359,7 @@ export default function ChannelPageClient({ channelId }: ClientProps) {
                   {data.channel.channel}
                 </p>
                 <p className="text-sm font-medium text-neutral-400">
-                  {abbreviateViews((data as any).subscribers)} followers
+                  {abbreviateViews((data as any).subscribers)} Followers
                 </p>
 
                 <button

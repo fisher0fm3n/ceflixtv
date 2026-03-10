@@ -26,7 +26,7 @@ const description =
   "Watch. Share. Shine – Only on CeFlix Live TV. Showcase your talents and watch your dreams take center stage on CeFlix Live TV.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://ceflixtv.netlify.app"), // make sure this matches your real domain
+  metadataBase: new URL("https://ceflix.org"), // make sure this matches your real domain
   title,
   description,
   openGraph: {
