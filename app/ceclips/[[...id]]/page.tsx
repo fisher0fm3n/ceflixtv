@@ -67,84 +67,87 @@ type PlayerProps = {
   onShare: () => void;
 };
 
-const Player = memo(function Player({
-  view,
-  title,
-  src,
-  poster,
-  channelId,
-  channelName,
-  channelProfilePicture,
-  onShare,
-}: PlayerProps) {
-  const ref = useRef<any>(null);
+const Player = memo(
+  function Player({
+    view,
+    title,
+    src,
+    poster,
+    channelId,
+    channelName,
+    channelProfilePicture,
+    onShare,
+  }: PlayerProps) {
+    const ref = useRef<any>(null);
 
-  const source = useMemo(
-    () => ({
-      type: "video",
-      title,
-      sources: [
-        {
-          src: view ? src : "",
-          type: "video/mp4",
-          size: 1080,
-        },
-      ],
-      poster: poster || undefined,
-    }),
-    [view, src, title, poster],
-  );
+    const source = useMemo(
+      () => ({
+        type: "video",
+        title,
+        sources: [
+          {
+            src: view ? src : "",
+            type: "video/mp4",
+            size: 1080,
+          },
+        ],
+        poster: poster || undefined,
+      }),
+      [view, src, title, poster],
+    );
 
-  return (
-    <div className="flex flex-row h-full">
-      <div className="flex flex-row h-full w-full md:h-[94.8vh] md:h-[92.8vh] justify-center items-center lg:flex-row gap-3 mx-auto">
-        <div className="relative mx-auto h-full md:h-[82vh] w-full sm:w-auto md:rounded-xl overflow-hidden bg-black">
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 h-44 bg-gradient-to-t from-black via-black/70 to-transparent" />
+    return (
+      <div className="h-full w-full">
+        <div className="flex h-full w-full items-center justify-center">
+          <div className="relative h-full w-full overflow-hidden bg-black md:mx-auto md:h-[82vh] md:w-auto md:rounded-xl">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 h-56 bg-gradient-to-t from-black via-black/75 to-transparent md:h-44" />
 
-          <div className="z-50 px-4 pb-4 gap-3 flex flex-col absolute w-full bottom-0 text-white text-sm">
-            <h1 className="text-sm font-semibold">{title}</h1>
+            <div className="absolute bottom-[2rem] lg:bottom-0 z-50 flex w-full flex-col gap-2 px-3 pb-[max(2rem,env(safe-area-inset-bottom))] text-white sm:px-4 md:pb-4">
+              <h1 className="line-clamp-3 text-sm font-semibold leading-snug sm:text-base md:line-clamp-2">
+                {title}
+              </h1>
 
-            <div className="flex flex-row items-center justify-between gap-3 w-full">
-              <Link
-                href={`/channel/${channelId}`}
-                className="flex flex-row items-center min-w-0"
-              >
-                <img
-                  alt="avatar"
-                  className="rounded-full w-10 h-10 object-cover"
-                  src={channelProfilePicture || FALLBACK_AVATAR}
-                />
-                <h2 className="font-semibold text-sm ml-2 truncate">
-                  {channelName}
-                </h2>
-              </Link>
+              <div className="flex w-full items-center justify-between gap-3">
+                <Link
+                  href={`/channel/${channelId}`}
+                  className="flex min-w-0 items-center"
+                >
+                  <img
+                    alt="avatar"
+                    className="h-9 w-9 rounded-full object-cover sm:h-10 sm:w-10"
+                    src={channelProfilePicture || FALLBACK_AVATAR}
+                  />
+                  <h2 className="ml-2 truncate text-xs font-semibold sm:text-sm">
+                    {channelName}
+                  </h2>
+                </Link>
 
-              <button
-                type="button"
-                onClick={onShare}
-                className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-neutral-800/90 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700 active:bg-neutral-600"
-              >
-                <ShareIcon className="w-4 h-4" />
-                <span>Share</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={onShare}
+                  className="inline-flex cursor-pointer shrink-0 items-center gap-2 rounded-full bg-neutral-800/90 px-3 py-2 text-xs font-semibold text-white hover:bg-neutral-700 active:bg-neutral-600 sm:px-4"
+                >
+                  <ShareIcon className="h-4 w-4" />
+                  <span>Share</span>
+                </button>
+              </div>
             </div>
-          </div>
 
-          <Plyr ref={ref} source={source} options={PLAYER_OPTIONS} />
+            <Plyr ref={ref} source={source} options={PLAYER_OPTIONS} />
+          </div>
         </div>
       </div>
-    </div>
-  );
-},
-(prev, next) =>
-  prev.view === next.view &&
-  prev.title === next.title &&
-  prev.src === next.src &&
-  prev.poster === next.poster &&
-  prev.channelId === next.channelId &&
-  prev.channelName === next.channelName &&
-  prev.channelProfilePicture === next.channelProfilePicture &&
-  prev.onShare === next.onShare
+    );
+  },
+  (prev, next) =>
+    prev.view === next.view &&
+    prev.title === next.title &&
+    prev.src === next.src &&
+    prev.poster === next.poster &&
+    prev.channelId === next.channelId &&
+    prev.channelName === next.channelName &&
+    prev.channelProfilePicture === next.channelProfilePicture &&
+    prev.onShare === next.onShare,
 );
 
 type ClipItem = {
@@ -164,6 +167,7 @@ export default function CeClipsComponent() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const splideRef = useRef<any>(null);
 
@@ -179,6 +183,13 @@ export default function CeClipsComponent() {
 
   useEffect(() => {
     initialVideoIdRef.current = getInitialVideoIdFromUrl();
+  }, []);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   useEffect(() => {
@@ -343,29 +354,31 @@ export default function CeClipsComponent() {
           dragMinThreshold: { mouse: 0, touch: 10 },
           flickPower: 500,
           flickMaxPages: 1,
-          wheel: true,
-          releaseWheel: true,
+          wheel: !isMobile,
+          releaseWheel: !isMobile,
           waitForTransition: true,
           wheelSleep: 800,
           wheelMinThreshold: 20,
-          arrows: true,
+          arrows: !isMobile,
           pagination: false,
         }}
         onMoved={handleMoved}
-        className="ceclips relative px-4 w-full h-screen"
+        className="ceclips relative h-screen w-full px-0 md:px-4"
       >
         {items.map((item, i) => (
           <SplideSlide key={item.id}>
-            <Player
-              view={i === index}
-              title={item.title}
-              src={item.src}
-              poster={item.poster}
-              channelId={item.channelId}
-              channelName={item.channelName}
-              channelProfilePicture={item.channelProfilePicture}
-              onShare={handleOpenShare}
-            />
+            <div className="h-screen w-full pb-4 md:h-[92.8vh] md:pb-0">
+              <Player
+                view={i === index}
+                title={item.title}
+                src={item.src}
+                poster={item.poster}
+                channelId={item.channelId}
+                channelName={item.channelName}
+                channelProfilePicture={item.channelProfilePicture}
+                onShare={handleOpenShare}
+              />
+            </div>
           </SplideSlide>
         ))}
       </Splide>
@@ -380,7 +393,7 @@ export default function CeClipsComponent() {
       />
 
       {loadingMore && (
-        <div className="absolute bottom-4 right-4 text-xs text-white/70">
+        <div className="absolute bottom-4 right-4 z-50 text-xs text-white/70">
           Loading more…
         </div>
       )}

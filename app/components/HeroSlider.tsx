@@ -79,7 +79,7 @@ export default function HeroSlider({ slides, autoAdvanceMs = 8000 }: HeroSliderP
   const href = current.url || "#";
 
   return (
-    <section className="relative w-full h-[40vh] xl:h-[70vh] overflow-hidden bg-black">
+    <section className="relative w-full h-[60vh] xl:h-[70vh] overflow-hidden bg-black">
       {/* Background */}
       <div className="absolute inset-0">
         <Image

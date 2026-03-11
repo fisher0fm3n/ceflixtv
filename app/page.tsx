@@ -10,6 +10,8 @@ import ChannelSlider from "./components/ChannelSlider";
 import HeroSlider, { type Slide as HeroSlide } from "./components/HeroSlider";
 import CeflixTvMini from "./components/CeflixTvMini";
 import PopupPlayer from "./components/LivePopUpPlayer";
+import CeClipsComponent from "./ceclips/[[...id]]/page";
+import ShortsShelf from "./components/ShortsShelf";
 
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
@@ -273,6 +275,10 @@ export default function HomePage() {
 
       <section className="mt-6">
         <ChannelSlider title={"Live Stations"} items={stations} />
+      </section>
+
+      <section className="mt-6">
+        <ShortsShelf />
       </section>
 
       <InitialHomeGrid
