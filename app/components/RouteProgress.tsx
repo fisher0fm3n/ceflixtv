@@ -45,7 +45,7 @@ export default function RouteProgress({
 
   return (
     <>
-      {progress && <TopBarProgress />}
+      {/* {progress && <TopBarProgress />} */}
       {children}
     </>
   );

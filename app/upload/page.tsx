@@ -104,7 +104,7 @@ export default function UploadPage() {
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
-
+  const [copyrightConfirmed, setCopyrightConfirmed] = useState(false);
   const isSelectedDateToday = new Date().getDate() === datetime.getDate();
   const isSelectedDateInFuture = +datetime > +new Date();
 
@@ -186,7 +186,7 @@ export default function UploadPage() {
 
             if (draft.privacyTitle) {
               const found = privacyTypes2.find(
-                (p) => p.title === draft.privacyTitle
+                (p) => p.title === draft.privacyTitle,
               );
               if (found) {
                 setPrivacyVal(found);
@@ -196,14 +196,14 @@ export default function UploadPage() {
 
             if (draft.channelId && chRes.status) {
               const chanExists = chRes.data.some(
-                (c: Channel) => String(c.id) === String(draft.channelId)
+                (c: Channel) => String(c.id) === String(draft.channelId),
               );
               if (chanExists) defaultChannelId = String(draft.channelId);
             }
 
             if (draft.categoryId && catRes.status) {
               const catExists = catRes.data.some(
-                (c: Category) => String(c.id) === String(draft.categoryId)
+                (c: Category) => String(c.id) === String(draft.categoryId),
               );
               if (catExists) defaultCategoryId = String(draft.categoryId);
             }
@@ -243,7 +243,7 @@ export default function UploadPage() {
         }
 
         const captureTimes = [0.1, 0.3, 0.6, 0.8].map((p) =>
-          Math.min(duration * p, duration - 0.1)
+          Math.min(duration * p, duration - 0.1),
         );
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
@@ -371,6 +371,13 @@ export default function UploadPage() {
   // Upload / resume
   // ---------------------------------------------------------------------------
   const upload = () => {
+    if (!copyrightConfirmed) {
+      setError(
+        "You must confirm that you own the rights to this content before publishing.",
+      );
+      setStep(3);
+      return;
+    }
     if (!token || uploading) return;
 
     setError("");
@@ -421,7 +428,7 @@ export default function UploadPage() {
       formData.append("stream", streamLink);
       formData.append(
         "endDate",
-        Math.floor(datetime.getTime() / 1000).toString()
+        Math.floor(datetime.getTime() / 1000).toString(),
       );
     }
 
@@ -449,7 +456,7 @@ export default function UploadPage() {
       })
       .catch(() => {
         setError(
-          "Network error. You can click the button again to resume the upload."
+          "Network error. You can click the button again to resume the upload.",
         );
       })
       .finally(() => {
@@ -472,7 +479,7 @@ export default function UploadPage() {
   };
 
   const selectedChannel = channels.find(
-    (c) => String(c.id) === String(channelId)
+    (c) => String(c.id) === String(channelId),
   );
 
   // ---------------------------------------------------------------------------
@@ -565,6 +572,16 @@ export default function UploadPage() {
           </button>
         </div>
 
+        {/* Copyright notice */}
+        {/* <div className="mb-6 rounded-lg border border-yellow-700/40 bg-yellow-900/20 px-4 py-3 text-sm text-yellow-200">
+          <p className="font-semibold mb-1">Copyright notice</p>
+          <p className="text-yellow-200/90">
+            Please only upload videos that you own or have permission to use.
+            Uploading copyrighted content (such as TV shows, movies, music, or
+            other creators’ videos) without authorization may result in your
+            video being removed or your account being suspended.
+          </p>
+        </div> */}
         {/* stepper like YouTube */}
         <div className="flex items-center gap-4 mb-8">
           {steps.map((s, idx) => {
@@ -578,8 +595,8 @@ export default function UploadPage() {
                       active
                         ? "bg-white text-black"
                         : completed
-                        ? "bg-red-600 text-white"
-                        : "bg-neutral-800 text-neutral-300"
+                          ? "bg-red-600 text-white"
+                          : "bg-neutral-800 text-neutral-300"
                     }`}
                   >
                     {s.id}
@@ -658,7 +675,7 @@ export default function UploadPage() {
                         className="mt-2 w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-red-600"
                       >
                         <option value="no">Video</option>
-                        <option value="yes">Short</option>
+                        <option value="yes">Short (CeClip)</option>
                       </select>
 
                       {isShort === "yes" && (
@@ -772,8 +789,8 @@ export default function UploadPage() {
                                 currentHour,
                                 currentMins,
                                 0,
-                                0
-                              )
+                                0,
+                              ),
                             )
                           }
                           maxTime={
@@ -782,8 +799,8 @@ export default function UploadPage() {
                                 currentHour + 4,
                                 currentMins,
                                 0,
-                                0
-                              )
+                                0,
+                              ),
                             )
                           }
                           showTimeSelect
@@ -898,7 +915,7 @@ export default function UploadPage() {
                                 <img
                                   src={thumb}
                                   alt={`Suggested thumbnail ${idx + 1}`}
-                                  className="w-full h-full object-cover"
+                                  className="w-full h-full object-contain bg-black"
                                 />
                               </button>
                             );
@@ -918,7 +935,7 @@ export default function UploadPage() {
                           <img
                             src={thumbDataUrl}
                             alt="Thumbnail preview"
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-contain"
                           />
                         </div>
                       </div>
@@ -984,6 +1001,27 @@ export default function UploadPage() {
               {/* STEP 3 – Visibility */}
               {step === 3 && (
                 <div className="space-y-4">
+                  {/* Copyright confirmation */}
+                  <div className="rounded-lg border border-yellow-700/40 bg-yellow-900/20 px-4 py-3 text-sm text-yellow-200">
+                    <p className="font-semibold mb-2">Copyright confirmation</p>
+
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={copyrightConfirmed}
+                        onChange={(e) =>
+                          setCopyrightConfirmed(e.target.checked)
+                        }
+                        className="mt-1 accent-red-600"
+                      />
+                      <span className="text-yellow-100">
+                        I confirm that I own the rights to this content or have
+                        permission to upload it. Uploading copyrighted material
+                        without authorization may result in removal of the video
+                        or suspension of your account.
+                      </span>
+                    </label>
+                  </div>
                   <div className="space-y-1">
                     <label className="text-sm font-semibold">Visibility</label>
                     <select
@@ -1044,7 +1082,7 @@ export default function UploadPage() {
                   <img
                     src={thumbDataUrl}
                     alt="Current thumbnail"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 ) : (
                   <span>No thumbnail selected</span>
@@ -1130,10 +1168,10 @@ export default function UploadPage() {
             {step === 3 && (
               <button
                 type="button"
-                disabled={uploading}
+                disabled={uploading || !copyrightConfirmed}
                 onClick={upload}
                 className={`cursor-pointer px-5 py-1.5 rounded-full font-semibold ${
-                  uploading
+                  uploading || !copyrightConfirmed
                     ? "bg-red-900 cursor-not-allowed"
                     : "bg-red-700 hover:bg-red-600"
                 }`}
