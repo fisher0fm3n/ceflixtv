@@ -1,4 +1,4 @@
-// app/channel/[id]/page.tsx
+// app/channel/[...params]/page.tsx
 import type { Metadata } from "next";
 import ChannelPageClient from "./ChannelPageClient";
 
@@ -40,20 +40,28 @@ export type ChannelData = {
 };
 
 type PageProps = {
-  params: Promise<{ id: string }>; // 👈 params is a Promise now
+  params: Promise<{ params?: string[] }>;
 };
 
 // ---- Helpers ----
 function withCloudinaryPrefix(src: string | null): string {
   if (!src) return "";
-  if (src.toLowerCase().includes("cloudinary") || src.toLowerCase().includes("cloudfront")) return src;
+  if (
+    src.toLowerCase().includes("cloudinary") ||
+    src.toLowerCase().includes("cloudfront")
+  ) {
+    return src;
+  }
   return `${CLOUDINARY_PREFIX}${encodeURIComponent(src)}`;
 }
 
-// Server-side fetch just for metadata (can be cached)
-async function fetchChannelForSeo(
-  channelId: string
-): Promise<ChannelData | null> {
+function getChannelIdFromParams(parts?: string[]): string | null {
+  const id = parts?.[0]?.trim();
+  return id ? id : null;
+}
+
+// Server-side fetch just for metadata
+async function fetchChannelForSeo(channelId: string): Promise<ChannelData | null> {
   try {
     const res = await fetch(API_BASE + "channel", {
       method: "POST",
@@ -62,7 +70,7 @@ async function fetchChannelForSeo(
         "Application-Key": APP_KEY,
       },
       body: JSON.stringify({ channel: channelId }),
-      next: { revalidate: 300 }, // revalidate SEO every 5 minutes
+      next: { revalidate: 300 },
     });
 
     const json = await res.json();
@@ -74,12 +82,18 @@ async function fetchChannelForSeo(
   }
 }
 
-// ✅ SEO via generateMetadata – note the `await params`
-export async function generateMetadata(
-  { params }: PageProps
-): Promise<Metadata> {
-  const { id } = await params; // 👈 FIX: unwrap params
-  const data = await fetchChannelForSeo(id);
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const resolved = await params;
+  const channelId = getChannelIdFromParams(resolved.params);
+
+  if (!channelId) {
+    return {
+      title: "Channel - Ceflix Tv",
+      description: "Watch videos on Ceflix Tv.",
+    };
+  }
+
+  const data = await fetchChannelForSeo(channelId);
 
   if (!data) {
     return {
@@ -116,10 +130,9 @@ export async function generateMetadata(
   };
 }
 
-// ✅ Page component also gets params as a Promise
 export default async function ChannelPageWrapper({ params }: PageProps) {
-  const { id } = await params; // 👈 FIX: unwrap params
+  const resolved = await params;
+  const channelId = getChannelIdFromParams(resolved.params);
 
-  // pass channelId down if you like (optional, since client uses useParams)
-  return <ChannelPageClient channelId={id} />;
+  return <ChannelPageClient channelId={channelId ?? ""} />;
 }
