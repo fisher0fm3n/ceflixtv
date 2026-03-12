@@ -256,7 +256,7 @@ export default function PlayerPage() {
   const durationRef = useRef(0);
   const durationUpdatedRef = useRef(false);
 
-  const INITIAL_COMMENTS = 6;
+  const INITIAL_COMMENTS = 14;
   const COMMENTS_STEP = 10;
 
   const [visibleComments, setVisibleComments] = useState(INITIAL_COMMENTS);

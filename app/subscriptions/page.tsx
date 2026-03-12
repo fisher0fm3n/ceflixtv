@@ -414,7 +414,7 @@ export default function SubscriptionsFeedPage() {
                 <Link
                   key={`${tab}-${v.id}`}
                   href={watchHref}
-                  className="group min-w-0 rounded-xl border border-white/10 bg-neutral-900/40 hover:bg-neutral-900/60 transition overflow-hidden"
+                  className="group min-w-0 rounded-lg border border-white/10 bg-neutral-900/40 hover:bg-neutral-900/60 transition overflow-hidden"
                 >
                   {/* Thumbnail */}
                   <div className="relative aspect-video bg-black">

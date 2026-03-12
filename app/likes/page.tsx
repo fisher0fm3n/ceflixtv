@@ -2,15 +2,8 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
-import {
-  HeartIcon,
-  PlayCircleIcon,
-  EyeIcon,
-  ClockIcon,
-} from "@heroicons/react/24/outline";
-import { useAuth } from "../components/AuthProvider"; // ⬅️ adjust path if needed
+import { useAuth } from "../components/AuthProvider";
 
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
@@ -27,7 +20,7 @@ type LikedVideo = {
   url: string;
   ios_url: string;
   schedule: string;
-  uploadtime: string; // unix seconds (string)
+  uploadtime: string;
   start: string;
   end: string;
   startDate: string;
@@ -80,36 +73,17 @@ type PaginationMeta = {
   last_page: number;
 };
 
-function abbreviateViews(v: number | string) {
-  const num = typeof v === "string" ? parseInt(v, 10) : v;
-  if (!Number.isFinite(num)) return "0 views";
-  if (num < 1000) return `${num} views`;
-  const units = ["K", "M", "B"];
-  let u = -1;
-  let n = num;
-  while (n >= 1000 && u < units.length - 1) {
-    n /= 1000;
-    u++;
-  }
-  return `${n.toFixed(1).replace(/\.0$/, "")}${units[u]} views`;
-}
-
 function durationLabel(seconds: string | number | null) {
   if (!seconds) return "";
   const s = typeof seconds === "string" ? parseFloat(seconds) : seconds;
   if (!Number.isFinite(s)) return "";
   const val = new Date(s * 1000).toISOString();
-  // if hours part is "00", show mm:ss
-  if (val.substring(12, 13) === "0") {
-    return val.substring(14, 19);
-  } else {
-    return val.substring(12, 19);
-  }
+  if (val.substring(12, 13) === "0") return val.substring(14, 19);
+  return val.substring(12, 19);
 }
 
 function timeSinceUnix(unix: number | string) {
-  const ts =
-    typeof unix === "string" ? parseInt(unix, 10) * 1000 : unix * 1000;
+  const ts = typeof unix === "string" ? parseInt(unix, 10) * 1000 : unix * 1000;
 
   const diff = Date.now() - ts;
   const minutes = Math.floor(diff / 60000);
@@ -147,27 +121,24 @@ export default function LikedVideosPage() {
   const { token, user } = useAuth();
 
   const [loading, setLoading] = useState(true);
-  const [videos, setVideos] = useState<LikedVideo[]>([]);
+  const [allVideos, setAllVideos] = useState<LikedVideo[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // ⬇️ pagination state
   const [page, setPage] = useState(1);
   const perPage = 24;
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
-  const [hasMore, setHasMore] = useState(false);
 
   const isLoggedIn = !!user && !!token;
-
   const skeletonArray = useMemo(() => Array.from({ length: 8 }), []);
 
-  async function fetchLikedVideos(pageToLoad = 1) {
+  async function fetchLikedVideos() {
     if (!token) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const req = await fetch(API_BASE + "user/videos/liked", {
+      const firstReq = await fetch(API_BASE + "user/videos/liked", {
         method: "POST",
         headers: {
           "Access-Control-Request-Method": "POST",
@@ -177,48 +148,76 @@ export default function LikedVideosPage() {
         },
         body: JSON.stringify({
           token,
-          page: pageToLoad,
+          page: 1,
           per_page: perPage,
         }),
       });
 
-      const res = await req.json();
+      const firstRes = await firstReq.json();
 
-      if (!res.status) {
+      if (!firstRes.status) {
         setError("Unable to load your liked videos.");
-        setVideos([]);
+        setAllVideos([]);
         setMeta(null);
-        setHasMore(false);
-      } else {
-        const data: LikedVideo[] = res.data || [];
+        return;
+      }
 
-        // Sort newest likes first based on created_at (per page)
-        data.sort(
-          (a, b) =>
-            new Date(b.created_at).getTime() -
-            new Date(a.created_at).getTime()
+      const firstPageData: LikedVideo[] = firstRes.data || [];
+      const firstMeta: PaginationMeta | null = firstRes.meta ?? null;
+
+      let combined = [...firstPageData];
+
+      const lastPage = firstMeta?.last_page ?? 1;
+
+      if (lastPage > 1) {
+        const rest = await Promise.all(
+          Array.from({ length: lastPage - 1 }, (_, i) => i + 2).map(
+            async (p) => {
+              const req = await fetch(API_BASE + "user/videos/liked", {
+                method: "POST",
+                headers: {
+                  "Access-Control-Request-Method": "POST",
+                  "Content-Type": "application/json",
+                  "Application-Key": APP_KEY,
+                  "X-TOKEN": token,
+                },
+                body: JSON.stringify({
+                  token,
+                  page: p,
+                  per_page: perPage,
+                }),
+              });
+
+              const res = await req.json();
+              return (res?.status ? res.data || [] : []) as LikedVideo[];
+            },
+          ),
         );
 
-        setVideos(data);
-
-        const m: PaginationMeta | undefined = res.meta;
-        if (m) {
-          setMeta(m);
-          setPage(m.current_page);
-          setHasMore(m.current_page < m.last_page);
-        } else {
-          // fallback if meta not present
-          setMeta(null);
-          setPage(pageToLoad);
-          setHasMore(data.length === perPage);
-        }
+        combined = [...combined, ...rest.flat()];
       }
+
+      combined.sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+
+      setAllVideos(combined);
+
+      const total = combined.length;
+      const last_page = Math.max(1, Math.ceil(total / perPage));
+
+      setMeta({
+        current_page: page,
+        per_page: perPage,
+        total,
+        last_page,
+      });
     } catch (err) {
       console.error(err);
       setError("Something went wrong while fetching your liked videos.");
-      setVideos([]);
+      setAllVideos([]);
       setMeta(null);
-      setHasMore(false);
     } finally {
       setLoading(false);
     }
@@ -229,11 +228,29 @@ export default function LikedVideosPage() {
       setLoading(false);
       return;
     }
-    fetchLikedVideos(1);
+    fetchLikedVideos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, token]);
 
-  // If not signed in
+  const videos = useMemo(() => {
+    const start = (page - 1) * perPage;
+    return allVideos.slice(start, start + perPage);
+  }, [allVideos, page, perPage]);
+
+  const hasMore = meta ? page < meta.last_page : false;
+
+  useEffect(() => {
+    if (!meta) return;
+    setMeta((prev) =>
+      prev
+        ? {
+            ...prev,
+            current_page: page,
+          }
+        : prev,
+    );
+  }, [page]);
+
   if (!isLoggedIn) {
     return (
       <main className="min-h-screen bg-neutral-950 text-white">
@@ -257,32 +274,21 @@ export default function LikedVideosPage() {
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-10 pb-10">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-extrabold flex items-center gap-2">
-              Liked videos
-            </h1>
+            <h1 className="text-3xl font-extrabold">Liked videos</h1>
             <p className="text-sm text-neutral-400 mt-1">
               All the videos you have given a heart to.
             </p>
           </div>
         </div>
 
-        {error && (
-          <p className="mb-4 text-sm text-red-400">
-            {error}
-          </p>
-        )}
+        {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
 
-        {/* Loading skeleton */}
         {loading && (
           <div className="grid gap-3 gap-y-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {skeletonArray.map((_, idx) => (
-              <div
-                key={idx}
-                className="flex flex-col animate-pulse"
-              >
+              <div key={idx} className="flex flex-col animate-pulse">
                 <div className="w-full aspect-video bg-neutral-800 rounded-md" />
                 <div className="mt-3 space-y-2">
                   <div className="h-4 bg-neutral-800 rounded w-5/6" />
@@ -294,7 +300,6 @@ export default function LikedVideosPage() {
           </div>
         )}
 
-        {/* Empty state */}
         {!loading && videos.length === 0 && !error && (
           <div className="mt-6 rounded-xl border border-dashed border-neutral-700 bg-neutral-900/40 p-6 text-center">
             <p className="text-sm text-neutral-300">
@@ -306,45 +311,41 @@ export default function LikedVideosPage() {
           </div>
         )}
 
-        {/* Videos grid */}
         {!loading && videos.length > 0 && (
           <>
             <div className="grid gap-3 gap-y-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {videos.map((video) => {
-                const watchHref = `/videos/watch/${video.id}/${video.videos_title
-                  .replace(/[\s+-]/g, "-")
-                  .toLowerCase()}`;
+                const slug = encodeURIComponent(
+                  video.videos_title
+                    .trim()
+                    .replace(/\s+/g, "-")
+                    .replace(/-+/g, "-")
+                    .toLowerCase(),
+                );
+
+                const watchHref = `/videos/watch/${video.id}/${slug}`;
 
                 return (
-                  <div
-                    key={video.id}
-                    className="flex flex-col group"
-                  >
-                    {/* Thumbnail */}
+                  <div key={video.id} className="flex flex-col group">
                     <div className="relative w-full overflow-hidden rounded-md bg-neutral-900">
                       <Link href={watchHref}>
                         <div className="relative w-full aspect-video">
                           <img
                             src={video.thumbnail}
                             alt={video.videos_title}
-                            fill
-                            unoptimized
-                            className="object-cover h-full m-auto transition-transform duration-200 group-hover:scale-105"
+                            className="object-contain h-full w-full m-auto transition-transform duration-200 group-hover:scale-105"
                           />
                         </div>
                       </Link>
 
-                      {/* Duration */}
                       {video.duration && (
-                        <span className="absolute bottom-1 right-1 rounded-[4px] bg-black/70 px-1.5 py-1 text-xs font-semibold text-white flex items-center gap-1">
+                        <span className="absolute bottom-1 right-1 rounded-[4px] bg-black/70 px-1.5 py-1 text-xs font-semibold text-white">
                           {durationLabel(video.duration)}
                         </span>
                       )}
                     </div>
 
-                    {/* Info */}
                     <div className="mt-2 flex flex-row gap-2">
-                      {/* Channel avatar */}
                       <div className="mt-1">
                         <div className="h-8 w-8 rounded-full overflow-hidden bg-neutral-800 flex items-center justify-center text-xs">
                           {video.channel_image ? (
@@ -353,7 +354,7 @@ export default function LikedVideosPage() {
                               alt={video.channel}
                               width={32}
                               height={32}
-                              className="h-full w-full object-cover"
+                              className="h-full w-full object-contain"
                             />
                           ) : (
                             <span className="text-neutral-300">
@@ -363,10 +364,9 @@ export default function LikedVideosPage() {
                         </div>
                       </div>
 
-                      {/* Text */}
                       <div className="flex-1 min-w-0">
                         <Link href={watchHref}>
-                          <h2 className="text-sm font-semibold leading-snug line-clamp-2 transition">
+                          <h2 className="text-sm font-semibold leading-snug line-clamp-2">
                             {video.videos_title}
                           </h2>
                         </Link>
@@ -374,11 +374,7 @@ export default function LikedVideosPage() {
                           <p className="truncate">
                             {video.channel || "Unknown channel"}
                           </p>
-                          <p className="text-[11px] flex flex-wrap items-center gap-x-1 gap-y-0.5">
-                            {/* <span className="inline-flex items-center gap-1">
-                              {abbreviateViews(video.numOfViews)}
-                            </span> */}
-                            {/* <span>•</span> */}
+                          <p className="text-[11px]">
                             <span>{timeSinceUnix(video.uploadtime)}</span>
                           </p>
                         </div>
@@ -394,13 +390,12 @@ export default function LikedVideosPage() {
               })}
             </div>
 
-            {/* Pagination controls */}
             <div className="mt-8 flex items-center justify-center gap-4">
               <button
                 type="button"
-                onClick={() => fetchLikedVideos(page - 1)}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={loading || page <= 1}
-                className="rounded-full bg-neutral-800 px-4 py-2 text-xs font-semibold text-white disabled:bg-neutral-900 disabled:text-neutral-500 hover:bg-neutral-700 transition"
+                className="cursor-pointer rounded-full bg-neutral-800 px-4 py-2 text-xs font-semibold text-white disabled:bg-neutral-900 disabled:text-neutral-500 hover:bg-neutral-700 transition"
               >
                 Previous
               </button>
@@ -410,9 +405,11 @@ export default function LikedVideosPage() {
               </span>
               <button
                 type="button"
-                onClick={() => fetchLikedVideos(page + 1)}
+                onClick={() =>
+                  setPage((p) => Math.min(meta?.last_page || p, p + 1))
+                }
                 disabled={loading || !hasMore}
-                className="rounded-full bg-neutral-800 px-4 py-2 text-xs font-semibold text-white disabled:bg-neutral-900 disabled:text-neutral-500 hover:bg-neutral-700 transition"
+                className="cursor-pointer rounded-full bg-neutral-800 px-4 py-2 text-xs font-semibold text-white disabled:bg-neutral-900 disabled:text-neutral-500 hover:bg-neutral-700 transition"
               >
                 Next
               </button>

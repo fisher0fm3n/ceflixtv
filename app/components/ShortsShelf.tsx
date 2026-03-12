@@ -76,7 +76,7 @@ export default function ShortsShelf() {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    const checkMobile = () => setIsMobile(window.innerWidth < 1280);
     checkMobile();
     window.addEventListener("resize", checkMobile);
 
@@ -140,7 +140,7 @@ export default function ShortsShelf() {
       const skeletonCount = isMobile ? 4 : 5;
 
       return (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-5">
           {Array.from({ length: skeletonCount }).map((_, i) => (
             <div key={i} className="min-w-0">
               <div className="aspect-[9/16] w-full animate-pulse rounded-lg bg-neutral-800" />
@@ -174,7 +174,7 @@ export default function ShortsShelf() {
     }
 
     return (
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
         {visibleItems.map((item) => (
           <ShortCard key={item.id} item={item} />
         ))}

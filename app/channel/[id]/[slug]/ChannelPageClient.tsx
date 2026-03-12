@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ChevronRightIcon, PencilIcon } from "@heroicons/react/24/outline";
-import { useAuth } from "../../components/AuthProvider";
+import { useAuth } from "../../../components/AuthProvider";
 import ChannelVideos from "./Videos";
-import RowSlider from "../../components/RowSliderChannel";
+import RowSlider from "../../../components/RowSliderChannel";
 import Image from "next/image";
 
 const API_BASE = "https://webapi.ceflix.org/api/";
@@ -397,7 +397,7 @@ export default function ChannelPageClient({ channelId }: ClientProps) {
                       setSubscribe((prev) => !prev);
                     }}
                   >
-                    {!subscribe ? "Subscribe" : "Unsubscribe"}
+                    {!subscribe ? "Follow" : "Following"}
                   </button>
                 )}
 
