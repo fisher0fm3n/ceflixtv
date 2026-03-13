@@ -113,30 +113,6 @@ function parseApiDateToLocalInputDate(value?: string | null) {
   return parsed;
 }
 
-function IconInfo(props: { className?: string }) {
-  return (
-    <svg className={props.className ?? ""} viewBox="0 0 24 24" fill="none">
-      <path
-        d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-      <path
-        d="M12 10v7"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M12 7h.01"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 function IconCamera(props: { className?: string }) {
   return (
     <svg className={props.className ?? ""} viewBox="0 0 24 24" fill="none">
@@ -301,6 +277,19 @@ export default function StreamingDashboardPage() {
 
   const [thumbOpen, setThumbOpen] = useState(false);
 
+  function addHours(date: Date, hours: number) {
+    return new Date(date.getTime() + hours * 60 * 60 * 1000);
+  }
+
+  function clampEndDate(date: Date) {
+    const now = new Date();
+    const max = addHours(now, 6);
+
+    if (date.getTime() < now.getTime()) return now;
+    if (date.getTime() > max.getTime()) return max;
+    return date;
+  }
+
   const [endDate, setEndDate] = useState<Date>(() => {
     const d = new Date();
     d.setHours(d.getHours() + 1);
@@ -317,19 +306,6 @@ export default function StreamingDashboardPage() {
 
   const isLoggedIn = !!user && !!token;
   const hasStreamDetails = hasExistingStreamDetails(provisioned);
-
-  function addHours(date: Date, hours: number) {
-    return new Date(date.getTime() + hours * 60 * 60 * 1000);
-  }
-
-  function clampEndDate(date: Date) {
-    const now = new Date();
-    const max = addHours(now, 6);
-
-    if (date.getTime() < now.getTime()) return now;
-    if (date.getTime() > max.getTime()) return max;
-    return date;
-  }
 
   const now = new Date();
   const maxStreamEndTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
@@ -365,6 +341,11 @@ export default function StreamingDashboardPage() {
         59,
         999,
       );
+
+  function getEffectiveChannel(listOverride?: Channel[]) {
+    const list = listOverride ?? channels;
+    return channelVal ?? (!urlVideoId ? list[0] ?? null : null);
+  }
 
   async function apiPost(
     path: string,
@@ -491,7 +472,7 @@ export default function StreamingDashboardPage() {
       const loadedChannels = await loadChannels();
 
       if (loadedChannels.length > 0 && !urlVideoId) {
-        setChannelVal(loadedChannels[0]);
+        setChannelVal((prev) => prev ?? loadedChannels[0]);
       }
 
       if (urlVideoId) {
@@ -508,14 +489,21 @@ export default function StreamingDashboardPage() {
     void setup();
   }, [isLoggedIn, xToken, urlVideoId]);
 
+  useEffect(() => {
+    if (!urlVideoId && !channelVal && channels.length > 0) {
+      setChannelVal(channels[0]);
+    }
+  }, [channels, channelVal, urlVideoId]);
+
   function validateForm() {
+    const effectiveChannel = getEffectiveChannel();
+
     if (!xToken) return "No token found. Please sign in again.";
     if (!localUserID) return "User ID was not found on the authenticated user.";
-    if (!channelVal) return "Please select a channel.";
+    if (!effectiveChannel) return "Please select a channel.";
     if (!title.trim()) return "Please enter a stream title.";
     if (!thumbnail.trim()) return "Please add a thumbnail.";
 
-    // once stream details already exist, do not block with end-time validation
     if (!hasStreamDetails) {
       const now = new Date();
       const max = addHours(now, 6);
@@ -533,13 +521,15 @@ export default function StreamingDashboardPage() {
   }
 
   async function uploadInitialDummyStream(): Promise<string> {
+    const effectiveChannel = getEffectiveChannel();
+
     const formData = new FormData();
     formData.append("video_title", title.trim());
     formData.append("description", description.trim());
     formData.append("tags", tags.trim());
     formData.append("privacy", String(privacyVal.id));
     formData.append("token", xToken);
-    formData.append("channel", String(channelVal?.id ?? ""));
+    formData.append("channel", String(effectiveChannel?.id ?? ""));
     formData.append("thumbnail", thumbnail.trim());
     formData.append("type", "stream");
     formData.append("endDate", String(Math.floor(endDate.getTime() / 1000)));
@@ -604,9 +594,10 @@ export default function StreamingDashboardPage() {
     videoId: string,
     provision: ProvisionResponse,
   ) {
+    const effectiveChannel = getEffectiveChannel();
     const body = new URLSearchParams();
 
-    body.append("channel", String(channelVal?.id ?? ""));
+    body.append("channel", String(effectiveChannel?.id ?? ""));
     body.append("video_id", videoId);
     body.append("video_title", title.trim());
     body.append("description", description.trim());
@@ -668,9 +659,10 @@ export default function StreamingDashboardPage() {
   }
 
   async function updateExistingVideoDetails(videoId: string) {
+    const effectiveChannel = getEffectiveChannel();
     const body = new URLSearchParams();
 
-    body.append("channel", String(channelVal?.id ?? ""));
+    body.append("channel", String(effectiveChannel?.id ?? ""));
     body.append("video_id", videoId);
     body.append("video_title", title.trim());
     body.append("description", description.trim());
@@ -730,6 +722,11 @@ export default function StreamingDashboardPage() {
   async function createStreamFlow() {
     setError("");
     setSuccess("");
+
+    const effectiveChannel = getEffectiveChannel();
+    if (!channelVal && effectiveChannel) {
+      setChannelVal(effectiveChannel);
+    }
 
     const validationError = validateForm();
     if (validationError) {
@@ -797,8 +794,8 @@ export default function StreamingDashboardPage() {
       ? "Update Stream"
       : "Load Stream Details"
     : createdVideoID
-    ? "Generate Stream Credentials"
-    : "Create Stream";
+      ? "Generate Stream Credentials"
+      : "Create Stream";
 
   if (!isLoggedIn) {
     return (
@@ -930,7 +927,11 @@ export default function StreamingDashboardPage() {
                   <div>
                     <FieldLabel required>Channel</FieldLabel>
                     <select
-                      value={channelVal ? String(channelVal.id) : ""}
+                      value={
+                        channelVal
+                          ? String(channelVal.id)
+                          : String(channels[0]?.id ?? "")
+                      }
                       onChange={(e) => {
                         const found = channels.find(
                           (c) => String(c.id) === e.target.value,
