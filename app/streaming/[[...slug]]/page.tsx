@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
-const PROVISION_URL = "http://v4api.ceflix.org/api/ingest/provision";
+const PROVISION_URL = "https://v4api.ceflix.org/api/ingest/provision";
 const DUMMY_STREAM_URL = "https://example.com/dummy-stream.m3u8";
 
 type PrivacyOption = { id: number; title: string };
