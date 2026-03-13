@@ -86,7 +86,7 @@ export default function UploadPage() {
 
   // stream upload
   const [streamLink, setStreamLink] = useState("");
-  const [datetime, setDatetime] = useState<Date>(new Date());
+  const [datetime, setDatetime] = useState<Date>(() => new Date());
 
   // thumbnail states
   const [thumbDataUrl, setThumbDataUrl] = useState(""); // currently selected thumbnail (used for upload)
@@ -105,15 +105,49 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [copyrightConfirmed, setCopyrightConfirmed] = useState(false);
-  const isSelectedDateToday = new Date().getDate() === datetime.getDate();
-  const isSelectedDateInFuture = +datetime > +new Date();
+  const now = new Date();
+  const maxStreamEndTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
 
-  let minTimeHour = new Date().getHours();
-  if (!isSelectedDateToday) minTimeHour = 0;
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
 
-  const date = new Date();
-  let currentMins = date.getMinutes();
-  let currentHour = date.getHours();
+  const selectedDayIsToday = isSameDay(datetime, now);
+  const selectedDayIsMaxDay = isSameDay(datetime, maxStreamEndTime);
+
+  const minSelectableTime = selectedDayIsToday
+    ? now
+    : new Date(
+        datetime.getFullYear(),
+        datetime.getMonth(),
+        datetime.getDate(),
+        0,
+        0,
+        0,
+        0,
+      );
+
+  const maxSelectableTime = selectedDayIsMaxDay
+    ? maxStreamEndTime
+    : new Date(
+        datetime.getFullYear(),
+        datetime.getMonth(),
+        datetime.getDate(),
+        23,
+        59,
+        59,
+        999,
+      );
+
+  const clampStreamDate = (value: Date) => {
+    const currentNow = new Date();
+    const currentMax = new Date(currentNow.getTime() + 6 * 60 * 60 * 1000);
+
+    if (value.getTime() < currentNow.getTime()) return currentNow;
+    if (value.getTime() > currentMax.getTime()) return currentMax;
+    return value;
+  };
 
   // ---------------------------------------------------------------------------
   // Initial setup: channels + categories + draft hydration
@@ -179,8 +213,9 @@ export default function UploadPage() {
               setIsShort(draft.isShort);
             }
             if (draft.streamLink) setStreamLink(draft.streamLink);
-            if (draft.datetime) setDatetime(new Date(draft.datetime));
-
+            if (draft.datetime) {
+              setDatetime(clampStreamDate(new Date(draft.datetime)));
+            }
             if (draft.thumbDataUrl) setThumbDataUrl(draft.thumbDataUrl);
             if (draft.thumbFileName) setThumbFileName(draft.thumbFileName);
 
@@ -370,99 +405,122 @@ export default function UploadPage() {
   // ---------------------------------------------------------------------------
   // Upload / resume
   // ---------------------------------------------------------------------------
-  const upload = () => {
-    if (!copyrightConfirmed) {
+const upload = () => {
+  if (!copyrightConfirmed) {
+    setError(
+      "You must confirm that you own the rights to this content before publishing.",
+    );
+    setStep(3);
+    return;
+  }
+
+  if (!token || uploading) return;
+
+  setError("");
+
+  if (!title || !description || !thumbDataUrl) {
+    setError("Please complete title, description and thumbnail.");
+    if (!title || !description) setStep(1);
+    else setStep(2);
+    return;
+  }
+
+  if (!channelId) {
+    setError("Please select a channel.");
+    setStep(2);
+    return;
+  }
+
+  if (select === 0 && !videoFile) {
+    setError("Please select a video file.");
+    setStep(1);
+    return;
+  }
+
+  if (select === 1 && (!streamLink || !datetime)) {
+    setError("Please configure your stream link and end time.");
+    setStep(1);
+    return;
+  }
+
+  if (select === 0 && videoFile && videoFile.size / 1024 / 1024 > 1024) {
+    setError("File size exceeds 1GB, please try again.");
+    return;
+  }
+
+  if (select === 1) {
+    const nowCheck = new Date();
+    const maxCheck = new Date(nowCheck.getTime() + 6 * 60 * 60 * 1000);
+
+    if (datetime.getTime() < nowCheck.getTime()) {
+      setError("Stream end time cannot be in the past.");
+      setStep(1);
+      return;
+    }
+
+    if (datetime.getTime() > maxCheck.getTime()) {
+      setError("Stream end time cannot be more than 6 hours ahead.");
+      setStep(1);
+      return;
+    }
+  }
+
+  const formData = new FormData();
+  formData.append("video_title", title);
+  formData.append("description", description);
+  formData.append("tags", tags);
+  formData.append("startDate", Math.floor(Date.now() / 1000).toString());
+  formData.append("privacy", privacy);
+  formData.append("token", token);
+  formData.append("channel", channelId);
+  formData.append("thumbnail", thumbDataUrl);
+  formData.append("is_short", isShort);
+
+  if (select === 0 && videoFile) {
+    formData.append("type", "video");
+    formData.append("file", videoFile);
+  }
+
+  if (select === 1) {
+    formData.append("type", "stream");
+    formData.append("stream", streamLink);
+    formData.append(
+      "endDate",
+      Math.floor(datetime.getTime() / 1000).toString(),
+    );
+  }
+
+  setUploading(true);
+
+  axios
+    .post(API_BASE + "video/upload", formData, {
+      headers: {
+        "Application-Key": APP_KEY,
+        "X-TOKEN": token,
+      },
+      onUploadProgress: (event) => {
+        if (!event.total) return;
+        const percent = Math.round((event.loaded * 100) / event.total);
+        setProgress(percent);
+      },
+    })
+    .then((response) => {
+      if (response.data?.status) {
+        clearDraft();
+        router.replace(`/channel/${channelId}`);
+      } else {
+        setError(response.data?.message || "Upload failed, please try again.");
+      }
+    })
+    .catch(() => {
       setError(
-        "You must confirm that you own the rights to this content before publishing.",
+        "Network error. You can click the button again to resume the upload.",
       );
-      setStep(3);
-      return;
-    }
-    if (!token || uploading) return;
-
-    setError("");
-
-    if (!title || !description || !thumbDataUrl) {
-      setError("Please complete title, description and thumbnail.");
-      if (!title || !description) setStep(1);
-      else setStep(2);
-      return;
-    }
-    if (!channelId) {
-      setError("Please select a channel.");
-      setStep(2);
-      return;
-    }
-    if (select === 0 && !videoFile) {
-      setError("Please select a video file.");
-      setStep(1);
-      return;
-    }
-    if (select === 1 && (!streamLink || !datetime)) {
-      setError("Please configure your stream link and end time.");
-      setStep(1);
-      return;
-    }
-
-    if (select === 0 && videoFile && videoFile.size / 1024 / 1024 > 1024) {
-      setError("File size exceeds 1GB, please try again.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("video_title", title);
-    formData.append("description", description);
-    formData.append("tags", tags);
-    formData.append("startDate", Math.floor(Date.now() / 1000).toString());
-    formData.append("privacy", privacy);
-    formData.append("token", token);
-    formData.append("channel", channelId);
-    formData.append("thumbnail", thumbDataUrl);
-    formData.append("is_short", isShort);
-    if (select === 0 && videoFile) {
-      formData.append("type", "video");
-      formData.append("file", videoFile);
-    }
-    if (select === 1) {
-      formData.append("type", "stream");
-      formData.append("stream", streamLink);
-      formData.append(
-        "endDate",
-        Math.floor(datetime.getTime() / 1000).toString(),
-      );
-    }
-
-    setUploading(true);
-
-    axios
-      .post(API_BASE + "video/upload", formData, {
-        headers: {
-          "Application-Key": APP_KEY,
-          "X-TOKEN": token,
-        },
-        onUploadProgress: (event) => {
-          if (!event.total) return;
-          const percent = Math.round((event.loaded * 100) / event.total);
-          setProgress(percent);
-        },
-      })
-      .then((response) => {
-        if (response.status) {
-          clearDraft();
-          router.replace(`/channel/${channelId}`);
-        } else {
-          setError("Upload failed, please try again.");
-        }
-      })
-      .catch(() => {
-        setError(
-          "Network error. You can click the button again to resume the upload.",
-        );
-      })
-      .finally(() => {
-        setUploading(false);
-      });
-  };
+    })
+    .finally(() => {
+      setUploading(false);
+    });
+};
 
   const uploadButtonLabel = useMemo(() => {
     if (uploading) return "Uploading…";
@@ -788,31 +846,14 @@ export default function UploadPage() {
                         </label>
                         <DatePicker
                           selected={datetime}
-                          onChange={(date) => setDatetime(date as Date)}
-                          minDate={new Date()}
-                          maxDate={
-                            currentHour + 4 > 29 ? new Date() + 1 : new Date()
-                          }
-                          minTime={
-                            new Date(
-                              new Date().setHours(
-                                currentHour,
-                                currentMins,
-                                0,
-                                0,
-                              ),
-                            )
-                          }
-                          maxTime={
-                            new Date(
-                              new Date().setHours(
-                                currentHour + 4,
-                                currentMins,
-                                0,
-                                0,
-                              ),
-                            )
-                          }
+                          onChange={(date) => {
+                            if (!date) return;
+                            setDatetime(clampStreamDate(date));
+                          }}
+                          minDate={now}
+                          maxDate={maxStreamEndTime}
+                          minTime={minSelectableTime}
+                          maxTime={maxSelectableTime}
                           showTimeSelect
                           timeFormat="HH:mm"
                           dateFormat="dd/MM/yyyy HH:mm"
@@ -828,7 +869,7 @@ export default function UploadPage() {
                           className="w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-red-600"
                         /> */}
                         <p className="text-xs text-neutral-400">
-                          End time can’t be more than ~4 hours from start.
+                          End time must be from now up to 6 hours ahead.
                         </p>
                       </div>
                     </div>

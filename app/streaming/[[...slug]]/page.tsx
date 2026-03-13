@@ -4,6 +4,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
 import { useRouter } from "next/navigation";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
@@ -58,6 +60,7 @@ type VideoApiResponse = {
       url?: string | null;
       vodPlayBack?: string | null;
       isLive?: string | number | null;
+      streamEnd?: boolean | null;
     };
   };
 };
@@ -72,13 +75,6 @@ function getChannelTitle(c: Channel | null | undefined) {
     c.slug ??
     String(c.id ?? "")
   );
-}
-
-function fmtLocalDateTimeInput(d: Date) {
-  const pad = (x: number) => String(x).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours(),
-  )}:${pad(d.getMinutes())}`;
 }
 
 function hasExistingStreamDetails(p: ProvisionResponse | null | undefined) {
@@ -265,12 +261,14 @@ export default function StreamingDashboardPage() {
   const [tags, setTags] = useState("");
   const [thumbnail, setThumbnail] = useState("");
 
+  const [streamEnd, setStreamEnd] = useState(false);
+
   const [thumbOpen, setThumbOpen] = useState(false);
 
   const [endDate, setEndDate] = useState<Date>(() => {
     const d = new Date();
     d.setHours(d.getHours() + 1);
-    return d;
+    return clampEndDate(d);
   });
 
   const [createdVideoID, setCreatedVideoID] = useState("");
@@ -282,6 +280,54 @@ export default function StreamingDashboardPage() {
   const [success, setSuccess] = useState("");
   const router = useRouter();
   const isLoggedIn = !!user && !!token;
+
+  function addHours(date: Date, hours: number) {
+    return new Date(date.getTime() + hours * 60 * 60 * 1000);
+  }
+
+  function clampEndDate(date: Date) {
+    const now = new Date();
+    const max = addHours(now, 6);
+
+    if (date.getTime() < now.getTime()) return now;
+    if (date.getTime() > max.getTime()) return max;
+    return date;
+  }
+
+  const now = new Date();
+  const maxStreamEndTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  const selectedDayIsToday = isSameDay(endDate, now);
+  const selectedDayIsMaxDay = isSameDay(endDate, maxStreamEndTime);
+
+  const minSelectableTime = selectedDayIsToday
+    ? now
+    : new Date(
+        endDate.getFullYear(),
+        endDate.getMonth(),
+        endDate.getDate(),
+        0,
+        0,
+        0,
+        0,
+      );
+
+  const maxSelectableTime = selectedDayIsMaxDay
+    ? maxStreamEndTime
+    : new Date(
+        endDate.getFullYear(),
+        endDate.getMonth(),
+        endDate.getDate(),
+        23,
+        59,
+        59,
+        999,
+      );
 
   async function apiPost(
     path: string,
@@ -350,13 +396,14 @@ export default function StreamingDashboardPage() {
       setDescription(video.description ?? "");
       setTags(video.tags ?? "");
       setThumbnail(video.thumbnail ?? "");
+      setStreamEnd(video.streamEnd ?? false);
 
       const privacyId = String(video.isPublic ?? "1") === "1" ? 1 : 0;
       setPrivacyVal(privacyId === 1 ? PRIVACY_OPTIONS[0] : PRIVACY_OPTIONS[1]);
 
       const parsedEndDate = parseApiDateToLocalInputDate(video.endDate);
       if (parsedEndDate) {
-        setEndDate(parsedEndDate);
+        setEndDate(clampEndDate(parsedEndDate));
       }
 
       const matchedProvision: ProvisionResponse = {
@@ -435,6 +482,18 @@ export default function StreamingDashboardPage() {
     if (!channelVal) return "Please select a channel.";
     if (!title.trim()) return "Please enter a stream title.";
     if (!thumbnail.trim()) return "Please add a thumbnail.";
+
+    const now = new Date();
+    const max = addHours(now, 6);
+
+    if (endDate.getTime() < now.getTime()) {
+      return "Stream end time cannot be in the past.";
+    }
+
+    if (endDate.getTime() > max.getTime()) {
+      return "Stream end time cannot be more than 6 hours ahead.";
+    }
+
     return "";
   }
 
@@ -581,6 +640,13 @@ export default function StreamingDashboardPage() {
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
+      return;
+    }
+
+    const safeEndDate = clampEndDate(endDate);
+    if (safeEndDate.getTime() !== endDate.getTime()) {
+      setEndDate(safeEndDate);
+      setError("Please choose an end time from now up to 6 hours ahead.");
       return;
     }
 
@@ -814,14 +880,24 @@ export default function StreamingDashboardPage() {
 
                   <div>
                     <FieldLabel required>Set stream end time</FieldLabel>
-                    <Input
-                      type="datetime-local"
-                      value={fmtLocalDateTimeInput(endDate)}
-                      onChange={(e) => {
-                        const d = new Date(e.target.value);
-                        if (!isNaN(+d)) setEndDate(d);
+                    <DatePicker
+                      selected={endDate}
+                      onChange={(date) => {
+                        if (!date) return;
+                        setEndDate(clampEndDate(date));
                       }}
+                      minDate={now}
+                      maxDate={maxStreamEndTime}
+                      minTime={minSelectableTime}
+                      maxTime={maxSelectableTime}
+                      showTimeSelect
+                      timeFormat="HH:mm"
+                      dateFormat="dd/MM/yyyy HH:mm"
+                      className="w-full rounded-md border border-neutral-700/60 bg-neutral-800/60 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
                     />
+                    <p className="mt-2 text-xs text-neutral-400">
+                      End time must be from now up to 6 hours ahead.
+                    </p>
                   </div>
 
                   <div className="rounded-xl border border-white/10 bg-black/20 p-4">
@@ -963,14 +1039,18 @@ export default function StreamingDashboardPage() {
                       label="Max bitrate"
                       value={provisioned.maxBitRate}
                     />
+
+                    {!streamEnd ? (
                     <CopyRow
                       label="HLS playback"
                       value={provisioned.hlsPlayBack}
                     />
+                    ) : (
                     <CopyRow
                       label="VOD playback"
                       value={provisioned.vodPlayBack}
                     />
+                    )}
                   </div>
                 )}
               </div>
