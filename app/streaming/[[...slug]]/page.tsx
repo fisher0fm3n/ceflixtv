@@ -77,6 +77,24 @@ function getChannelTitle(c: Channel | null | undefined) {
   );
 }
 
+function formatDisplayDateTime(value?: Date | string | null) {
+  if (!value) return "";
+
+  const date =
+    value instanceof Date ? value : new Date(String(value).replace(" ", "T"));
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
+}
+
 function hasExistingStreamDetails(p: ProvisionResponse | null | undefined) {
   if (!p) return false;
 
@@ -260,7 +278,7 @@ export default function StreamingDashboardPage() {
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
   const [thumbnail, setThumbnail] = useState("");
-
+  const [apiEndDate, setApiEndDate] = useState<string | null>(null);
   const [streamEnd, setStreamEnd] = useState(false);
 
   const [thumbOpen, setThumbOpen] = useState(false);
@@ -397,13 +415,14 @@ export default function StreamingDashboardPage() {
       setTags(video.tags ?? "");
       setThumbnail(video.thumbnail ?? "");
       setStreamEnd(video.streamEnd ?? false);
+      setApiEndDate(video.endDate ?? null);
 
       const privacyId = String(video.isPublic ?? "1") === "1" ? 1 : 0;
       setPrivacyVal(privacyId === 1 ? PRIVACY_OPTIONS[0] : PRIVACY_OPTIONS[1]);
 
       const parsedEndDate = parseApiDateToLocalInputDate(video.endDate);
       if (parsedEndDate) {
-        setEndDate(clampEndDate(parsedEndDate));
+        setEndDate(parsedEndDate);
       }
 
       const matchedProvision: ProvisionResponse = {
@@ -1040,6 +1059,12 @@ export default function StreamingDashboardPage() {
                     <CopyRow
                       label="Max bitrate"
                       value={provisioned.maxBitRate}
+                    />
+
+                    <CopyRow
+                      label="Stream ends"
+                      value={formatDisplayDateTime(apiEndDate)}
+                      note="This is when the live stream is scheduled to end."
                     />
 
                     {!streamEnd ? (

@@ -26,6 +26,7 @@ type Video = {
   isLive: string;
   isPublic: string;
   created_at: string;
+  streamKey: string;
 };
 
 export default function DashboardPage() {
@@ -234,7 +235,13 @@ export default function DashboardPage() {
                     View
                   </button>
                   <button
-                    onClick={() => router.push(`/studio/videos/edit/${video.id}/${video.channel_id}`)}
+                    onClick={() =>
+                      router.push(
+                        video.streamKey !== null
+                          ? `/streaming?video_id=${video.id}`
+                          : `/studio/videos/edit/${video.id}/${video.channel_id}`,
+                      )
+                    }
                     className="inline-flex items-center px-4 py-2 rounded-full bg-white text-black hover:bg-white/80 text-sm font-semibold cursor-pointer"
                   >
                     Edit
@@ -268,10 +275,7 @@ export default function DashboardPage() {
             <tbody>
               {videos.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="p-4 text-center text-neutral-400"
-                  >
+                  <td colSpan={6} className="p-4 text-center text-neutral-400">
                     No videos found
                   </td>
                 </tr>
@@ -321,7 +325,11 @@ export default function DashboardPage() {
 
                       <button
                         onClick={() =>
-                          router.push(`/studio/videos/edit/${video.id}/${video.channel_id}`)
+                          router.push(
+                            video.streamKey !== null
+                              ? `/streaming?video_id=${video.id}`
+                              : `/studio/videos/edit/${video.id}/${video.channel_id}`,
+                          )
                         }
                         className="inline-flex items-center px-4 py-2 rounded-full bg-white text-black hover:bg-white/80 text-sm font-semibold cursor-pointer"
                       >
