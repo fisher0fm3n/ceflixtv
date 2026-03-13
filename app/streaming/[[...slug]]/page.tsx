@@ -306,6 +306,7 @@ export default function StreamingDashboardPage() {
 
   const isLoggedIn = !!user && !!token;
   const hasStreamDetails = hasExistingStreamDetails(provisioned);
+  const hasChannels = channels.length > 0;
 
   const now = new Date();
   const maxStreamEndTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
@@ -397,17 +398,24 @@ export default function StreamingDashboardPage() {
     try {
       const { res, json } = await apiPost(
         "video",
-        { video: String(videoId), token: xToken || "" },
+        { video: String(videoId), token: xToken || "", view: "streaming" },
         xToken ? { "X-TOKEN": xToken } : undefined,
       );
 
+      // If API says false or request fails, redirect to default streaming page
       if (!res.ok || !json?.status) {
-        throw new Error(json?.message || "Unable to load video details.");
+        router.replace("/streaming");
+        return;
       }
 
       const data = json as VideoApiResponse;
       const video = data?.data?.video;
-      if (!video) return;
+
+      // If no video payload came back, redirect too
+      if (!video) {
+        router.replace("/streaming");
+        return;
+      }
 
       setCreatedVideoID(String(video.id ?? videoId));
       setTitle(video.videos_title ?? "");
@@ -444,15 +452,18 @@ export default function StreamingDashboardPage() {
       const matchedChannel = channelList.find(
         (c) => String(c.id) === String(video.channel_id ?? ""),
       );
+
       if (matchedChannel) {
         setChannelVal(matchedChannel);
       }
-    } catch (e: any) {
-      setError(e?.message || "Unable to prefill video data.");
+    } catch {
+      router.replace("/streaming");
+      return;
     } finally {
       setPrefillLoading(false);
     }
   }
+
 
   async function setup() {
     setLoading(true);
@@ -500,6 +511,7 @@ export default function StreamingDashboardPage() {
 
     if (!xToken) return "No token found. Please sign in again.";
     if (!localUserID) return "User ID was not found on the authenticated user.";
+    if (!hasChannels) return "You need at least one channel to use live streaming.";
     if (!effectiveChannel) return "Please select a channel.";
     if (!title.trim()) return "Please enter a stream title.";
     if (!thumbnail.trim()) return "Please add a thumbnail.";
@@ -723,6 +735,11 @@ export default function StreamingDashboardPage() {
     setError("");
     setSuccess("");
 
+    if (!hasChannels) {
+      setError("You need at least one channel to use live streaming.");
+      return;
+    }
+
     const effectiveChannel = getEffectiveChannel();
     if (!channelVal && effectiveChannel) {
       setChannelVal(effectiveChannel);
@@ -911,7 +928,19 @@ export default function StreamingDashboardPage() {
           </div>
         )}
 
-        {!loading && !prefillLoading && (
+        {!loading && !prefillLoading && !hasChannels && (
+          <div className="rounded-2xl border border-white/10 bg-neutral-900/50 p-6">
+            <h2 className="text-lg font-semibold text-white">
+              No channel available
+            </h2>
+            <p className="mt-2 text-sm text-neutral-300">
+              You need at least one channel before you can access live
+              streaming.
+            </p>
+          </div>
+        )}
+
+        {!loading && !prefillLoading && hasChannels && (
           <>
             {busy && (
               <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 backdrop-blur-[1px]">
@@ -1058,7 +1087,7 @@ export default function StreamingDashboardPage() {
                     <button
                       type="button"
                       onClick={() => void createStreamFlow()}
-                      disabled={busy}
+                      disabled={busy || !hasChannels}
                       className="cursor-pointer rounded-full bg-red-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {actionButtonLabel}
