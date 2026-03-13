@@ -1,19 +1,20 @@
-// app/studio/layout.tsx
+// app/ceclips/layout.tsx
 import type { Metadata } from "next";
 import React from "react";
 
 export const metadata: Metadata = {
   title: "CeClips - Ceflix Tv",
   description:
-    "Manage your Ceflix Tv studio: upload videos, track views, followers, and control your CeClips.",
+    "Watch CeClips on Ceflix TV. Discover short videos, share moments, and follow creators.",
   openGraph: {
     title: "CeClips - Ceflix Tv",
-    description: "Ceflix Tv.",
+    description:
+      "Watch CeClips on Ceflix TV. Discover short videos, share moments, and follow creators.",
     type: "website",
   },
 };
 
-export default function StudioLayout({
+export default function CeClipsLayout({
   children,
 }: {
   children: React.ReactNode;
