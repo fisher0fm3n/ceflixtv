@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
 import { useRouter } from "next/navigation";
@@ -35,7 +35,6 @@ type ProvisionResponse = {
   streamKey?: string;
   rtmp_ingest_url?: string;
   maxBitRate?: number;
-  hlsPlayBack?: string;
   vodPlayBack?: string;
 };
 
@@ -100,11 +99,10 @@ function hasExistingStreamDetails(p: ProvisionResponse | null | undefined) {
 
   return Boolean(
     p.streamKey ||
-    p.ingest_username ||
-    p.ingest_password ||
-    p.rtmp_ingest_url ||
-    p.hlsPlayBack ||
-    p.vodPlayBack,
+      p.ingest_username ||
+      p.ingest_password ||
+      p.rtmp_ingest_url ||
+      p.vodPlayBack,
   );
 }
 
@@ -184,9 +182,17 @@ function Modal(props: {
   );
 }
 
-function FieldLabel(props: { children: React.ReactNode; required?: boolean }) {
+function FieldLabel(props: {
+  children: React.ReactNode;
+  required?: boolean;
+  bold?: boolean;
+}) {
   return (
-    <p className="mb-2 text-sm text-white">
+    <p
+      className={`${
+        props.bold ? "font-bold text-red-600" : "text-white"
+      } mb-2 text-sm`}
+    >
       {props.children}{" "}
       {props.required ? <span className="text-red-500">*</span> : null}
     </p>
@@ -198,7 +204,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
     <input
       {...props}
       className={[
-        "w-full rounded-md border border-neutral-700/60 bg-neutral-800/60 px-3 py-2 text-sm text-white placeholder-neutral-500",
+        "w-full rounded-md border border-neutral-700/60 px-3 bg-neutral-800/60 py-2 text-sm text-white placeholder-neutral-500",
         "focus:outline-none focus:ring-2 focus:ring-sky-500",
         props.disabled ? "cursor-not-allowed opacity-60" : "",
         props.className ?? "",
@@ -225,6 +231,8 @@ function CopyRow(props: {
   label: string;
   value: string | number | undefined | null;
   note?: string;
+  bold?: boolean;
+  button?: boolean;
 }) {
   const text = props.value == null ? "" : String(props.value);
 
@@ -237,20 +245,27 @@ function CopyRow(props: {
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-end">
       <div className="flex-1">
-        <FieldLabel>{props.label}</FieldLabel>
-        <Input value={text} disabled />
+        <FieldLabel bold={props.bold}>{props.label}</FieldLabel>
+        <Input
+          className={props.bold ? "font-bold" : ""}
+          value={text}
+          disabled
+        />
         {props.note ? (
           <p className="mt-2 text-xs text-neutral-400">{props.note}</p>
         ) : null}
       </div>
-      <button
-        type="button"
-        onClick={copy}
-        disabled={!text}
-        className="cursor-pointer rounded-full border border-white/10 bg-neutral-900/60 px-6 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        Copy
-      </button>
+
+      {props.button !== false && (
+        <button
+          type="button"
+          onClick={copy}
+          disabled={!text}
+          className="cursor-pointer rounded-full border border-white/10 bg-neutral-900/60 px-6 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Copy
+        </button>
+      )}
     </div>
   );
 }
@@ -258,11 +273,14 @@ function CopyRow(props: {
 export default function StreamingDashboardPage() {
   const { user, token } = useAuth();
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const xToken = token ?? "";
   const localUserID = user?.id ? String(user.id) : "";
   const urlVideoId =
     searchParams.get("video_id") || searchParams.get("videoId") || "";
+
+  const isEditing = !!urlVideoId;
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -296,8 +314,9 @@ export default function StreamingDashboardPage() {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const router = useRouter();
+
   const isLoggedIn = !!user && !!token;
+  const hasStreamDetails = hasExistingStreamDetails(provisioned);
 
   function addHours(date: Date, hours: number) {
     return new Date(date.getTime() + hours * 60 * 60 * 1000);
@@ -431,19 +450,13 @@ export default function StreamingDashboardPage() {
         streamKey: video.streamKey ?? undefined,
         rtmp_ingest_url: video.rtmp_ingest_url ?? undefined,
         maxBitRate: video.maxBitRate ?? undefined,
-        hlsPlayBack: video.url ?? undefined,
         vodPlayBack: video.vodPlayBack ?? undefined,
       };
 
-      if (
-        matchedProvision.ingest_username ||
-        matchedProvision.ingest_password ||
-        matchedProvision.streamKey ||
-        matchedProvision.rtmp_ingest_url ||
-        matchedProvision.hlsPlayBack ||
-        matchedProvision.vodPlayBack
-      ) {
+      if (hasExistingStreamDetails(matchedProvision)) {
         setProvisioned(matchedProvision);
+      } else {
+        setProvisioned(null);
       }
 
       const channelList = loadedChannels ?? channels;
@@ -502,15 +515,18 @@ export default function StreamingDashboardPage() {
     if (!title.trim()) return "Please enter a stream title.";
     if (!thumbnail.trim()) return "Please add a thumbnail.";
 
-    const now = new Date();
-    const max = addHours(now, 6);
+    // once stream details already exist, do not block with end-time validation
+    if (!hasStreamDetails) {
+      const now = new Date();
+      const max = addHours(now, 6);
 
-    if (endDate.getTime() < now.getTime()) {
-      return "Stream end time cannot be in the past.";
-    }
+      if (endDate.getTime() < now.getTime()) {
+        return "Stream end time cannot be in the past.";
+      }
 
-    if (endDate.getTime() > max.getTime()) {
-      return "Stream end time cannot be more than 6 hours ahead.";
+      if (endDate.getTime() > max.getTime()) {
+        return "Stream end time cannot be more than 6 hours ahead.";
+      }
     }
 
     return "";
@@ -521,7 +537,7 @@ export default function StreamingDashboardPage() {
     formData.append("video_title", title.trim());
     formData.append("description", description.trim());
     formData.append("tags", tags.trim());
-    formData.append("privacy", "1");
+    formData.append("privacy", String(privacyVal.id));
     formData.append("token", xToken);
     formData.append("channel", String(channelVal?.id ?? ""));
     formData.append("thumbnail", thumbnail.trim());
@@ -594,9 +610,14 @@ export default function StreamingDashboardPage() {
     body.append("video_id", videoId);
     body.append("video_title", title.trim());
     body.append("description", description.trim());
-    body.append("privacy", "1");
+    body.append("privacy", String(privacyVal.id));
     body.append("tags", tags.trim());
     body.append("token", xToken);
+    body.append("thumbnail", thumbnail.trim());
+
+    if (!hasStreamDetails) {
+      body.append("endDate", String(Math.floor(endDate.getTime() / 1000)));
+    }
 
     if (provision.ingest_username) {
       body.append("ingest_username", provision.ingest_username);
@@ -616,12 +637,6 @@ export default function StreamingDashboardPage() {
 
     if (provision.maxBitRate !== undefined) {
       body.append("maxBitRate", String(provision.maxBitRate));
-    }
-
-    if (provision.hlsPlayBack) {
-      body.append("hlsPlayBack", provision.hlsPlayBack);
-      body.append("url", provision.hlsPlayBack);
-      body.append("ios_url", provision.hlsPlayBack);
     }
 
     if (provision.vodPlayBack) {
@@ -652,6 +667,66 @@ export default function StreamingDashboardPage() {
     return json;
   }
 
+  async function updateExistingVideoDetails(videoId: string) {
+    const body = new URLSearchParams();
+
+    body.append("channel", String(channelVal?.id ?? ""));
+    body.append("video_id", videoId);
+    body.append("video_title", title.trim());
+    body.append("description", description.trim());
+    body.append("privacy", String(privacyVal.id));
+    body.append("tags", tags.trim());
+    body.append("token", xToken);
+    body.append("thumbnail", thumbnail.trim());
+    body.append("isLive", "1");
+
+    if (!hasStreamDetails) {
+      body.append("endDate", String(Math.floor(endDate.getTime() / 1000)));
+    }
+
+    if (provisioned?.ingest_username) {
+      body.append("ingest_username", provisioned.ingest_username);
+    }
+
+    if (provisioned?.ingest_password) {
+      body.append("ingest_password", provisioned.ingest_password);
+    }
+
+    if (provisioned?.streamKey) {
+      body.append("streamKey", provisioned.streamKey);
+    }
+
+    if (provisioned?.rtmp_ingest_url) {
+      body.append("rtmp_ingest_url", provisioned.rtmp_ingest_url);
+    }
+
+    if (provisioned?.maxBitRate !== undefined) {
+      body.append("maxBitRate", String(provisioned.maxBitRate));
+    }
+
+    if (provisioned?.vodPlayBack) {
+      body.append("vodPlayBack", provisioned.vodPlayBack);
+    }
+
+    const res = await fetch(`${API_BASE}video/update`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Application-Key": APP_KEY,
+        ...(xToken ? { "X-TOKEN": xToken } : {}),
+      },
+      body: body.toString(),
+    });
+
+    const json = await res.json().catch(() => null);
+
+    if (!res.ok || !json?.status) {
+      throw new Error(json?.message || "Failed to update stream.");
+    }
+
+    return json;
+  }
+
   async function createStreamFlow() {
     setError("");
     setSuccess("");
@@ -662,11 +737,13 @@ export default function StreamingDashboardPage() {
       return;
     }
 
-    const safeEndDate = clampEndDate(endDate);
-    if (safeEndDate.getTime() !== endDate.getTime()) {
-      setEndDate(safeEndDate);
-      setError("Please choose an end time from now up to 6 hours ahead.");
-      return;
+    if (!hasStreamDetails) {
+      const safeEndDate = clampEndDate(endDate);
+      if (safeEndDate.getTime() !== endDate.getTime()) {
+        setEndDate(safeEndDate);
+        setError("Please choose an end time from now up to 6 hours ahead.");
+        return;
+      }
     }
 
     setBusy(true);
@@ -681,21 +758,23 @@ export default function StreamingDashboardPage() {
 
       let finalProvision = provisioned;
 
-      // only provision if this video does not already have stream details
       if (!hasExistingStreamDetails(finalProvision)) {
         finalProvision = await provisionStream(videoId);
         setProvisioned(finalProvision);
 
         await updateVideoWithProvisionedDetails(videoId, finalProvision);
+
+        setSuccess("Stream created and stream credentials saved successfully.");
+      } else {
+        await updateExistingVideoDetails(videoId);
+        setSuccess(
+          isEditing
+            ? "Stream updated successfully."
+            : "Stream details loaded successfully.",
+        );
       }
 
       await loadVideoAndPrefill(videoId, channels);
-
-      setSuccess(
-        hasExistingStreamDetails(finalProvision)
-          ? "Stream details loaded successfully."
-          : "Stream created and stream credentials saved successfully.",
-      );
     } catch (e: any) {
       setError(e?.message || "Something went wrong while creating the stream.");
     } finally {
@@ -712,6 +791,14 @@ export default function StreamingDashboardPage() {
     };
     reader.readAsDataURL(file);
   };
+
+  const actionButtonLabel = hasStreamDetails
+    ? isEditing
+      ? "Update Stream"
+      : "Load Stream Details"
+    : createdVideoID
+    ? "Generate Stream Credentials"
+    : "Create Stream";
 
   if (!isLoggedIn) {
     return (
@@ -839,15 +926,6 @@ export default function StreamingDashboardPage() {
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-7">
               <div className="rounded-2xl border border-white/10 bg-neutral-900/50 p-5 lg:col-span-3">
-                {/* <div className="mb-4 flex items-start gap-3 text-sm text-neutral-200">
-                  <IconInfo className="mt-0.5 h-5 w-5 text-neutral-300" />
-                  <p>
-                    {urlVideoId
-                      ? "This page loaded the existing video and prefilled the form. Creating credentials again will update that same video."
-                      : "This flow uploads a placeholder live record first, then provisions the real RTMP credentials, then updates the saved video with those details."}
-                  </p>
-                </div> */}
-
                 <div className="space-y-4">
                   <div>
                     <FieldLabel required>Channel</FieldLabel>
@@ -897,7 +975,7 @@ export default function StreamingDashboardPage() {
                     />
                   </div>
 
-                  {!hasExistingStreamDetails(provisioned) && (
+                  {!hasStreamDetails && (
                     <div>
                       <FieldLabel required>Set stream end time</FieldLabel>
                       <DatePicker
@@ -975,24 +1053,6 @@ export default function StreamingDashboardPage() {
                     </div>
                   </div>
 
-                  {/* <div>
-                    <FieldLabel>Privacy Setting</FieldLabel>
-                    <select
-                      value={String(privacyVal.id)}
-                      onChange={(e) => {
-                        const found = PRIVACY_OPTIONS.find((p) => String(p.id) === e.target.value);
-                        if (found) setPrivacyVal(found);
-                      }}
-                      className="w-full rounded-md border border-neutral-700/60 bg-neutral-800/60 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                    >
-                      {PRIVACY_OPTIONS.map((p) => (
-                        <option key={p.id} value={String(p.id)}>
-                          {p.title}
-                        </option>
-                      ))}
-                    </select>
-                  </div> */}
-
                   <div className="flex justify-end">
                     <button
                       type="button"
@@ -1000,11 +1060,7 @@ export default function StreamingDashboardPage() {
                       disabled={busy}
                       className="cursor-pointer rounded-full bg-red-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {hasExistingStreamDetails(provisioned)
-                        ? "Load Stream Details"
-                        : createdVideoID
-                          ? "Generate Stream Credentials"
-                          : "Create Stream"}
+                      {actionButtonLabel}
                     </button>
                   </div>
 
@@ -1059,20 +1115,17 @@ export default function StreamingDashboardPage() {
                     <CopyRow
                       label="Max bitrate"
                       value={provisioned.maxBitRate}
+                      bold
                     />
 
                     <CopyRow
                       label="Stream ends"
                       value={formatDisplayDateTime(apiEndDate)}
                       note="This is when the live stream is scheduled to end."
+                      button={false}
                     />
 
-                    {!streamEnd ? (
-                      <CopyRow
-                        label="HLS playback"
-                        value={provisioned.hlsPlayBack}
-                      />
-                    ) : (
+                    {streamEnd && (
                       <CopyRow
                         label="VOD playback"
                         value={provisioned.vodPlayBack}
