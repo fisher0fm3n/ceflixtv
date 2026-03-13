@@ -878,27 +878,29 @@ export default function StreamingDashboardPage() {
                     />
                   </div>
 
-                  <div>
-                    <FieldLabel required>Set stream end time</FieldLabel>
-                    <DatePicker
-                      selected={endDate}
-                      onChange={(date) => {
-                        if (!date) return;
-                        setEndDate(clampEndDate(date));
-                      }}
-                      minDate={now}
-                      maxDate={maxStreamEndTime}
-                      minTime={minSelectableTime}
-                      maxTime={maxSelectableTime}
-                      showTimeSelect
-                      timeFormat="HH:mm"
-                      dateFormat="dd/MM/yyyy HH:mm"
-                      className="w-full rounded-md border border-neutral-700/60 bg-neutral-800/60 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                    />
-                    <p className="mt-2 text-xs text-neutral-400">
-                      End time must be from now up to 6 hours ahead.
-                    </p>
-                  </div>
+                  {!hasExistingStreamDetails(provisioned) && (
+                    <div>
+                      <FieldLabel required>Set stream end time</FieldLabel>
+                      <DatePicker
+                        selected={endDate}
+                        onChange={(date) => {
+                          if (!date) return;
+                          setEndDate(clampEndDate(date));
+                        }}
+                        minDate={now}
+                        maxDate={maxStreamEndTime}
+                        minTime={minSelectableTime}
+                        maxTime={maxSelectableTime}
+                        showTimeSelect
+                        timeFormat="HH:mm"
+                        dateFormat="dd/MM/yyyy HH:mm"
+                        className="w-full rounded-md border border-neutral-700/60 bg-neutral-800/60 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                      <p className="mt-2 text-xs text-neutral-400">
+                        End time must be from now up to 6 hours ahead.
+                      </p>
+                    </div>
+                  )}
 
                   <div className="rounded-xl border border-white/10 bg-black/20 p-4">
                     <div className="flex items-center justify-between">
@@ -1041,15 +1043,15 @@ export default function StreamingDashboardPage() {
                     />
 
                     {!streamEnd ? (
-                    <CopyRow
-                      label="HLS playback"
-                      value={provisioned.hlsPlayBack}
-                    />
+                      <CopyRow
+                        label="HLS playback"
+                        value={provisioned.hlsPlayBack}
+                      />
                     ) : (
-                    <CopyRow
-                      label="VOD playback"
-                      value={provisioned.vodPlayBack}
-                    />
+                      <CopyRow
+                        label="VOD playback"
+                        value={provisioned.vodPlayBack}
+                      />
                     )}
                   </div>
                 )}
