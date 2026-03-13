@@ -281,6 +281,7 @@ export default function StreamingDashboardPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const router = useRouter();
+  const isLoggedIn = !!user && !!token;
 
   async function apiPost(
     path: string,
@@ -398,6 +399,11 @@ export default function StreamingDashboardPage() {
     setError("");
 
     try {
+      if (!isLoggedIn) {
+        setLoading(false);
+        return;
+      }
+
       if (!xToken) {
         setError("No token found. Please sign in again.");
         return;
@@ -421,7 +427,7 @@ export default function StreamingDashboardPage() {
 
   useEffect(() => {
     void setup();
-  }, [xToken, urlVideoId]);
+  }, [isLoggedIn, xToken, urlVideoId]);
 
   function validateForm() {
     if (!xToken) return "No token found. Please sign in again.";
@@ -621,6 +627,37 @@ export default function StreamingDashboardPage() {
     };
     reader.readAsDataURL(file);
   };
+
+  if (!isLoggedIn) {
+    return (
+      <main className="min-h-screen bg-neutral-950 text-white">
+        <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(60%_60%_at_50%_0%,rgba(191,9,9,0.35),transparent),radial-gradient(50%_50%_at_100%_100%,rgba(239,68,68,0.22),transparent)]" />
+        <div className="pointer-events-none fixed inset-0 bg-gradient-to-b from-transparent via-neutral-950/40 to-neutral-950" />
+
+        <div className="relative z-10 mx-auto max-w-[110rem] px-4 py-20 lg:px-6">
+          <div className="max-w-2xl rounded-2xl border border-white/10 bg-neutral-900/50 p-6">
+            <h1 className="text-2xl font-extrabold tracking-tight md:text-3xl">
+              Live Streaming Dashboard
+            </h1>
+            <p className="mt-3 text-sm text-neutral-300">
+              Sign in to access the live streaming dashboard and create or
+              manage your streams.
+            </p>
+
+            <div className="mt-5">
+              <button
+                type="button"
+                onClick={() => router.push("/login")}
+                className="cursor-pointer rounded-full bg-white px-5 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
+              >
+                Sign in
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-neutral-950 text-white">

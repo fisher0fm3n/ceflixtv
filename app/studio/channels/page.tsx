@@ -192,18 +192,28 @@ export default function UserChannelsPage() {
   if (!isLoggedIn) {
     return (
       <main className="min-h-screen bg-neutral-950 text-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-24 pb-10">
-          <h1 className="text-2xl font-bold mb-4">Your channels</h1>
-          <p className="text-neutral-400 text-sm mb-4">
-            Sign in to manage channels you&apos;ve created.
-          </p>
-          <button
-            type="button"
-            onClick={() => router.push("/login")}
-            className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-black hover:bg-neutral-200 transition"
-          >
-            Sign in
-          </button>
+        <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(60%_60%_at_50%_0%,rgba(191,9,9,0.35),transparent),radial-gradient(50%_50%_at_100%_100%,rgba(239,68,68,0.22),transparent)]" />
+        <div className="pointer-events-none fixed inset-0 bg-gradient-to-b from-transparent via-neutral-950/40 to-neutral-950" />
+
+        <div className="relative z-10 mx-auto max-w-[110rem] px-4 py-20 lg:px-6">
+          <div className="max-w-2xl rounded-2xl border border-white/10 bg-neutral-900/50 p-6">
+            <h1 className="text-2xl font-extrabold tracking-tight md:text-3xl">
+              Channels
+            </h1>
+            <p className="mt-3 text-sm text-neutral-300">
+              Sign in to view and manage your channels.
+            </p>
+
+            <div className="mt-5">
+              <button
+                type="button"
+                onClick={() => router.push("/login")}
+                className="cursor-pointer rounded-full bg-white px-5 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
+              >
+                Sign in
+              </button>
+            </div>
+          </div>
         </div>
       </main>
     );

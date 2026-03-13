@@ -55,8 +55,7 @@ function withCloudinaryPrefix(src: string | null): string {
 }
 
 function timeSince(unix: number | string) {
-  const ts =
-    typeof unix === "string" ? parseInt(unix, 10) * 1000 : unix * 1000;
+  const ts = typeof unix === "string" ? parseInt(unix, 10) * 1000 : unix * 1000;
 
   const diff = Date.now() - ts;
   const minutes = Math.floor(diff / 60000);
@@ -84,7 +83,7 @@ function timeSince(unix: number | string) {
 }
 
 function durationFmt(seconds: number | string | null) {
-  const s = typeof seconds === "string" ? parseFloat(seconds) : seconds ?? 0;
+  const s = typeof seconds === "string" ? parseFloat(seconds) : (seconds ?? 0);
   if (!Number.isFinite(s) || s <= 0) return "";
   const total = Math.floor(s);
   const h = Math.floor(total / 3600);
@@ -166,7 +165,8 @@ export default function SubscriptionsFeedPage() {
 
     const data = await res.json().catch(() => null);
 
-    if (!res.ok) throw new Error(data?.message || `Request failed (${res.status})`);
+    if (!res.ok)
+      throw new Error(data?.message || `Request failed (${res.status})`);
     if (!data?.status) throw new Error(data?.message || "Failed to load feed.");
 
     return {
@@ -216,7 +216,9 @@ export default function SubscriptionsFeedPage() {
         const filtered = filterByTab(data);
 
         if (filtered.length > 0) {
-          setItems((prev) => (isReset && nextPage === 1 ? filtered : [...prev, ...filtered]));
+          setItems((prev) =>
+            isReset && nextPage === 1 ? filtered : [...prev, ...filtered],
+          );
           appendedAny = true;
         }
 
@@ -290,20 +292,30 @@ export default function SubscriptionsFeedPage() {
 
   if (!user || !token) {
     return (
-      <div className="min-h-screen bg-neutral-950 text-white px-4 py-10 overflow-x-hidden">
-        <div className="mx-auto max-w-3xl">
-          <h1 className="text-xl font-extrabold tracking-tight">Subscriptions</h1>
-          <p className="mt-2 text-sm text-neutral-300">
-            Sign in to see the latest videos from channels you follow.
-          </p>
-          <Link
-            href="/login"
-            className="inline-flex mt-5 rounded-full bg-white text-black px-5 py-2 text-sm font-semibold hover:bg-white/80"
-          >
-            Sign in
-          </Link>
+      <main className="min-h-screen bg-neutral-950 text-white">
+        <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(60%_60%_at_50%_0%,rgba(191,9,9,0.35),transparent),radial-gradient(50%_50%_at_100%_100%,rgba(239,68,68,0.22),transparent)]" />
+        <div className="pointer-events-none fixed inset-0 bg-gradient-to-b from-transparent via-neutral-950/40 to-neutral-950" />
+
+        <div className="relative z-10 mx-auto max-w-[110rem] px-4 py-20 lg:px-6">
+          <div className="max-w-2xl rounded-2xl border border-white/10 bg-neutral-900/50 p-6">
+            <h1 className="text-2xl font-extrabold tracking-tight md:text-3xl">
+              Subscriptions
+            </h1>
+            <p className="mt-3 text-sm text-neutral-300">
+              Sign in to see the latest videos from channels you follow.
+            </p>
+
+            <div className="mt-5">
+              <Link
+                href="/login"
+                className="cursor-pointer rounded-full bg-white px-5 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
+              >
+                Sign in
+              </Link>
+            </div>
+          </div>
         </div>
-      </div>
+      </main>
     );
   }
 
@@ -317,7 +329,8 @@ export default function SubscriptionsFeedPage() {
               Subscriptions
             </h1>
             <p className="text-sm text-neutral-400 truncate">
-              Latest {tab === "shorts" ? "shorts" : "videos"} from channels you follow.
+              Latest {tab === "shorts" ? "shorts" : "videos"} from channels you
+              follow.
             </p>
           </div>
 
@@ -406,7 +419,10 @@ export default function SubscriptionsFeedPage() {
         {grouped.length > 0 && (
           <div className="mt-6 grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {grouped.map((v) => {
-              const watchHref = `/videos/watch/${v.id}/${v.slug || ""}`.replace(/\/$/, "");
+              const watchHref = `/videos/watch/${v.id}/${v.slug || ""}`.replace(
+                /\/$/,
+                "",
+              );
               const dur = durationFmt(v.duration);
               const channelImg = getChannelProfilePicture(v);
 
@@ -466,7 +482,9 @@ export default function SubscriptionsFeedPage() {
                     {/* ✅ timeago kept */}
                     <div className="mt-3 flex items-center justify-between gap-3 text-xs text-neutral-400">
                       {/* <span className="truncate">{formatViews(v.numOfViews)}</span> */}
-                      <span className="flex-shrink-0">{timeSince(v.uploadtime)}</span>
+                      <span className="flex-shrink-0">
+                        {timeSince(v.uploadtime)}
+                      </span>
                     </div>
                   </div>
                 </Link>
@@ -487,11 +505,15 @@ export default function SubscriptionsFeedPage() {
         )}
 
         {/* End */}
-        {!loading && !loadingMore && meta && meta.current_page >= meta.last_page && grouped.length > 0 && (
-          <div className="mt-6 text-center text-xs text-neutral-500">
-            You’re all caught up.
-          </div>
-        )}
+        {!loading &&
+          !loadingMore &&
+          meta &&
+          meta.current_page >= meta.last_page &&
+          grouped.length > 0 && (
+            <div className="mt-6 text-center text-xs text-neutral-500">
+              You’re all caught up.
+            </div>
+          )}
       </div>
     </div>
   );
