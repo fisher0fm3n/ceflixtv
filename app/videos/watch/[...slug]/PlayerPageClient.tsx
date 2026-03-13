@@ -148,7 +148,7 @@ function withCloudinaryPrefix2(src: string | null): string {
 function formatSubscribers(v: string | number) {
   const num = typeof v === "string" ? parseInt(v, 10) : v;
   if (!Number.isFinite(num)) return "0 followers";
-  if (num < 1000) return `${num} followers${num === 1 ? "" : "s"}`;
+  if (num < 1000) return `${num} follower${num === 1 ? "" : "s"}`;
   const units = ["K", "M", "B"];
   let u = -1;
   let n = num;
