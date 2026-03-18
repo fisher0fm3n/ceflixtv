@@ -257,8 +257,7 @@ export default function HomePage() {
   }
 
   return (
-    <main className="bg-neutral-950 text-white min-h-screen mb-[10rem]">
-      {/* Home popup player */}
+<main className="bg-neutral-950 text-white min-h-screen mb-[10rem] w-full max-w-[1800px] mx-auto px-4 sm:px-6">      {/* Home popup player */}
       <PopupPlayer
         open={popupOpen}
         data={popupData}

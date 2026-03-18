@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { EllipsisVerticalIcon } from "@heroicons/react/24/solid";
 
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
@@ -36,7 +35,6 @@ function ShortCard({ item }: { item: ShortItem }) {
     <Link href={`/ceclips/${item.id}`} className="group block min-w-0">
       <div className="overflow-hidden rounded-lg">
         <div className="relative aspect-[9/16] w-full">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={item.thumbnail || FALLBACK_THUMB}
             alt={item.videos_title}
@@ -52,18 +50,6 @@ function ShortCard({ item }: { item: ShortItem }) {
             {item.videos_title}
           </h3>
         </div>
-
-        {/* <button
-          type="button"
-          className="mt-1 shrink-0 rounded-full p-1 text-white/90 hover:bg-white/10"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          aria-label="More options"
-        >
-          <EllipsisVerticalIcon className="h-6 w-6" />
-        </button> */}
       </div>
     </Link>
   );
@@ -73,14 +59,25 @@ export default function ShortsShelf() {
   const [items, setItems] = useState<ShortItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [isMobile, setIsMobile] = useState(false);
+  const [desktopColumns, setDesktopColumns] = useState(6);
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 1280);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
+    const updateDesktopColumns = () => {
+      const width = window.innerWidth;
 
-    return () => window.removeEventListener("resize", checkMobile);
+      if (width <= 1280) {
+        setDesktopColumns(4);
+      } else if (width <= 1400) {
+        setDesktopColumns(5);
+      } else {
+        setDesktopColumns(6);
+      }
+    };
+
+    updateDesktopColumns();
+    window.addEventListener("resize", updateDesktopColumns);
+
+    return () => window.removeEventListener("resize", updateDesktopColumns);
   }, []);
 
   useEffect(() => {
@@ -98,7 +95,7 @@ export default function ShortsShelf() {
             "Application-Key": APP_KEY,
           },
           body: JSON.stringify({
-            limit: 5,
+            limit: 6,
           }),
         });
 
@@ -132,16 +129,22 @@ export default function ShortsShelf() {
   }, []);
 
   const visibleItems = useMemo(() => {
-    return isMobile ? items.slice(0, 4) : items;
-  }, [items, isMobile]);
+    return items.slice(0, desktopColumns);
+  }, [items, desktopColumns]);
+
+  const desktopGridClass = useMemo(() => {
+    if (desktopColumns === 4) return "xl:grid-cols-4";
+    if (desktopColumns === 5) return "xl:grid-cols-5";
+    return "xl:grid-cols-6";
+  }, [desktopColumns]);
+
+  const baseGridClass = `grid grid-cols-2 gap-4 md:grid-cols-4 ${desktopGridClass}`;
 
   const content = useMemo(() => {
     if (loading) {
-      const skeletonCount = isMobile ? 4 : 5;
-
       return (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-5">
-          {Array.from({ length: skeletonCount }).map((_, i) => (
+        <div className={baseGridClass}>
+          {Array.from({ length: desktopColumns }).map((_, i) => (
             <div key={i} className="min-w-0">
               <div className="aspect-[9/16] w-full animate-pulse rounded-lg bg-neutral-800" />
               <div className="mt-3 flex items-start gap-3">
@@ -149,7 +152,6 @@ export default function ShortsShelf() {
                   <div className="h-5 w-full animate-pulse rounded bg-neutral-800" />
                   <div className="mt-2 h-5 w-4/5 animate-pulse rounded bg-neutral-800" />
                 </div>
-                <div className="mt-1 h-6 w-6 animate-pulse rounded-full bg-neutral-800" />
               </div>
             </div>
           ))}
@@ -174,13 +176,13 @@ export default function ShortsShelf() {
     }
 
     return (
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+      <div className={baseGridClass}>
         {visibleItems.map((item) => (
           <ShortCard key={item.id} item={item} />
         ))}
       </div>
     );
-  }, [loading, error, visibleItems, isMobile]);
+  }, [loading, error, visibleItems, desktopColumns, baseGridClass]);
 
   return (
     <section className="px-4 py-6 md:px-6 lg:px-8">
