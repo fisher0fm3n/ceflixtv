@@ -27,6 +27,7 @@ import ShareModal from "../../../components/ShareModal";
 import VideoJsPlayer from "@/app/components/VideoJsPlayer";
 
 const DEFAULT_AVATAR = "https://ceflix.org/images/avatar.png";
+// const API_BASE = "http://127.0.0.1:8000/api/";
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
 

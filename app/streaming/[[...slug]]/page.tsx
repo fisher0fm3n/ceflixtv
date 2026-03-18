@@ -8,6 +8,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
 const API_BASE = "https://webapi.ceflix.org/api/";
+// const API_BASE = "http://127.0.0.1:8000/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
 const PROVISION_URL = "https://v4api.ceflix.org/api/ingest/provision";
 const DUMMY_STREAM_URL = "https://example.com/dummy-stream.m3u8";
