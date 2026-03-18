@@ -36,6 +36,7 @@ type ProvisionResponse = {
   rtmp_ingest_url?: string;
   maxBitRate?: number;
   vodPlayBack?: string;
+  hlsPlayBack?: string;
 };
 
 type VideoApiResponse = {
@@ -58,6 +59,7 @@ type VideoApiResponse = {
       maxBitRate?: number | null;
       url?: string | null;
       vodPlayBack?: string | null;
+      hlsPlayBack?: string | null;
       isLive?: string | number | null;
       streamEnd?: boolean | null;
     };
@@ -102,7 +104,8 @@ function hasExistingStreamDetails(p: ProvisionResponse | null | undefined) {
       p.ingest_username ||
       p.ingest_password ||
       p.rtmp_ingest_url ||
-      p.vodPlayBack,
+      p.vodPlayBack ||
+      p.hlsPlayBack,
   );
 }
 
@@ -402,7 +405,6 @@ export default function StreamingDashboardPage() {
         xToken ? { "X-TOKEN": xToken } : undefined,
       );
 
-      // If API says false or request fails, redirect to default streaming page
       if (!res.ok || !json?.status) {
         router.replace("/streaming");
         return;
@@ -411,7 +413,6 @@ export default function StreamingDashboardPage() {
       const data = json as VideoApiResponse;
       const video = data?.data?.video;
 
-      // If no video payload came back, redirect too
       if (!video) {
         router.replace("/streaming");
         return;
@@ -440,6 +441,7 @@ export default function StreamingDashboardPage() {
         rtmp_ingest_url: video.rtmp_ingest_url ?? undefined,
         maxBitRate: video.maxBitRate ?? undefined,
         vodPlayBack: video.vodPlayBack ?? undefined,
+        hlsPlayBack: video.hlsPlayBack ?? undefined,
       };
 
       if (hasExistingStreamDetails(matchedProvision)) {
@@ -463,7 +465,6 @@ export default function StreamingDashboardPage() {
       setPrefillLoading(false);
     }
   }
-
 
   async function setup() {
     setLoading(true);
@@ -589,9 +590,17 @@ export default function StreamingDashboardPage() {
       }),
     });
 
-    const provisionJson: ProvisionResponse | null = await provisionRes
-      .json()
-      .catch(() => null);
+    const provisionJsonRaw = await provisionRes.json().catch(() => null);
+
+    const provisionJson: ProvisionResponse | null = provisionJsonRaw
+      ? {
+          ...provisionJsonRaw,
+          hlsPlayBack:
+            provisionJsonRaw.hlsPlayBack ??
+            provisionJsonRaw.hlsPlayback ??
+            provisionJsonRaw.hlsplayback,
+        }
+      : null;
 
     if (!provisionRes.ok || !provisionJson?.success) {
       throw new Error(
@@ -644,6 +653,10 @@ export default function StreamingDashboardPage() {
 
     if (provision.vodPlayBack) {
       body.append("vodPlayBack", provision.vodPlayBack);
+    }
+
+    if (provision.hlsPlayBack) {
+      body.append("hlsPlayBack", provision.hlsPlayBack);
     }
 
     body.append("isLive", "1");
@@ -710,6 +723,10 @@ export default function StreamingDashboardPage() {
 
     if (provisioned?.vodPlayBack) {
       body.append("vodPlayBack", provisioned.vodPlayBack);
+    }
+
+    if (provisioned?.hlsPlayBack) {
+      body.append("hlsPlayBack", provisioned.hlsPlayBack);
     }
 
     const res = await fetch(`${API_BASE}video/update`, {
