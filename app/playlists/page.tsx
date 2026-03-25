@@ -9,7 +9,7 @@ import {
   LockClosedIcon,
   GlobeAltIcon,
 } from "@heroicons/react/24/outline";
-import { useAuth } from "../components/AuthProvider"; // ⬅️ adjust path if needed
+import { useAuth } from "../components/AuthProvider";
 
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
@@ -22,7 +22,7 @@ type Playlist = {
   playlist_description: string | null;
   playlist_thumbnail: string | null;
   playlist_tags: string | null;
-  videos_payload: string | null; // comma-separated ids
+  videos_payload: string | null;
   visibility: "public" | "private" | string;
   created_at: string;
   updated_at: string;
@@ -35,11 +35,9 @@ function truncate(text: string | null | undefined, max: number) {
 }
 
 function timeSince(dateStrOrUnix: string | number) {
-  // Support both ISO string (created_at) and uploadtime (unix in seconds)
   let ts: number;
 
   if (typeof dateStrOrUnix === "string" && dateStrOrUnix.length <= 12) {
-    // probably unix timestamp in seconds
     const unix = parseInt(dateStrOrUnix, 10);
     ts = unix * 1000;
   } else if (typeof dateStrOrUnix === "number") {
@@ -58,19 +56,14 @@ function timeSince(dateStrOrUnix: string | number) {
 
   if (minutes < 1) return "Just now";
   if (minutes < 60) return fmt(minutes, "minute");
-
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return fmt(hours, "hour");
-
   const days = Math.floor(hours / 24);
   if (days < 7) return fmt(days, "day");
-
   const weeks = Math.floor(days / 7);
   if (weeks < 4) return fmt(weeks, "week");
-
   const months = Math.floor(days / 30);
   if (months < 12) return fmt(months, "month");
-
   const years = Math.floor(days / 365);
   return fmt(years, "year");
 }
@@ -83,24 +76,59 @@ function countVideos(payload: string | null): number {
     .filter(Boolean).length;
 }
 
-// Simple pill for public/private
-function VisibilityBadge({ visibility }: { visibility: string }) {
+function visibilityText(visibility: string) {
+  return visibility === "public" ? "Public" : "Private";
+}
+
+function VisibilityIcon({ visibility }: { visibility: string }) {
   const isPublic = visibility === "public";
+  return isPublic ? (
+    <GlobeAltIcon className="h-3.5 w-3.5" />
+  ) : (
+    <LockClosedIcon className="h-3.5 w-3.5" />
+  );
+}
+
+function PlaylistThumb({
+  title,
+  thumbnail,
+  videoCount,
+}: {
+  title: string;
+  thumbnail: string | null;
+  videoCount: number;
+}) {
+  const hasThumb = !!thumbnail;
+
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-        isPublic
-          ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/40"
-          : "bg-neutral-700/40 text-neutral-200 border border-neutral-500/40"
-      }`}
-    >
-      {isPublic ? (
-        <GlobeAltIcon className="h-3 w-3" />
-      ) : (
-        <LockClosedIcon className="h-3 w-3" />
-      )}
-      {isPublic ? "Public" : "Private"}
-    </span>
+    <div className="relative">
+      {/* stacked layers like YouTube playlists */}
+      <div className="absolute inset-x-3 -top-2 h-full rounded-xl bg-neutral-700/70" />
+      <div className="absolute inset-x-1.5 -top-1 h-full rounded-xl bg-neutral-600/60" />
+
+      <div className="relative aspect-video overflow-hidden rounded-xl bg-neutral-900">
+        {hasThumb ? (
+          <Image
+            src={thumbnail!}
+            alt={title}
+            fill
+            unoptimized
+            className="object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-800 via-neutral-900 to-black">
+            <ListBulletIcon className="h-8 w-8 text-neutral-400" />
+          </div>
+        )}
+
+        <div className="absolute inset-x-0 bottom-0 flex items-center justify-end px-3 pb-2 pt-6 bg-gradient-to-t from-black/85 via-black/40 to-transparent">
+          <span className="inline-flex items-center gap-1 rounded-md bg-black/55 px-2 py-1 text-[11px] font-semibold text-white">
+            <ListBulletIcon className="h-3 w-3" />
+            {videoCount} video{videoCount !== 1 ? "s" : ""}
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -114,8 +142,7 @@ export default function PlaylistsPage() {
   const [filter, setFilter] = useState<"all" | "public" | "private">("all");
 
   const isLoggedIn = !!user && !!token;
-
-  const skeletonArray = useMemo(() => Array.from({ length: 6 }), []);
+  const skeletonArray = useMemo(() => Array.from({ length: 8 }), []);
 
   async function fetchPlaylists() {
     if (!token) return;
@@ -142,11 +169,10 @@ export default function PlaylistsPage() {
         setPlaylists([]);
       } else {
         const data: Playlist[] = res.data || [];
-        // newest updated first
         data.sort(
           (a, b) =>
             new Date(b.updated_at).getTime() -
-            new Date(a.updated_at).getTime()
+            new Date(a.updated_at).getTime(),
         );
         setPlaylists(data);
       }
@@ -164,8 +190,7 @@ export default function PlaylistsPage() {
       setLoading(false);
       return;
     }
-    fetchPlaylists();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void fetchPlaylists();
   }, [isLoggedIn, token]);
 
   const filteredPlaylists = useMemo(() => {
@@ -205,173 +230,160 @@ export default function PlaylistsPage() {
 
   const total = playlists.length;
   const totalPublic = playlists.filter((p) => p.visibility === "public").length;
-  const totalPrivate = playlists.filter(
-    (p) => p.visibility === "private"
-  ).length;
+  const totalPrivate = playlists.filter((p) => p.visibility === "private").length;
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-10 pb-10">
-        {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-extrabold flex items-center gap-2">
+    <div className="min-h-screen bg-neutral-950 text-white overflow-x-hidden">
+      <div className="mx-auto max-w-7xl px-3 sm:px-6 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight truncate">
               Playlists
             </h1>
-            <p className="text-sm text-neutral-400 mt-1">
+            <p className="text-sm text-neutral-400 truncate">
               {total === 0
                 ? "You haven’t created any playlists yet."
                 : `${total} playlist${total !== 1 ? "s" : ""} • ${totalPublic} public • ${totalPrivate} private`}
             </p>
           </div>
 
-          {/* Filter pills */}
-          {total > 0 && (
-            <div className="inline-flex rounded-full bg-neutral-900/70 p-1 text-xs">
-              <button
-                type="button"
-                onClick={() => setFilter("all")}
-                className={`text-sm px-3 py-1 rounded-full font-semibold transition ${
-                  filter === "all"
-                    ? "bg-white text-black"
-                    : "text-neutral-300 hover:bg-neutral-800"
-                }`}
-              >
-                All
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilter("public")}
-                className={`text-sm px-3 py-1 rounded-full font-semibold transition ${
-                  filter === "public"
-                    ? "bg-white text-black"
-                    : "text-neutral-300 hover:bg-neutral-800"
-                }`}
-              >
-                Public
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilter("private")}
-                className={`text-sm px-3 py-1 rounded-full font-semibold transition ${
-                  filter === "private"
-                    ? "bg-white text-black"
-                    : "text-neutral-300 hover:bg-neutral-800"
-                }`}
-              >
-                Private
-              </button>
-            </div>
-          )}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <button
+              type="button"
+              onClick={() => fetchPlaylists()}
+              disabled={loading}
+              className={`w-full sm:w-auto inline-flex justify-center rounded-full bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/80 ${
+                loading ? "opacity-70 cursor-not-allowed" : "cursor-pointer"
+              }`}
+            >
+              {loading ? "Refreshing…" : "Refresh"}
+            </button>
+          </div>
         </div>
 
-        {error && (
-          <p className="mb-4 text-sm text-red-400">
-            {error}
-          </p>
+        {total > 0 && (
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFilter("all")}
+              className={`cursor-pointer rounded-full px-4 py-2 text-xs font-semibold ${
+                filter === "all"
+                  ? "bg-white text-black"
+                  : "border border-white/10 bg-neutral-900/60 text-neutral-200 hover:bg-neutral-800"
+              }`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("public")}
+              className={`cursor-pointer rounded-full px-4 py-2 text-xs font-semibold ${
+                filter === "public"
+                  ? "bg-white text-black"
+                  : "border border-white/10 bg-neutral-900/60 text-neutral-200 hover:bg-neutral-800"
+              }`}
+            >
+              Public
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("private")}
+              className={`cursor-pointer rounded-full px-4 py-2 text-xs font-semibold ${
+                filter === "private"
+                  ? "bg-white text-black"
+                  : "border border-white/10 bg-neutral-900/60 text-neutral-200 hover:bg-neutral-800"
+              }`}
+            >
+              Private
+            </button>
+          </div>
         )}
 
-        {/* Loading skeleton */}
+        {error && (
+          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {error}
+          </div>
+        )}
+
         {loading && (
-          <div className="grid gap-3 gap-y-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          <div className="mt-6 grid gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {skeletonArray.map((_, idx) => (
-              <div
-                key={idx}
-                className="flex flex-col animate-pulse"
-              >
-                <div className="w-full aspect-video bg-neutral-800 rounded-md" />
+              <div key={idx}>
+                <div className="relative">
+                  <div className="absolute inset-x-3 -top-2 h-full rounded-xl bg-neutral-700/50 animate-pulse" />
+                  <div className="absolute inset-x-1.5 -top-1 h-full rounded-xl bg-neutral-600/40 animate-pulse" />
+                  <div className="relative aspect-video rounded-xl bg-neutral-800 animate-pulse" />
+                </div>
                 <div className="mt-3 space-y-2">
-                  <div className="h-4 bg-neutral-800 rounded w-5/6" />
-                  <div className="h-3 bg-neutral-800 rounded w-3/4" />
-                  <div className="h-3 bg-neutral-800 rounded w-1/2" />
+                  <div className="h-4 w-3/4 rounded bg-neutral-800 animate-pulse" />
+                  <div className="h-3 w-2/3 rounded bg-neutral-800 animate-pulse" />
+                  <div className="h-3 w-1/2 rounded bg-neutral-800 animate-pulse" />
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* Empty state */}
         {!loading && playlists.length === 0 && !error && (
-          <div className="mt-6 rounded-xl border border-dashed border-neutral-700 bg-neutral-900/40 p-6 text-center">
-            <p className="text-sm text-neutral-300">
-              You haven&apos;t created any playlists yet.
+          <div className="mt-10 rounded-xl border border-white/10 bg-neutral-900/40 p-6">
+            <p className="text-sm text-neutral-200 font-semibold">
+              No playlists yet.
             </p>
-            <p className="mt-1 text-xs text-neutral-500">
+            <p className="mt-1 text-sm text-neutral-400">
               Create a playlist from a video&apos;s options menu to see it here.
             </p>
           </div>
         )}
 
-        {/* Filter yields no results */}
-        {!loading &&
-          playlists.length > 0 &&
-          filteredPlaylists.length === 0 && (
-            <div className="mt-6 rounded-xl border border-dashed border-neutral-700 bg-neutral-900/40 p-6 text-center text-sm text-neutral-300">
+        {!loading && playlists.length > 0 && filteredPlaylists.length === 0 && (
+          <div className="mt-10 rounded-xl border border-white/10 bg-neutral-900/40 p-6">
+            <p className="text-sm text-neutral-200 font-semibold">
               No {filter} playlists found.
-            </div>
-          )}
+            </p>
+            <p className="mt-1 text-sm text-neutral-400">
+              Try switching filters to view your other playlists.
+            </p>
+          </div>
+        )}
 
-        {/* Playlists grid */}
         {!loading && filteredPlaylists.length > 0 && (
-          <div className="grid gap-3 gap-y-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          <div className="mt-6 grid gap-x-4 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredPlaylists.map((pl) => {
               const videoCount = countVideos(pl.videos_payload);
-
-              // Choose thumbnail or subtle gradient
-              const hasThumb = !!pl.playlist_thumbnail;
-              const href = `/playlists/${pl.id}`; // ⬅️ adjust route if needed
+              const href = `/playlists/${pl.id}`;
 
               return (
-                <Link
-                  key={pl.id}
-                  href={href}
-                  className="flex flex-col group"
-                >
-                  {/* Thumbnail area */}
-                  <div className="relative w-full overflow-hidden rounded-md bg-neutral-900">
-                    <div className="relative w-full aspect-video">
-                      {hasThumb ? (
-                        <img
-                          src={pl.playlist_thumbnail!}
-                          alt={pl.playlist_title}
-                          fill
-                          unoptimized
-                          className="object-cover transition-transform duration-200 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="h-full w-full bg-gradient-to-br from-neutral-800 via-neutral-900 to-black flex items-center justify-center">
-                          <ListBulletIcon className="h-8 w-8 text-neutral-400" />
-                        </div>
-                      )}
+                <Link key={pl.id} href={href} className="group block min-w-0">
+                  <PlaylistThumb
+                    title={pl.playlist_title}
+                    thumbnail={pl.playlist_thumbnail}
+                    videoCount={videoCount}
+                  />
+
+                  <div className="mt-3 px-0.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <h2 className="text-base font-semibold leading-snug line-clamp-2 break-words">
+                          {pl.playlist_title}
+                        </h2>
+                      </div>
                     </div>
 
-                    {/* Top-left visibility */}
-                    <div className="absolute left-1 top-1">
-                      <VisibilityBadge visibility={pl.visibility} />
-                    </div>
-
-                    {/* Bottom overlay - videos count */}
-                    <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-2 pb-1 pt-2 bg-gradient-to-t from-black/80 via-black/40 to-transparent text-[11px]">
-                      <span className="font-semibold flex items-center gap-1">
-                        <ListBulletIcon className="h-3 w-3" />
-                        {videoCount} video{videoCount !== 1 ? "s" : ""}
-                      </span>
-                      <span className="text-neutral-300">
-                        {timeSince(pl.created_at)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Text content */}
-                  <div className="mt-2">
-                    <h2 className="text-md font-semibold leading-snug line-clamp-2 transition">
-                      {pl.playlist_title}
-                    </h2>
-                    {pl.playlist_description && (
-                      <p className="mt-1 text-[11px] text-neutral-400 line-clamp-2">
-                        {truncate(pl.playlist_description, 90)}
+                    <div className="mt-1 text-sm text-neutral-400 space-y-0.5">
+                      <p className="flex items-center gap-1.5">
+                        <VisibilityIcon visibility={pl.visibility} />
+                        <span>
+                          {visibilityText(pl.visibility)} • Playlist
+                        </span>
                       </p>
-                    )}
+                      <p className="truncate font-bold">View full playlist</p>
+                    </div>
+
+                    {pl.playlist_description ? (
+                      <p className="mt-2 text-xs text-neutral-500 line-clamp-2 break-words">
+                        {truncate(pl.playlist_description, 100)}
+                      </p>
+                    ) : null}
                   </div>
                 </Link>
               );
@@ -379,6 +391,6 @@ export default function PlaylistsPage() {
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }

@@ -10,7 +10,7 @@ import {
   PlusCircleIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
-import { useAuth } from "../components/AuthProvider"; // ⬅️ adjust path if needed
+import { useAuth } from "../components/AuthProvider";
 
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
@@ -23,7 +23,7 @@ type UserChannel = {
   description: string;
   tags: string | null;
   filename: string;
-  url: string; // avatar/thumb
+  url: string;
   cover: string;
   featured: number;
   active: number;
@@ -56,8 +56,7 @@ export default function UserChannelsPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const isLoggedIn = !!user && !!token;
-
-  const skeletonArray = useMemo(() => Array.from({ length: 3 }), []);
+  const skeletonArray = useMemo(() => Array.from({ length: 4 }), []);
 
   function abbreviateViews(v: string) {
     const num = parseInt(v, 10);
@@ -107,11 +106,10 @@ export default function UserChannelsPage() {
         setChannels([]);
       } else {
         const list: UserChannel[] = res.data || [];
-        // Sort by created_at (newest first)
         list.sort(
           (a, b) =>
             new Date(b.created_at).getTime() -
-            new Date(a.created_at).getTime()
+            new Date(a.created_at).getTime(),
         );
         setChannels(list);
       }
@@ -124,7 +122,6 @@ export default function UserChannelsPage() {
     }
   }
 
-  // --- DELETE CHANNEL API (using API_BASE & APP_KEY, no browser alert) ---
   async function deleteChannel(channelId: number) {
     if (!token) {
       setError("You must be logged in to delete a channel.");
@@ -148,7 +145,6 @@ export default function UserChannelsPage() {
       const res = await req.json().catch(() => null);
 
       if (req.ok && res?.status) {
-        // remove deleted channel from state
         setChannels((prev) => prev.filter((ch) => ch.id !== channelId));
         return true;
       }
@@ -185,8 +181,7 @@ export default function UserChannelsPage() {
       setLoading(false);
       return;
     }
-    fetchUserChannels();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void fetchUserChannels();
   }, [isLoggedIn, token]);
 
   if (!isLoggedIn) {
@@ -220,45 +215,71 @@ export default function UserChannelsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-10 pb-10">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-extrabold">Your channels</h1>
-            <p className="text-md text-neutral-400 mt-1">
+    <div className="min-h-screen bg-neutral-950 text-white overflow-x-hidden">
+      <div className="mx-auto max-w-6xl px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight truncate">
+              Your Channels
+            </h1>
+            <p className="text-sm text-neutral-400 truncate">
               Create, view and edit the channels linked to your account.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => router.push("/studio/channels/create")}
-            className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-neutral-200 transition"
-          >
-            <PlusCircleIcon className="h-4 w-4" />
-            New channel
-          </button>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <button
+              type="button"
+              onClick={() => fetchUserChannels()}
+              disabled={loading}
+              className={`w-full sm:w-auto inline-flex justify-center rounded-full border border-white/10 bg-neutral-900/60 px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-800 ${
+                loading ? "opacity-70 cursor-not-allowed" : "cursor-pointer"
+              }`}
+            >
+              {loading ? "Refreshing…" : "Refresh"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.push("/studio/channels/create")}
+              className="w-full sm:w-auto inline-flex justify-center items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/80 cursor-pointer"
+            >
+              <PlusCircleIcon className="h-4 w-4" />
+              New channel
+            </button>
+          </div>
         </div>
 
         {error && (
-          <p className="mb-4 text-sm text-red-400">
+          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             {error}
-          </p>
+          </div>
         )}
 
-        {/* Skeleton state */}
         {loading && (
-          <div className="space-y-4">
+          <div className="mt-6 space-y-4">
             {skeletonArray.map((_, idx) => (
               <div
                 key={idx}
-                className="flex gap-4 p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 animate-pulse"
+                className="rounded-lg border border-white/10 bg-neutral-900/40 p-3 sm:p-4"
               >
-                <div className="w-24 h-24 rounded-lg bg-neutral-800" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-neutral-800 rounded w-1/2" />
-                  <div className="h-3 bg-neutral-800 rounded w-3/4" />
-                  <div className="h-3 bg-neutral-800 rounded w-1/3" />
-                  <div className="h-8 bg-neutral-800 rounded w-32" />
+                <div className="flex flex-col sm:flex-row gap-4 animate-pulse">
+                  <div className="w-full sm:w-56 md:w-64 aspect-video rounded-md bg-neutral-800 flex-shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-neutral-800" />
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="h-4 w-40 rounded bg-neutral-800" />
+                        <div className="h-3 w-28 rounded bg-neutral-800" />
+                      </div>
+                    </div>
+                    <div className="h-3 w-3/4 rounded bg-neutral-800" />
+                    <div className="h-3 w-1/2 rounded bg-neutral-800" />
+                    <div className="flex gap-2">
+                      <div className="h-8 w-24 rounded-full bg-neutral-800" />
+                      <div className="h-8 w-24 rounded-full bg-neutral-800" />
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
@@ -266,14 +287,18 @@ export default function UserChannelsPage() {
         )}
 
         {!loading && channels.length === 0 && !error && (
-          <div className="mt-4 rounded-xl border border-dashed border-neutral-700 bg-neutral-900/40 p-6 text-center">
-            <p className="text-sm text-neutral-300">
-              You haven&apos;t created any channels yet.
+          <div className="mt-10 rounded-xl border border-white/10 bg-neutral-900/40 p-6">
+            <p className="text-sm text-neutral-200 font-semibold">
+              No channels yet.
+            </p>
+            <p className="mt-1 text-sm text-neutral-400">
+              Create your first channel to start uploading and organizing your
+              content.
             </p>
             <button
               type="button"
               onClick={() => router.push("/studio/channels/create")}
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-neutral-200 transition"
+              className="inline-flex mt-4 items-center gap-2 rounded-full bg-white text-black px-5 py-2 text-xs font-semibold hover:bg-white/80 cursor-pointer"
             >
               <PlusCircleIcon className="h-4 w-4" />
               Create your first channel
@@ -281,112 +306,119 @@ export default function UserChannelsPage() {
           </div>
         )}
 
-        {!loading && channels.length > 0 && (
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {channels.map((ch) => (
-              <div
-                key={ch.id}
-                className="relative flex flex-col gap-4 p-4 rounded-xl bg-neutral-900/60 border border-neutral-800"
-              >
-                {/* Trash icon top-right */}
-                <button
-                  type="button"
-                  onClick={() => setConfirmChannel(ch)}
-                  className="absolute z-50 top-6 right-6 inline-flex items-center justify-center rounded-full bg-neutral-900/80 hover:bg-red-600/20 border border-neutral-700 hover:border-red-500/70 p-1.5 transition cursor-pointer"
-                  disabled={deletingId === ch.id}
-                  aria-label="Delete channel"
-                >
-                  <TrashIcon className="h-4 w-4 text-neutral-300 hover:text-red-400" />
-                </button>
-
-                {/* Cover / avatar */}
-                <div className="relative sm:w-full">
-                  <div className="relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-neutral-800">
-                    <Image
-                      src={ch.cover || ch.url}
-                      alt={ch.channel}
-                      fill
-                      unoptimized
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="absolute -bottom-4 left-4">
-                    <div className="h-18 w-18 rounded-full border-2 border-neutral-950 overflow-hidden bg-neutral-800">
-                      <Image
-                        src={ch.url}
-                        alt={ch.channel}
-                        width={48}
-                        height={48}
-                        unoptimized
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 pt-4 sm:pt-0 sm:pl-4 flex flex-col justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <Link
-                        href={`/channel/${ch.id}`}
-                        className="text-base sm:text-lg font-semibold hover:text-red-500 transition"
-                      >
-                        {ch.channel}
-                      </Link>
-                      {ch.isVerified === "1" && (
-                        <span className="text-xs uppercase tracking-wide text-blue-400 border border-blue-400/40 rounded px-1 py-[1px]">
-                          Verified
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="mt-1 text-sm text-neutral-400 line-clamp-2">
-                      {ch.description}
-                    </p>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-neutral-400">
-                      <span className="inline-flex items-center gap-1">
-                        <EyeIcon className="h-3.5 w-3.5" />
-                        {abbreviateViews(ch.total_views)}
-                      </span>
-                      <span>•</span>
-                      <span>Created {formatDate(ch.created_at)}</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-2">
-                    <Link
-                      href={`/channel/${ch.id}`}
-                      className="w-full text-sm inline-flex items-center justify-center gap-2 rounded-full border border-neutral-700 px-4 py-1.5 font-medium text-neutral-200 hover:bg-neutral-800 transition"
-                    >
-                      <EyeIcon className="h-4 w-4" />
-                      View channel
-                    </Link>
-                    <Link
-                      href={`/studio/channels/edit/${ch.id}`}
-                      className="w-full text-sm inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-1.5 font-semibold text-black hover:bg-neutral-200 transition"
-                    >
-                      <PencilIcon className="h-4 w-4" />
-                      Edit channel
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
+{!loading && channels.length > 0 && (
+  <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+    {channels.map((ch) => (
+      <div
+        key={ch.id}
+        className="group rounded-xl border border-white/10 bg-neutral-900/40 hover:bg-neutral-900/60 transition overflow-hidden"
+      >
+        {/* Banner */}
+        <Link href={`/channel/${ch.id}`} className="block">
+          <div className="relative aspect-[1388/370] bg-black">
+            <Image
+              src={ch.cover || ch.url}
+              alt={ch.channel}
+              fill
+              unoptimized
+              className="object-cover"
+            />
           </div>
-        )}
+        </Link>
+
+        {/* Content */}
+        <div className="p-4">
+          {/* Header */}
+          <div className="flex items-start gap-3">
+            <Link
+              href={`/channel/${ch.id}`}
+              className="relative h-12 w-12 rounded-full overflow-hidden bg-neutral-800 flex-shrink-0"
+            >
+              <Image
+                src={ch.url}
+                alt={ch.channel}
+                fill
+                unoptimized
+                className="object-cover"
+              />
+            </Link>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <Link
+                  href={`/channel/${ch.id}`}
+                  className="text-base font-semibold leading-snug truncate"
+                >
+                  {ch.channel}
+                </Link>
+
+                {ch.isVerified === "1" && (
+                  <span className="text-[10px] uppercase tracking-wide text-blue-400 border border-blue-400/40 rounded px-1 py-[1px]">
+                    Verified
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-1 text-xs text-neutral-400 flex flex-wrap items-center gap-2">
+                <span>{abbreviateViews(ch.total_views)}</span>
+                <span>•</span>
+                <span>{formatDate(ch.created_at)}</span>
+              </div>
+            </div>
+
+            {/* Delete */}
+            <button
+              type="button"
+              onClick={() => setConfirmChannel(ch)}
+              className="inline-flex items-center justify-center rounded-full border border-white/10 bg-neutral-900/60 p-2 text-neutral-300 hover:bg-neutral-800 cursor-pointer"
+              disabled={deletingId === ch.id}
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Description */}
+          {ch.description && (
+            <p className="mt-3 text-sm text-neutral-300 line-clamp-2">
+              {ch.description}
+            </p>
+          )}
+
+          {/* Actions */}
+          <div className="mt-4 flex gap-2">
+            <Link
+              href={`/channel/${ch.id}`}
+              className="flex-1 text-xs inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-neutral-900/60 px-3 py-2 font-semibold text-neutral-200 hover:bg-neutral-800"
+            >
+              <EyeIcon className="h-4 w-4" />
+              View
+            </Link>
+
+            <Link
+              href={`/studio/channels/edit/${ch.id}`}
+              className="flex-1 text-xs inline-flex items-center justify-center gap-2 rounded-full bg-white px-3 py-2 font-semibold text-black hover:bg-white/80"
+            >
+              <PencilIcon className="h-4 w-4" />
+              Edit
+            </Link>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+)}
       </div>
 
-      {/* Delete confirmation modal */}
       {confirmChannel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
           <div className="w-full max-w-md rounded-2xl bg-neutral-950 border border-neutral-800 p-6 shadow-xl">
             <h2 className="text-lg font-semibold">Delete channel?</h2>
             <p className="mt-2 text-sm text-neutral-300">
               Are you sure you want to delete{" "}
-              <span className="font-semibold">&quot;{confirmChannel.channel}&quot;</span>?
-              This action cannot be undone.
+              <span className="font-semibold">
+                &quot;{confirmChannel.channel}&quot;
+              </span>
+              ? This action cannot be undone.
             </p>
 
             <div className="mt-6 flex justify-end gap-3 text-sm">
@@ -402,14 +434,14 @@ export default function UserChannelsPage() {
                 type="button"
                 onClick={handleConfirmDelete}
                 disabled={deletingId === confirmChannel.id}
-                className="cursor-pointer rounded-full bg-white px-4 py-1.5 font-semibold text-black hover:bg-neutral-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="cursor-pointer rounded-full bg-white px-4 py-1.5 font-semibold text-black hover:bg-white/80 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {deletingId === confirmChannel.id ? "Deleting..." : "Delete"}
+                {deletingId === confirmChannel.id ? "Deleting…" : "Delete"}
               </button>
             </div>
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }

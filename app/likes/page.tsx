@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../components/AuthProvider";
 
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
+const PAGE_SIZE = 24;
 
 type LikedVideo = {
   id: number;
@@ -66,13 +68,6 @@ type LikedVideo = {
   channel: string;
 };
 
-type PaginationMeta = {
-  current_page: number;
-  per_page: number;
-  total: number;
-  last_page: number;
-};
-
 function durationLabel(seconds: string | number | null) {
   if (!seconds) return "";
   const s = typeof seconds === "string" ? parseFloat(seconds) : seconds;
@@ -84,6 +79,7 @@ function durationLabel(seconds: string | number | null) {
 
 function timeSinceUnix(unix: number | string) {
   const ts = typeof unix === "string" ? parseInt(unix, 10) * 1000 : unix * 1000;
+  if (!Number.isFinite(ts)) return "";
 
   const diff = Date.now() - ts;
   const minutes = Math.floor(diff / 60000);
@@ -120,16 +116,17 @@ export default function LikedVideosPage() {
   const router = useRouter();
   const { token, user } = useAuth();
 
+  const [tab, setTab] = useState<"all" | "videos" | "shorts">("all");
+
   const [loading, setLoading] = useState(true);
   const [allVideos, setAllVideos] = useState<LikedVideo[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const [page, setPage] = useState(1);
-  const perPage = 24;
-  const [meta, setMeta] = useState<PaginationMeta | null>(null);
+  const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const isLoggedIn = !!user && !!token;
-  const skeletonArray = useMemo(() => Array.from({ length: 8 }), []);
+  const skeletonArray = useMemo(() => Array.from({ length: 6 }), []);
 
   async function fetchLikedVideos() {
     if (!token) return;
@@ -149,7 +146,7 @@ export default function LikedVideosPage() {
         body: JSON.stringify({
           token,
           page: 1,
-          per_page: perPage,
+          per_page: PAGE_SIZE,
         }),
       });
 
@@ -158,40 +155,36 @@ export default function LikedVideosPage() {
       if (!firstRes.status) {
         setError("Unable to load your liked videos.");
         setAllVideos([]);
-        setMeta(null);
         return;
       }
 
       const firstPageData: LikedVideo[] = firstRes.data || [];
-      const firstMeta: PaginationMeta | null = firstRes.meta ?? null;
+      const firstMeta = firstRes.meta ?? null;
 
       let combined = [...firstPageData];
-
       const lastPage = firstMeta?.last_page ?? 1;
 
       if (lastPage > 1) {
         const rest = await Promise.all(
-          Array.from({ length: lastPage - 1 }, (_, i) => i + 2).map(
-            async (p) => {
-              const req = await fetch(API_BASE + "user/videos/liked", {
-                method: "POST",
-                headers: {
-                  "Access-Control-Request-Method": "POST",
-                  "Content-Type": "application/json",
-                  "Application-Key": APP_KEY,
-                  "X-TOKEN": token,
-                },
-                body: JSON.stringify({
-                  token,
-                  page: p,
-                  per_page: perPage,
-                }),
-              });
+          Array.from({ length: lastPage - 1 }, (_, i) => i + 2).map(async (p) => {
+            const req = await fetch(API_BASE + "user/videos/liked", {
+              method: "POST",
+              headers: {
+                "Access-Control-Request-Method": "POST",
+                "Content-Type": "application/json",
+                "Application-Key": APP_KEY,
+                "X-TOKEN": token,
+              },
+              body: JSON.stringify({
+                token,
+                page: p,
+                per_page: PAGE_SIZE,
+              }),
+            });
 
-              const res = await req.json();
-              return (res?.status ? res.data || [] : []) as LikedVideo[];
-            },
-          ),
+            const res = await req.json();
+            return (res?.status ? res.data || [] : []) as LikedVideo[];
+          }),
         );
 
         combined = [...combined, ...rest.flat()];
@@ -203,21 +196,10 @@ export default function LikedVideosPage() {
       );
 
       setAllVideos(combined);
-
-      const total = combined.length;
-      const last_page = Math.max(1, Math.ceil(total / perPage));
-
-      setMeta({
-        current_page: page,
-        per_page: perPage,
-        total,
-        last_page,
-      });
     } catch (err) {
       console.error(err);
       setError("Something went wrong while fetching your liked videos.");
       setAllVideos([]);
-      setMeta(null);
     } finally {
       setLoading(false);
     }
@@ -228,28 +210,52 @@ export default function LikedVideosPage() {
       setLoading(false);
       return;
     }
-    fetchLikedVideos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void fetchLikedVideos();
   }, [isLoggedIn, token]);
 
-  const videos = useMemo(() => {
-    const start = (page - 1) * perPage;
-    return allVideos.slice(start, start + perPage);
-  }, [allVideos, page, perPage]);
-
-  const hasMore = meta ? page < meta.last_page : false;
+  const filteredVideos = useMemo(() => {
+    if (tab === "shorts") {
+      return allVideos.filter((video) => String(video.isShort).toLowerCase() === "yes");
+    }
+    if (tab === "videos") {
+      return allVideos.filter((video) => String(video.isShort).toLowerCase() !== "yes");
+    }
+    return allVideos;
+  }, [allVideos, tab]);
 
   useEffect(() => {
-    if (!meta) return;
-    setMeta((prev) =>
-      prev
-        ? {
-            ...prev,
-            current_page: page,
-          }
-        : prev,
+    setVisibleCount(Math.min(PAGE_SIZE, filteredVideos.length || PAGE_SIZE));
+  }, [filteredVideos.length, tab]);
+
+  useEffect(() => {
+    if (!filteredVideos.length) return;
+
+    const sentinel = loadMoreRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (!entry?.isIntersecting) return;
+
+        setVisibleCount((prev) => {
+          if (prev >= filteredVideos.length) return prev;
+          return Math.min(prev + PAGE_SIZE, filteredVideos.length);
+        });
+      },
+      {
+        root: null,
+        rootMargin: "250px",
+        threshold: 0.1,
+      },
     );
-  }, [page]);
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [filteredVideos.length]);
+
+  const visibleVideos = filteredVideos.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredVideos.length;
 
   if (!isLoggedIn) {
     return (
@@ -282,151 +288,227 @@ export default function LikedVideosPage() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-10 pb-10">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-extrabold">Liked videos</h1>
-            <p className="text-sm text-neutral-400 mt-1">
-              All the videos you have given a heart to.
+    <div className="min-h-screen bg-neutral-950 text-white overflow-x-hidden">
+      <div className="mx-auto max-w-6xl px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight truncate">
+              Liked Videos
+            </h1>
+            <p className="text-sm text-neutral-400 truncate">
+              {tab === "all"
+                ? "All the videos and shorts you’ve liked."
+                : tab === "shorts"
+                  ? "All the shorts you’ve liked."
+                  : "All the videos you’ve liked."}
             </p>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <button
+              type="button"
+              onClick={() => fetchLikedVideos()}
+              disabled={loading}
+              className={`w-full sm:w-auto inline-flex justify-center rounded-full bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/80 ${
+                loading ? "opacity-70 cursor-not-allowed" : "cursor-pointer"
+              }`}
+            >
+              {loading ? "Refreshing…" : "Refresh"}
+            </button>
           </div>
         </div>
 
-        {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTab("all")}
+            className={`cursor-pointer rounded-full px-4 py-2 text-xs font-semibold ${
+              tab === "all"
+                ? "bg-white text-black"
+                : "border border-white/10 bg-neutral-900/60 text-neutral-200 hover:bg-neutral-800"
+            }`}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("videos")}
+            className={`cursor-pointer rounded-full px-4 py-2 text-xs font-semibold ${
+              tab === "videos"
+                ? "bg-white text-black"
+                : "border border-white/10 bg-neutral-900/60 text-neutral-200 hover:bg-neutral-800"
+            }`}
+          >
+            Videos
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("shorts")}
+            className={`cursor-pointer rounded-full px-4 py-2 text-xs font-semibold ${
+              tab === "shorts"
+                ? "bg-white text-black"
+                : "border border-white/10 bg-neutral-900/60 text-neutral-200 hover:bg-neutral-800"
+            }`}
+          >
+            Shorts
+          </button>
+        </div>
 
-        {loading && (
-          <div className="grid gap-3 gap-y-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        {error && (
+          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {error}
+          </div>
+        )}
+
+        {loading && visibleVideos.length === 0 && (
+          <div className="mt-6 space-y-4">
             {skeletonArray.map((_, idx) => (
-              <div key={idx} className="flex flex-col animate-pulse">
-                <div className="w-full aspect-video bg-neutral-800 rounded-md" />
-                <div className="mt-3 space-y-2">
-                  <div className="h-4 bg-neutral-800 rounded w-5/6" />
-                  <div className="h-3 bg-neutral-800 rounded w-3/4" />
-                  <div className="h-3 bg-neutral-800 rounded w-1/2" />
+              <div
+                key={idx}
+                className="rounded-lg border border-white/10 bg-neutral-900/40 p-3 sm:p-4"
+              >
+                <div className="flex flex-col sm:flex-row gap-4 animate-pulse">
+                  <div className="w-full sm:w-56 md:w-64 aspect-video rounded-md bg-neutral-800 flex-shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-full bg-neutral-800" />
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="h-3 w-24 rounded bg-neutral-800" />
+                        <div className="h-4 w-3/4 rounded bg-neutral-800" />
+                      </div>
+                    </div>
+                    <div className="h-3 w-2/3 rounded bg-neutral-800" />
+                    <div className="h-3 w-1/2 rounded bg-neutral-800" />
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {!loading && videos.length === 0 && !error && (
-          <div className="mt-6 rounded-xl border border-dashed border-neutral-700 bg-neutral-900/40 p-6 text-center">
-            <p className="text-sm text-neutral-300">
-              You haven&apos;t liked any videos yet.
+        {!loading && !error && filteredVideos.length === 0 && (
+          <div className="mt-10 rounded-xl border border-white/10 bg-neutral-900/40 p-6">
+            <p className="text-sm text-neutral-200 font-semibold">
+              No liked {tab === "all" ? "content" : tab} yet.
             </p>
-            <p className="mt-1 text-xs text-neutral-500">
+            <p className="mt-1 text-sm text-neutral-400">
               Start exploring and tap the heart icon on videos you enjoy.
             </p>
           </div>
         )}
 
-        {!loading && videos.length > 0 && (
-          <>
-            <div className="grid gap-3 gap-y-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {videos.map((video) => {
-                const slug = encodeURIComponent(
-                  video.videos_title
-                    .trim()
-                    .replace(/\s+/g, "-")
-                    .replace(/-+/g, "-")
-                    .toLowerCase(),
-                );
+        {visibleVideos.length > 0 && (
+          <div className="mt-6 space-y-4">
+            {visibleVideos.map((video) => {
+              const slug = encodeURIComponent(
+                video.videos_title
+                  .trim()
+                  .replace(/\s+/g, "-")
+                  .replace(/-+/g, "-")
+                  .toLowerCase(),
+              );
 
-                const watchHref = `/videos/watch/${video.id}/${slug}`;
+              const watchHref = `/videos/watch/${video.id}/${slug}`;
+              const isShort = String(video.isShort).toLowerCase() === "yes";
 
-                return (
-                  <div key={video.id} className="flex flex-col group">
-                    <div className="relative w-full overflow-hidden rounded-md bg-neutral-900">
-                      <Link href={watchHref}>
-                        <div className="relative w-full aspect-video">
-                          <img
-                            src={video.thumbnail}
-                            alt={video.videos_title}
-                            className="object-contain h-full w-full m-auto transition-transform duration-200 group-hover:scale-105"
-                          />
-                        </div>
-                      </Link>
+              return (
+                <div
+                  key={video.id}
+                  className="group rounded-lg border border-white/10 bg-neutral-900/40 hover:bg-neutral-900/60 transition p-3 sm:p-4"
+                >
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <Link
+                      href={watchHref}
+                      className={`block flex-shrink-0 ${
+                        isShort ? "w-32 sm:w-36" : "w-full sm:w-56 md:w-64"
+                      }`}
+                    >
+                      <div
+                        className={`relative overflow-hidden rounded-md bg-black ${
+                          isShort ? "aspect-[9/16]" : "aspect-video"
+                        }`}
+                      >
+                        <Image
+                          src={video.thumbnail}
+                          alt={video.videos_title}
+                          fill
+                          unoptimized
+                          className="object-contain"
+                        />
 
-                      {video.duration && (
-                        <span className="absolute bottom-1 right-1 rounded-[4px] bg-black/70 px-1.5 py-1 text-xs font-semibold text-white">
-                          {durationLabel(video.duration)}
-                        </span>
-                      )}
-                    </div>
+                        {video.duration && (
+                          <span className="absolute bottom-2 right-2 rounded-md bg-black/80 px-2 py-1 text-[11px] font-semibold">
+                            {durationLabel(video.duration)}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
 
-                    <div className="mt-2 flex flex-row gap-2">
-                      <div className="mt-1">
-                        <div className="h-8 w-8 rounded-full overflow-hidden bg-neutral-800 flex items-center justify-center text-xs">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="mt-0.5 relative h-9 w-9 rounded-full overflow-hidden bg-neutral-800 flex-shrink-0">
                           {video.channel_image ? (
-                            <img
+                            <Image
                               src={video.channel_image}
                               alt={video.channel}
-                              width={32}
-                              height={32}
-                              className="h-full w-full object-contain"
+                              fill
+                              unoptimized
+                              className="object-contain"
                             />
                           ) : (
-                            <span className="text-neutral-300">
+                            <div className="flex h-full w-full items-center justify-center text-xs text-neutral-300">
                               {video.channel?.charAt(0) || "C"}
-                            </span>
+                            </div>
                           )}
                         </div>
-                      </div>
 
-                      <div className="flex-1 min-w-0">
-                        <Link href={watchHref}>
-                          <h2 className="text-sm font-semibold leading-snug line-clamp-2">
-                            {video.videos_title}
-                          </h2>
-                        </Link>
-                        <div className="mt-1 text-xs text-neutral-400 space-y-[2px]">
-                          <p className="truncate">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-neutral-400 truncate">
                             {video.channel || "Unknown channel"}
                           </p>
-                          <p className="text-[11px]">
+
+                          <Link href={watchHref} className="block">
+                            <h2 className="text-sm sm:text-lg font-semibold leading-snug line-clamp-2 break-words">
+                              {video.videos_title}
+                            </h2>
+                          </Link>
+
+                          {video.description && (
+                            <p className="mt-3 text-xs sm:text-sm text-neutral-300 line-clamp-2 break-words">
+                              {truncate(video.description, 140)}
+                            </p>
+                          )}
+
+                          <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-400">
                             <span>{timeSinceUnix(video.uploadtime)}</span>
-                          </p>
+                            <span>•</span>
+                            <span>{isShort ? "Short" : "Video"}</span>
+                          </div>
                         </div>
-                        {video.description && (
-                          <p className="mt-1 text-[11px] text-neutral-500 line-clamp-2">
-                            {truncate(video.description, 90)}
-                          </p>
-                        )}
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-            <div className="mt-8 flex items-center justify-center gap-4">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={loading || page <= 1}
-                className="cursor-pointer rounded-full bg-neutral-800 px-4 py-2 text-xs font-semibold text-white disabled:bg-neutral-900 disabled:text-neutral-500 hover:bg-neutral-700 transition"
-              >
-                Previous
-              </button>
-              <span className="text-xs text-neutral-300">
-                Page {page}
-                {meta?.last_page ? ` of ${meta.last_page}` : null}
-              </span>
-              <button
-                type="button"
-                onClick={() =>
-                  setPage((p) => Math.min(meta?.last_page || p, p + 1))
-                }
-                disabled={loading || !hasMore}
-                className="cursor-pointer rounded-full bg-neutral-800 px-4 py-2 text-xs font-semibold text-white disabled:bg-neutral-900 disabled:text-neutral-500 hover:bg-neutral-700 transition"
-              >
-                Next
-              </button>
-            </div>
-          </>
+        <div ref={loadMoreRef} className="h-12" />
+
+        {hasMore && !loading && (
+          <div className="mt-2 text-sm text-neutral-300 flex items-center gap-2">
+            <div className="h-4 w-4 rounded-full border border-neutral-400 border-t-transparent animate-spin" />
+            <span>Loading more…</span>
+          </div>
+        )}
+
+        {!loading && !hasMore && filteredVideos.length > 0 && (
+          <div className="mt-6 text-center text-xs text-neutral-500">
+            You&apos;ve reached the end of your liked videos.
+          </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }

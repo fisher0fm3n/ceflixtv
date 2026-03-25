@@ -1,10 +1,15 @@
 "use client";
 
+import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { TrashIcon } from "@heroicons/react/24/outline";
+import { useAuth } from "../components/AuthProvider";
+
 const CLOUDINARY_PREFIX =
   "https://res.cloudinary.com/raves-music/image/fetch/w_850/";
 
-// If URL already contains "cloudinary" or "cloudfront", leave it as is.
-// Otherwise, prefix it with the Cloudinary fetch URL.
 function withCloudinaryPrefix(src: string | null): string {
   if (!src) return "";
   const lower = src.toLowerCase();
@@ -12,23 +17,12 @@ function withCloudinaryPrefix(src: string | null): string {
   return `${CLOUDINARY_PREFIX}${encodeURIComponent(src)}`;
 }
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { TrashIcon } from "@heroicons/react/24/outline";
-
-// ⬇️ Adjust this path if needed (follow your ChannelPage pattern)
-import { useAuth } from "../components/AuthProvider";
-
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
-
-// How many items to show per "page" when scrolling
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 12;
 
 type HistoryItem = {
-  id: number; // history id
+  id: number;
   userID: string;
   videoID: number;
   currentTime: string;
@@ -44,7 +38,7 @@ type HistoryItem = {
   url: string;
   ios_url: string;
   schedule: string;
-  uploadtime: string; // unix string
+  uploadtime: string;
   startDate: string;
   endDate: string | null;
   is_ticketed: string;
@@ -81,47 +75,73 @@ type HistoryItem = {
   isVerified: string;
 };
 
+function timeSince(unix: number | string) {
+  const ts = typeof unix === "string" ? parseInt(unix, 10) * 1000 : unix * 1000;
+  if (!Number.isFinite(ts)) return "";
+
+  const diff = Date.now() - ts;
+  const minutes = Math.floor(diff / 60000);
+
+  const fmt = (n: number, unit: string) =>
+    `${n} ${unit}${n === 1 ? "" : "s"} ago`;
+
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return fmt(minutes, "minute");
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return fmt(hours, "hour");
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return fmt(days, "day");
+
+  const weeks = Math.floor(days / 7);
+  if (weeks < 4) return fmt(weeks, "week");
+
+  const months = Math.floor(days / 30);
+  if (months < 12) return fmt(months, "month");
+
+  const years = Math.floor(days / 365);
+  return fmt(years, "year");
+}
+
+function durationFmt(seconds: number | string | null) {
+  const s = typeof seconds === "string" ? parseFloat(seconds) : (seconds ?? 0);
+  if (!Number.isFinite(s) || s <= 0) return "";
+  const total = Math.floor(s);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = total % 60;
+
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  }
+
+  return `${m}:${String(sec).padStart(2, "0")}`;
+}
+
+function getChannelProfilePicture(item: HistoryItem): string {
+  const prefix = (item.channel_prefix ?? "").trim();
+  const file = (item.channel_file ?? "").trim();
+  if (prefix && file) return `${prefix}${file}`;
+  return "https://ceflix.org/images/avatar.png";
+}
+
 export default function HistoryPage() {
   const router = useRouter();
-  const { token, user } = useAuth(); // token is a string like on ChannelPage
+  const { token, user } = useAuth();
+
+  const [tab, setTab] = useState<"all" | "videos" | "shorts">("all");
 
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // inline pagination state
   const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const isLoggedIn = !!user && !!token;
-
-  // ───────── helpers ─────────
-  const formatViews = (n: number) => {
-    if (!n && n !== 0) return "";
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M views`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K views`;
-    return `${n} views`;
-  };
-
-  const timeSince = (unixString: string) => {
-    const sec = Number(unixString);
-    if (Number.isNaN(sec)) return "";
-    const diffMs = Date.now() - sec * 1000;
-    const diffSec = Math.max(0, Math.floor(diffMs / 1000));
-    const m = 60;
-    const h = 60 * m;
-    const d = 24 * h;
-    const w = 7 * d;
-    const y = 365 * d;
-
-    if (diffSec >= y) return `${Math.floor(diffSec / y)} years ago`;
-    if (diffSec >= w) return `${Math.floor(diffSec / w)} weeks ago`;
-    if (diffSec >= d) return `${Math.floor(diffSec / d)} days ago`;
-    if (diffSec >= h) return `${Math.floor(diffSec / h)} hours ago`;
-    if (diffSec >= m) return `${Math.floor(diffSec / m)} minutes ago`;
-    return "Just now";
-  };
+  const skeletonArray = useMemo(() => Array.from({ length: 6 }), []);
 
   const computeProgress = (item: HistoryItem) => {
     const current = Number(item.currentTime);
@@ -129,7 +149,6 @@ export default function HistoryPage() {
 
     if (!durationSeconds || Number.isNaN(durationSeconds)) return 0;
 
-    // If duration is small but currentTime is large, assume duration is minutes
     if (durationSeconds < 1000 && current > durationSeconds * 2) {
       durationSeconds = durationSeconds * 60;
     }
@@ -139,9 +158,19 @@ export default function HistoryPage() {
     return ratio * 100;
   };
 
-  const skeletonArray = useMemo(() => Array.from({ length: 6 }), []);
+  const filteredItems = useMemo(() => {
+    if (tab === "shorts") {
+      return items.filter((item) => String(item.isShort).toLowerCase() === "yes");
+    }
+    if (tab === "videos") {
+      return items.filter((item) => String(item.isShort).toLowerCase() !== "yes");
+    }
+    return items;
+  }, [items, tab]);
 
-  // ───────── API calls ─────────
+  const visibleItems = filteredItems.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredItems.length;
+
   const fetchHistory = async () => {
     if (!token) return;
     setLoading(true);
@@ -189,7 +218,6 @@ export default function HistoryPage() {
         body: JSON.stringify({ video: videoID, token }),
       });
 
-      // Optimistic update
       setItems((prev) => prev.filter((i) => i.videoID !== videoID));
     } catch (err) {
       console.error(err);
@@ -198,27 +226,20 @@ export default function HistoryPage() {
     }
   };
 
-  // initial fetch
   useEffect(() => {
     if (!isLoggedIn) {
       setLoading(false);
       return;
     }
-    fetchHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void fetchHistory();
   }, [isLoggedIn, token]);
 
-  // reset visibleCount whenever new items arrive
   useEffect(() => {
-    setVisibleCount((prev) => {
-      if (!items.length) return prev;
-      return Math.min(PAGE_SIZE, items.length);
-    });
-  }, [items.length]);
+    setVisibleCount(Math.min(PAGE_SIZE, filteredItems.length || PAGE_SIZE));
+  }, [tab, filteredItems.length]);
 
-  // IntersectionObserver for inline pagination / infinite scroll
   useEffect(() => {
-    if (!items.length) return;
+    if (!filteredItems.length) return;
 
     const sentinel = loadMoreRef.current;
     if (!sentinel) return;
@@ -226,33 +247,24 @@ export default function HistoryPage() {
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
-        if (!entry.isIntersecting) return;
+        if (!entry?.isIntersecting) return;
 
         setVisibleCount((prev) => {
-          if (prev >= items.length) {
-            return prev;
-          }
-          const next = Math.min(prev + PAGE_SIZE, items.length);
-          return next;
+          if (prev >= filteredItems.length) return prev;
+          return Math.min(prev + PAGE_SIZE, filteredItems.length);
         });
       },
       {
         root: null,
-        rootMargin: "200px", // start loading a bit before it hits the bottom
+        rootMargin: "250px",
         threshold: 0.1,
       },
     );
 
     observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [filteredItems.length]);
 
-    return () => {
-      observer.disconnect();
-    };
-  }, [items.length]);
-
-  const visibleItems = items.slice(0, visibleCount);
-
-  // ───────── not signed in ─────────
   if (!isLoggedIn) {
     return (
       <main className="min-h-screen bg-neutral-950 text-white">
@@ -283,63 +295,179 @@ export default function HistoryPage() {
     );
   }
 
-  // ───────── UI ─────────
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-10 pb-10">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-extrabold">Watch history</h1>
+    <div className="min-h-screen bg-neutral-950 text-white overflow-x-hidden">
+      <div className="mx-auto max-w-6xl px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight truncate">
+              Watch History
+            </h1>
+            <p className="text-sm text-neutral-400 truncate">
+              {tab === "all"
+                ? "Videos and shorts you’ve watched recently."
+                : tab === "shorts"
+                  ? "Shorts you’ve watched recently."
+                  : "Videos you’ve watched recently."}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {/* <Link
+              href="/subscriptions"
+              className="w-full sm:w-auto inline-flex justify-center rounded-full border border-white/10 bg-neutral-900/60 px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-800"
+            >
+              Go to subscriptions
+            </Link> */}
+
+            <button
+              type="button"
+              onClick={() => fetchHistory()}
+              disabled={loading}
+              className={`w-full sm:w-auto inline-flex justify-center rounded-full bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/80 ${
+                loading ? "opacity-70 cursor-not-allowed" : "cursor-pointer"
+              }`}
+            >
+              {loading ? "Refreshing…" : "Refresh"}
+            </button>
+          </div>
         </div>
 
-        {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTab("all")}
+            className={`cursor-pointer rounded-full px-4 py-2 text-xs font-semibold ${
+              tab === "all"
+                ? "bg-white text-black"
+                : "border border-white/10 bg-neutral-900/60 text-neutral-200 hover:bg-neutral-800"
+            }`}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("videos")}
+            className={`cursor-pointer rounded-full px-4 py-2 text-xs font-semibold ${
+              tab === "videos"
+                ? "bg-white text-black"
+                : "border border-white/10 bg-neutral-900/60 text-neutral-200 hover:bg-neutral-800"
+            }`}
+          >
+            Videos
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("shorts")}
+            className={`cursor-pointer rounded-full px-4 py-2 text-xs font-semibold ${
+              tab === "shorts"
+                ? "bg-white text-black"
+                : "border border-white/10 bg-neutral-900/60 text-neutral-200 hover:bg-neutral-800"
+            }`}
+          >
+            Shorts
+          </button>
+        </div>
 
-        {/* Skeleton loader */}
-        {loading && (
-          <div className="space-y-4">
+        {error && (
+          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {error}
+          </div>
+        )}
+
+        {loading && visibleItems.length === 0 && (
+          <div className="mt-6 space-y-4">
             {skeletonArray.map((_, idx) => (
-              <div key={idx} className="flex gap-4 animate-pulse">
-                <div className="w-40 sm:w-56 md:w-64 aspect-video bg-neutral-800 rounded-md" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-neutral-800 rounded w-3/4" />
-                  <div className="h-3 bg-neutral-800 rounded w-1/2" />
-                  <div className="h-3 bg-neutral-800 rounded w-1/3" />
-                  <div className="h-1.5 bg-neutral-800 rounded w-full" />
+              <div
+                key={idx}
+                className="rounded-lg border border-white/10 bg-neutral-900/40 p-3 sm:p-4"
+              >
+                <div className="flex gap-4 animate-pulse">
+                  <div className="w-40 sm:w-56 md:w-64 aspect-video rounded-md bg-neutral-800 flex-shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-full bg-neutral-800" />
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="h-3 w-24 rounded bg-neutral-800" />
+                        <div className="h-4 w-3/4 rounded bg-neutral-800" />
+                      </div>
+                    </div>
+                    <div className="h-3 w-2/3 rounded bg-neutral-800" />
+                    <div className="h-3 w-1/2 rounded bg-neutral-800" />
+                    <div className="h-8 w-24 rounded-full bg-neutral-800" />
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {!loading && items.length === 0 && !error && (
-          <p className="text-neutral-400 text-sm">
-            You haven&apos;t watched any videos yet.
-          </p>
+        {!loading && !error && filteredItems.length === 0 && (
+          <div className="mt-10 rounded-xl border border-white/10 bg-neutral-900/40 p-6">
+            <p className="text-sm text-neutral-200 font-semibold">
+              No {tab === "all" ? "history" : tab} yet.
+            </p>
+            <p className="mt-1 text-sm text-neutral-400">
+              {tab === "all"
+                ? "Videos you watch will appear here so you can continue later."
+                : tab === "shorts"
+                  ? "Shorts you watch will appear here."
+                  : "Videos you watch will appear here."}
+            </p>
+            <Link
+              href="/"
+              className="inline-flex mt-4 rounded-full bg-white text-black px-5 py-2 text-xs font-semibold hover:bg-white/80"
+            >
+              Browse videos
+            </Link>
+          </div>
         )}
 
-        {!loading && items.length > 0 && (
-          <>
-            <div className="space-y-4">
-              {visibleItems.map((item) => {
-                const progressPercent = computeProgress(item);
+        {visibleItems.length > 0 && (
+          <div className="mt-6 space-y-4">
+            {visibleItems.map((item) => {
+              const watchHref = `/videos/watch/${item.videoID}/${item.slug || ""}`.replace(
+                /\/$/,
+                "",
+              );
+              const progressPercent = computeProgress(item);
+              const dur = durationFmt(item.duration);
+              const channelImg = getChannelProfilePicture(item);
+              const isShort = String(item.isShort).toLowerCase() === "yes";
 
-                return (
-                  <div
-                    key={`${item.id}-${item.videoID}`}
-                    className="flex gap-4 group"
-                  >
-                    {/* Thumbnail */}
+              return (
+                <div
+                  key={`${item.id}-${item.videoID}`}
+                  className="group rounded-lg border border-white/10 bg-neutral-900/40 hover:bg-neutral-900/60 transition p-3 sm:p-4"
+                >
+                  <div className="flex flex-col sm:flex-row gap-4">
                     <Link
-                      href={`/videos/watch/${item.videoID}/${item.slug}`}
-                      className="block w-40 sm:w-56 md:w-64 flex-shrink-0"
+                      href={watchHref}
+                      className={`block flex-shrink-0 ${
+                        isShort
+                          ? "w-32 sm:w-36"
+                          : "w-full sm:w-56 md:w-64"
+                      }`}
                     >
-                      <div className="relative aspect-video rounded-md overflow-hidden bg-neutral-800">
-                        <img
+                      <div
+                        className={`relative overflow-hidden rounded-md bg-black ${
+                          isShort ? "aspect-[9/16]" : "aspect-video"
+                        }`}
+                      >
+                        <Image
                           src={withCloudinaryPrefix(item.thumbnail)}
                           alt={item.videos_title}
                           fill
                           unoptimized
-                          className="object-contain group-hover:scale-105 transition h-full m-auto"
+                          className="object-contain"
                         />
+
+                        {dur && (
+                          <span className="absolute bottom-2 right-2 rounded-md bg-black/80 px-2 py-1 text-[11px] font-semibold">
+                            {dur}
+                          </span>
+                        )}
+
                         {progressPercent > 0 && (
                           <div className="absolute bottom-0 left-0 w-full h-1.5 bg-black/60">
                             <div
@@ -351,96 +479,85 @@ export default function HistoryPage() {
                       </div>
                     </Link>
 
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <Link
-                        href={`/videos/watch/${item.videoID}/${item.slug}`}
-                        className="block"
-                      >
-                        <h2 className="text-sm sm:text-lg font-bold line-clamp-2 transition">
-                          {item.videos_title}
-                        </h2>
-                      </Link>
-
-                      <div className="mt-1 text-xs text-neutral-400 flex flex-wrap gap-x-2 gap-y-1 items-center">
-                        <Link
-                          href={`/channel/${item.channel_id}`}
-                          className="hover:text-neutral-200 flex items-center gap-3"
-                        >
-                          <span className="relative inline-block h-6 w-6 rounded-full overflow-hidden bg-neutral-800">
-                            {item.channel_file && (
-                              <img
-                                src={withCloudinaryPrefix(
-                                  `${item.channel_prefix}${item.channel_file}`,
-                                )}
+                    <div className="min-w-0 flex-1 content-center">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Link
+                              href={`/channel/${item.channel_id}`}
+                              className="relative h-9 w-9 rounded-full overflow-hidden bg-neutral-800 flex-shrink-0"
+                            >
+                              <Image
+                                src={withCloudinaryPrefix(channelImg)}
                                 alt={item.channel}
                                 fill
                                 unoptimized
-                                className="object-cover"
+                                className="object-contain"
                               />
-                            )}
-                          </span>
-                          <span>{item.channel}</span>
-                          {item.isVerified === "1" && (
-                            <span className="ml-1 text-[10px] uppercase tracking-wide text-blue-400 border border-blue-400/40 rounded px-1 py-[1px]">
-                              Verified
-                            </span>
-                          )}
-                        </Link>
+                            </Link>
 
-                        {/* <span>•</span>
-                        <span>{formatViews(item.numOfViews)}</span> */}
-                        <span>•</span>
-                        <span>{timeSince(item.uploadtime)}</span>
-                      </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs text-neutral-400 truncate">
+                                {item.channel}
+                                {String(item.isVerified) === "1"
+                                  ? " • Verified"
+                                  : ""}
+                              </p>
 
-                      <p className="mt-2 text-sm text-neutral-400 line-clamp-2">
-                        {item.description}
-                      </p>
+                              <Link href={watchHref} className="block">
+                                <h2 className="text-sm sm:text-lg font-semibold leading-snug line-clamp-2 break-words">
+                                  {item.videos_title}
+                                </h2>
+                              </Link>
+                            </div>
+                          </div>
 
-                      {/* progress meta + delete */}
-                      <div className="mt-2 flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-[11px] text-neutral-400">
-                          {/* reserved for any extra meta if needed */}
+                          {item.description ? (
+                            <p className="mt-3 text-xs sm:text-sm text-neutral-300 line-clamp-2 break-words">
+                              {item.description}
+                            </p>
+                          ) : null}
+
+                          <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-400">
+                            <span>{timeSince(item.uploadtime)}</span>
+                            <span>•</span>
+                            <span>{isShort ? "Short" : "Video"}</span>
+                          </div>
                         </div>
 
                         <button
                           type="button"
                           onClick={() => deleteVideo(item.videoID)}
                           disabled={deletingId === item.videoID}
-                          className="cursor-pointer inline-flex items-center gap-1 text-xs rounded-full px-3 py-1 border border-neutral-700 text-neutral-300 hover:bg-neutral-800 disabled:opacity-60"
+                          className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-neutral-900/60 px-3 py-1.5 text-[11px] font-semibold text-neutral-200 hover:bg-neutral-800 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer flex-shrink-0"
                         >
                           <TrashIcon className="h-4 w-4" />
-                          {deletingId === item.videoID
-                            ? "Removing..."
-                            : "Remove"}
+                          {deletingId === item.videoID ? "Removing…" : "Remove"}
                         </button>
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-            {/* Sentinel for infinite scroll */}
-            {visibleCount < items.length && (
-              <div
-                ref={loadMoreRef}
-                className="mt-6 h-10 flex items-center justify-center text-xs text-neutral-500"
-              >
-                Loading more…
-              </div>
-            )}
+        <div ref={loadMoreRef} className="h-12" />
 
-            {/* Optional: message when fully loaded */}
-            {visibleCount >= items.length && items.length > 0 && (
-              <div className="mt-6 text-center text-xs text-neutral-500">
-                You&apos;ve reached the end of your history.
-              </div>
-            )}
-          </>
+        {hasMore && !loading && (
+          <div className="mt-2 text-sm text-neutral-300 flex items-center gap-2">
+            <div className="h-4 w-4 rounded-full border border-neutral-400 border-t-transparent animate-spin" />
+            <span>Loading more…</span>
+          </div>
+        )}
+
+        {!loading && !hasMore && filteredItems.length > 0 && (
+          <div className="mt-6 text-center text-xs text-neutral-500">
+            You&apos;ve reached the end of your history.
+          </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }

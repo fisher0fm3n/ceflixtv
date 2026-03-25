@@ -257,7 +257,9 @@ export default function HomePage() {
   }
 
   return (
-<main className="bg-neutral-950 text-white min-h-screen mb-[10rem] w-full max-w-[1800px] mx-auto px-4 sm:px-6">      {/* Home popup player */}
+    <main className="bg-neutral-950 text-white min-h-screen mb-[10rem] w-full max-w-[1800px] mx-auto px-4 sm:px-6">
+      {" "}
+      {/* Home popup player */}
       <PopupPlayer
         open={popupOpen}
         data={popupData}
@@ -267,25 +269,20 @@ export default function HomePage() {
           else void countViewGuest(videoId);
         }}
       />
-
       <div className="overflow-hidden">
         <HeroSlider slides={slides} autoAdvanceMs={8000} />
       </div>
-
       <section className="mt-6">
         <ChannelSlider title={"Live Stations"} items={stations} />
       </section>
-
       <section className="mt-6">
         <ShortsShelf />
       </section>
-
       <InitialHomeGrid
         sections={homeSections}
         loading={homeLoading}
         error={homeError}
       />
-
       <CeflixTvMini />
     </main>
   );

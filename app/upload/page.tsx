@@ -75,8 +75,15 @@ export default function UploadPage() {
   // details
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [tags, setTags] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
   const [isShort, setIsShort] = useState<"yes" | "no">("no");
+
+  const isPortraitThumb = isShort === "yes";
+  const thumbnailAspectRatio = isPortraitThumb ? 9 / 16 : 16 / 9;
+  const thumbnailOutputSize = isPortraitThumb
+    ? { width: 1080, height: 1920 }
+    : { width: 1280, height: 720 };
   // privacy
   const [privacyVal, setPrivacyVal] = useState(privacyTypes2[0]);
   const [privacy, setPrivacy] = useState<string>(privacyTypes2[0].title);
@@ -209,7 +216,14 @@ export default function UploadPage() {
 
             if (draft.title) setTitle(draft.title);
             if (draft.description) setDescription(draft.description);
-            if (draft.tags) setTags(draft.tags);
+            if (draft.tags) {
+              setTags(
+                String(draft.tags)
+                  .split(",")
+                  .map((tag: string) => tag.trim())
+                  .filter(Boolean),
+              );
+            }
             if (draft.isShort === "yes" || draft.isShort === "no") {
               setIsShort(draft.isShort);
             }
@@ -259,6 +273,13 @@ export default function UploadPage() {
 
     setup();
   }, [isLoggedIn, token]);
+
+  useEffect(() => {
+    setThumbDataUrl("");
+    setThumbFileName("");
+    setRawThumbImage("");
+    setShowCropper(false);
+  }, [isShort]);
 
   // ---------------------------------------------------------------------------
   // Helpers: generate thumbnails from video file
@@ -348,8 +369,8 @@ export default function UploadPage() {
     if (!cropper) return;
 
     const canvas = cropper.getCroppedCanvas({
-      width: 1280,
-      height: 720,
+      width: thumbnailOutputSize.width,
+      height: thumbnailOutputSize.height,
       imageSmoothingEnabled: true,
     });
 
@@ -363,6 +384,44 @@ export default function UploadPage() {
     setPrivacy(val);
     const found = privacyTypes2.find((p) => p.title === val);
     if (found) setPrivacyVal(found);
+  };
+
+  const addTag = (rawValue: string) => {
+    const value = rawValue.trim();
+    if (!value) return;
+
+    setTags((prev) => {
+      const exists = prev.some(
+        (tag) => tag.toLowerCase() === value.toLowerCase(),
+      );
+      if (exists) return prev;
+      return [...prev, value];
+    });
+
+    setTagInput("");
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setTags((prev) => prev.filter((tag) => tag !== tagToRemove));
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addTag(tagInput);
+      return;
+    }
+
+    if (e.key === "," || e.key === "Tab") {
+      e.preventDefault();
+      addTag(tagInput);
+      return;
+    }
+
+    if (e.key === "Backspace" && !tagInput.trim() && tags.length > 0) {
+      e.preventDefault();
+      setTags((prev) => prev.slice(0, -1));
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -379,7 +438,7 @@ export default function UploadPage() {
       select,
       title,
       description,
-      tags,
+      tags: tags.join(","),
       channelId,
       categoryId,
       privacyTitle: privacyVal?.title,
@@ -406,122 +465,124 @@ export default function UploadPage() {
   // ---------------------------------------------------------------------------
   // Upload / resume
   // ---------------------------------------------------------------------------
-const upload = () => {
-  if (!copyrightConfirmed) {
-    setError(
-      "You must confirm that you own the rights to this content before publishing.",
-    );
-    setStep(3);
-    return;
-  }
-
-  if (!token || uploading) return;
-
-  setError("");
-
-  if (!title || !description || !thumbDataUrl) {
-    setError("Please complete title, description and thumbnail.");
-    if (!title || !description) setStep(1);
-    else setStep(2);
-    return;
-  }
-
-  if (!channelId) {
-    setError("Please select a channel.");
-    setStep(2);
-    return;
-  }
-
-  if (select === 0 && !videoFile) {
-    setError("Please select a video file.");
-    setStep(1);
-    return;
-  }
-
-  if (select === 1 && (!streamLink || !datetime)) {
-    setError("Please configure your stream link and end time.");
-    setStep(1);
-    return;
-  }
-
-  if (select === 0 && videoFile && videoFile.size / 1024 / 1024 > 1024) {
-    setError("File size exceeds 1GB, please try again.");
-    return;
-  }
-
-  if (select === 1) {
-    const nowCheck = new Date();
-    const maxCheck = new Date(nowCheck.getTime() + 6 * 60 * 60 * 1000);
-
-    if (datetime.getTime() < nowCheck.getTime()) {
-      setError("Stream end time cannot be in the past.");
-      setStep(1);
-      return;
-    }
-
-    if (datetime.getTime() > maxCheck.getTime()) {
-      setError("Stream end time cannot be more than 6 hours ahead.");
-      setStep(1);
-      return;
-    }
-  }
-
-  const formData = new FormData();
-  formData.append("video_title", title);
-  formData.append("description", description);
-  formData.append("tags", tags);
-  formData.append("startDate", Math.floor(Date.now() / 1000).toString());
-  formData.append("privacy", privacy);
-  formData.append("token", token);
-  formData.append("channel", channelId);
-  formData.append("thumbnail", thumbDataUrl);
-  formData.append("is_short", isShort);
-
-  if (select === 0 && videoFile) {
-    formData.append("type", "video");
-    formData.append("file", videoFile);
-  }
-
-  if (select === 1) {
-    formData.append("type", "stream");
-    formData.append("stream", streamLink);
-    formData.append(
-      "endDate",
-      Math.floor(datetime.getTime() / 1000).toString(),
-    );
-  }
-
-  setUploading(true);
-
-  axios
-    .post(API_BASE + "video/upload", formData, {
-      headers: {
-        "Application-Key": APP_KEY,
-        "X-TOKEN": token,
-      },
-      onUploadProgress: (event) => {
-        if (!event.total) return;
-        const percent = Math.round((event.loaded * 100) / event.total);
-        setProgress(percent);
-      },
-    })
-    .then((response) => {
-      if (response.data?.status) {
-        clearDraft();
-        router.replace(`/channel/${channelId}`);
-      } else {
-        setError(response.data?.message || "Upload failed, please try again.");
-      }
-    })
-    .catch(() => {
+  const upload = () => {
+    if (!copyrightConfirmed) {
       setError(
-        "Network error. You can click the button again to resume the upload.",
+        "You must confirm that you own the rights to this content before publishing.",
       );
-    })
-    .finally(() => {
-      setUploading(false);
-    });
-};
+      setStep(3);
+      return;
+    }
+
+    if (!token || uploading) return;
+
+    setError("");
+
+    if (!title || !description || !thumbDataUrl) {
+      setError("Please complete title, description and thumbnail.");
+      if (!title || !description) setStep(1);
+      else setStep(2);
+      return;
+    }
+
+    if (!channelId) {
+      setError("Please select a channel.");
+      setStep(2);
+      return;
+    }
+
+    if (select === 0 && !videoFile) {
+      setError("Please select a video file.");
+      setStep(1);
+      return;
+    }
+
+    if (select === 1 && (!streamLink || !datetime)) {
+      setError("Please configure your stream link and end time.");
+      setStep(1);
+      return;
+    }
+
+    if (select === 0 && videoFile && videoFile.size / 1024 / 1024 > 1024) {
+      setError("File size exceeds 1GB, please try again.");
+      return;
+    }
+
+    if (select === 1) {
+      const nowCheck = new Date();
+      const maxCheck = new Date(nowCheck.getTime() + 6 * 60 * 60 * 1000);
+
+      if (datetime.getTime() < nowCheck.getTime()) {
+        setError("Stream end time cannot be in the past.");
+        setStep(1);
+        return;
+      }
+
+      if (datetime.getTime() > maxCheck.getTime()) {
+        setError("Stream end time cannot be more than 6 hours ahead.");
+        setStep(1);
+        return;
+      }
+    }
+
+    const formData = new FormData();
+    formData.append("video_title", title);
+    formData.append("description", description);
+    formData.append("tags", tags.join(","));
+    formData.append("startDate", Math.floor(Date.now() / 1000).toString());
+    formData.append("privacy", privacy);
+    formData.append("token", token);
+    formData.append("channel", channelId);
+    formData.append("thumbnail", thumbDataUrl);
+    formData.append("is_short", isShort);
+
+    if (select === 0 && videoFile) {
+      formData.append("type", "video");
+      formData.append("file", videoFile);
+    }
+
+    if (select === 1) {
+      formData.append("type", "stream");
+      formData.append("stream", streamLink);
+      formData.append(
+        "endDate",
+        Math.floor(datetime.getTime() / 1000).toString(),
+      );
+    }
+
+    setUploading(true);
+
+    axios
+      .post(API_BASE + "video/upload", formData, {
+        headers: {
+          "Application-Key": APP_KEY,
+          "X-TOKEN": token,
+        },
+        onUploadProgress: (event) => {
+          if (!event.total) return;
+          const percent = Math.round((event.loaded * 100) / event.total);
+          setProgress(percent);
+        },
+      })
+      .then((response) => {
+        if (response.data?.status) {
+          clearDraft();
+          router.replace(`/channel/${channelId}`);
+        } else {
+          setError(
+            response.data?.message || "Upload failed, please try again.",
+          );
+        }
+      })
+      .catch(() => {
+        setError(
+          "Network error. You can click the button again to resume the upload.",
+        );
+      })
+      .finally(() => {
+        setUploading(false);
+      });
+  };
 
   const uploadButtonLabel = useMemo(() => {
     if (uploading) return "Uploading…";
@@ -885,8 +946,11 @@ const upload = () => {
                   <div className="space-y-2">
                     <label className="text-sm font-semibold">Thumbnail</label>
                     <p className="text-xs text-neutral-400">
-                      Upload and crop a custom thumbnail (16:9), or pick one of
-                      the automatically generated frames.
+                      Upload and crop a custom thumbnail{" "}
+                      {isPortraitThumb
+                        ? "(9:16 for shorts)"
+                        : "(16:9 for videos)"}
+                      , or pick one of the automatically generated frames.
                     </p>
 
                     {/* custom upload + cropper */}
@@ -911,9 +975,12 @@ const upload = () => {
                           <div className="w-full max-w-xl border border-neutral-700 rounded-md overflow-hidden bg-neutral-950">
                             <Cropper
                               ref={cropperRef}
-                              style={{ width: "100%", height: 260 }}
+                              style={{
+                                width: "100%",
+                                height: isPortraitThumb ? 420 : 260,
+                              }}
                               src={rawThumbImage}
-                              aspectRatio={16 / 9}
+                              aspectRatio={thumbnailAspectRatio}
                               viewMode={1}
                               background={false}
                               guides
@@ -957,7 +1024,11 @@ const upload = () => {
                                 key={idx}
                                 type="button"
                                 onClick={() => setThumbDataUrl(thumb)}
-                                className={`relative w-32 aspect-video rounded-md overflow-hidden border ${
+                                className={`relative overflow-hidden border rounded-md ${
+                                  isPortraitThumb
+                                    ? "w-24 aspect-[9/16]"
+                                    : "w-32 aspect-video"
+                                } ${
                                   selected
                                     ? "border-red-500 ring-2 ring-red-500/60"
                                     : "border-neutral-700 hover:border-neutral-500"
@@ -982,7 +1053,12 @@ const upload = () => {
                         <p className="text-xs text-neutral-400 mb-1">
                           Selected thumbnail
                         </p>
-                        <div className="w-40 h-24 rounded-md overflow-hidden border border-neutral-700 bg-neutral-950">
+                        <div
+                          className={`rounded-md overflow-hidden border border-neutral-700 bg-neutral-950 ${
+                            isPortraitThumb ? "w-28 h-48" : "w-40 h-24"
+                          }`}
+                        >
+                          {" "}
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={thumbDataUrl}
@@ -1032,20 +1108,55 @@ const upload = () => {
                   </div>
 
                   {/* Tags */}
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     <label className="text-sm font-semibold">
                       Video tags{" "}
                       <span className="text-[10px] text-neutral-400">
-                        (comma separated)
+                        (press Enter or + to add)
                       </span>
                     </label>
-                    <input
-                      type="text"
-                      value={tags}
-                      onChange={(e) => setTags(e.target.value)}
-                      className="mt-2 w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-red-600"
-                      placeholder="e.g. faith, worship, inspiration"
-                    />
+
+                    <div className="mt-2 rounded-md bg-neutral-950 border border-neutral-700 px-3 py-3 focus-within:ring-1 focus-within:ring-red-600">
+                      {tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="inline-flex items-center gap-2 rounded-full bg-neutral-800 border border-neutral-700 px-3 py-1 text-xs text-neutral-200"
+                            >
+                              {tag}
+                              <button
+                                type="button"
+                                onClick={() => removeTag(tag)}
+                                className="cursor-pointer text-neutral-400 hover:text-white"
+                                aria-label={`Remove ${tag}`}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={tagInput}
+                          onChange={(e) => setTagInput(e.target.value)}
+                          onKeyDown={handleTagKeyDown}
+                          className="flex-1 bg-transparent text-sm outline-none"
+                          placeholder="Type a tag and press Enter"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => addTag(tagInput)}
+                          className="cursor-pointer inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-700 hover:bg-red-600 text-white text-lg leading-none"
+                          aria-label="Add tag"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1128,7 +1239,11 @@ const upload = () => {
                 Upload preview
               </p>
 
-              <div className="w-full aspect-video rounded-md bg-neutral-950 border border-neutral-800 overflow-hidden flex items-center justify-center text-xs text-neutral-500">
+              <div
+                className={`rounded-md bg-neutral-950 border border-neutral-800 overflow-hidden flex items-center justify-center text-xs text-neutral-500 mx-auto ${
+                  isPortraitThumb ? "w-44 aspect-[9/16]" : "w-full aspect-video"
+                }`}
+              >
                 {thumbDataUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

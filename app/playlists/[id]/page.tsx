@@ -11,10 +11,10 @@ import {
   PencilSquareIcon,
   LockClosedIcon,
   GlobeAltIcon,
-  ClockIcon,
-  EyeIcon,
+  PlayIcon,
+  ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline";
-import { useAuth } from "../../components/AuthProvider"; // ⬅️ adjust path
+import { useAuth } from "../../components/AuthProvider";
 
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
@@ -77,17 +77,15 @@ function abbreviateViews(v: string | number) {
 function slugify(title: string) {
   return title
     .toLowerCase()
-    .replace(/\[|\]/g, "") // remove square brackets
-    .replace(/[^a-z0-9]+/g, "-") // replace non-alphanumeric with dash
-    .replace(/^-+|-+$/g, ""); // trim leading/trailing dashes
+    .replace(/\[|\]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function timeSince(dateStrOrUnix: string | number) {
-  // Support both ISO string (created_at) and uploadtime (unix in seconds)
   let ts: number;
 
   if (typeof dateStrOrUnix === "string" && dateStrOrUnix.length <= 12) {
-    // probably unix timestamp in seconds
     const unix = parseInt(dateStrOrUnix, 10);
     ts = unix * 1000;
   } else if (typeof dateStrOrUnix === "number") {
@@ -106,19 +104,14 @@ function timeSince(dateStrOrUnix: string | number) {
 
   if (minutes < 1) return "Just now";
   if (minutes < 60) return fmt(minutes, "minute");
-
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return fmt(hours, "hour");
-
   const days = Math.floor(hours / 24);
   if (days < 7) return fmt(days, "day");
-
   const weeks = Math.floor(days / 7);
   if (weeks < 4) return fmt(weeks, "week");
-
   const months = Math.floor(days / 30);
   if (months < 12) return fmt(months, "month");
-
   const years = Math.floor(days / 365);
   return fmt(years, "year");
 }
@@ -128,11 +121,8 @@ function formatDuration(seconds: string | number | null) {
   const s = typeof seconds === "string" ? parseFloat(seconds) : seconds;
   if (!Number.isFinite(s)) return "";
   const date = new Date(s * 1000).toISOString();
-  // HH:MM:SS
-  if (date.substring(11, 13) === "00") {
-    return date.substring(14, 19); // MM:SS
-  }
-  return date.substring(11, 19); // HH:MM:SS
+  if (date.substring(11, 13) === "00") return date.substring(14, 19);
+  return date.substring(11, 19);
 }
 
 function VisibilityBadge({ visibility }: { visibility: string }) {
@@ -155,35 +145,48 @@ function VisibilityBadge({ visibility }: { visibility: string }) {
   );
 }
 
-// Skeleton loader
 function PlaylistSkeleton() {
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-10 pb-10 animate-pulse">
-        <div className="h-6 w-32 bg-neutral-800 rounded mb-5" />
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-md bg-neutral-800" />
-            <div className="space-y-2">
-              <div className="h-5 w-48 bg-neutral-800 rounded" />
-              <div className="h-4 w-32 bg-neutral-800 rounded" />
-            </div>
-          </div>
-          <div className="h-9 w-28 bg-neutral-800 rounded-full" />
-        </div>
+      <div className="mx-auto max-w-6xl px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] animate-pulse">
+        <div className="h-5 w-24 rounded bg-neutral-800 mb-5" />
 
-        <div className="h-20 w-full bg-neutral-900 rounded-xl mb-6" />
-
-        <div className="grid gap-3 gap-y-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, idx) => (
-            <div key={idx} className="flex flex-col">
-              <div className="w-full aspect-video bg-neutral-800 rounded-md" />
-              <div className="mt-2 space-y-2">
-                <div className="h-4 bg-neutral-800 rounded w-5/6" />
-                <div className="h-3 bg-neutral-800 rounded w-3/4" />
+        <div className="grid grid-cols-1 xl:grid-cols-[340px_minmax(0,1fr)] gap-6">
+          <div className="rounded-2xl border border-white/10 bg-neutral-900/40 overflow-hidden">
+            <div className="aspect-video bg-neutral-800" />
+            <div className="p-4 space-y-4">
+              <div className="h-7 w-5/6 rounded bg-neutral-800" />
+              <div className="h-4 w-1/2 rounded bg-neutral-800" />
+              <div className="flex gap-3">
+                <div className="h-10 flex-1 rounded-full bg-neutral-800" />
+                <div className="h-10 flex-1 rounded-full bg-neutral-800" />
+              </div>
+              <div className="space-y-2">
+                <div className="h-3 w-full rounded bg-neutral-800" />
+                <div className="h-3 w-5/6 rounded bg-neutral-800" />
+                <div className="h-3 w-2/3 rounded bg-neutral-800" />
               </div>
             </div>
-          ))}
+          </div>
+
+          <div className="space-y-4">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="rounded-lg border border-white/10 bg-neutral-900/40 p-3 sm:p-4"
+              >
+                <div className="flex gap-4">
+                  <div className="hidden sm:block h-6 w-6 rounded bg-neutral-800 mt-8" />
+                  <div className="w-40 sm:w-56 md:w-64 aspect-video rounded-md bg-neutral-800 flex-shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-3">
+                    <div className="h-4 w-4/5 rounded bg-neutral-800" />
+                    <div className="h-3 w-1/3 rounded bg-neutral-800" />
+                    <div className="h-3 w-2/3 rounded bg-neutral-800" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </main>
@@ -207,12 +210,10 @@ export default function PlaylistPage() {
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editVisibility, setEditVisibility] = useState<"public" | "private">(
-    "public"
+    "public",
   );
 
-  const isLoggedIn = !!user && !!token;
   const playlistId = params.id;
-
   const videoCount = videos.length;
 
   const thumbnailSrc =
@@ -220,84 +221,76 @@ export default function PlaylistPage() {
     videos[0]?.thumbnail ||
     "/images/channel/background.jpg";
 
-  const isPublic = data?.playlist.visibility === "public";
-
   const totalViews = useMemo(
     () =>
-      videos.reduce(
-        (acc, v) =>
-          acc +
-          (typeof v.numOfViews === "string"
+      videos.reduce((acc, v) => {
+        const n =
+          typeof v.numOfViews === "string"
             ? parseInt(v.numOfViews as any, 10)
-            : v.numOfViews),
-        0
-      ),
-    [videos]
+            : v.numOfViews;
+        return acc + (Number.isFinite(n) ? n : 0);
+      }, 0),
+    [videos],
   );
 
-async function getPlaylist() {
-  if (!playlistId) return;
+  async function getPlaylist() {
+    if (!playlistId) return;
 
-  setLoading(true);
-  setError(null);
+    setLoading(true);
+    setError(null);
 
-  try {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "Application-Key": APP_KEY,
-    };
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Application-Key": APP_KEY,
+      };
 
-    // only send auth header if logged in
-    if (token) headers["X-TOKEN"] = token;
+      if (token) headers["X-TOKEN"] = token;
 
-    const req = await fetch(API_BASE + "playlist", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        playlist: playlistId,
-        ...(token ? { token } : {}), // only include token if present
-      }),
-    });
+      const req = await fetch(API_BASE + "playlist", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          playlist: playlistId,
+          ...(token ? { token } : {}),
+        }),
+      });
 
-    const res = await req.json();
+      const res = await req.json();
 
-    if (!res.status) {
-      setError("Playlist not found or unavailable.");
+      if (!res.status) {
+        setError("Playlist not found or unavailable.");
+        setData(null);
+        setVideos([]);
+        return;
+      }
+
+      const payload: PlaylistResponse = res.data;
+      const isPrivate = payload.playlist.visibility === "private";
+
+      if (isPrivate && !payload.canModify) {
+        setError("Playlist not found or unavailable.");
+        setData(null);
+        setVideos([]);
+        return;
+      }
+
+      setData(payload);
+      setVideos(payload.videos || []);
+      setEditTitle(payload.playlist.playlist_title || "");
+      setEditDescription(payload.playlist.playlist_description || "");
+      setEditVisibility(
+        (payload.playlist.visibility as "public" | "private") || "public",
+      );
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong while loading the playlist.");
       setData(null);
       setVideos([]);
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    const payload: PlaylistResponse = res.data;
-
-    // ✅ HARD PRIVACY RULE:
-    // If it's private and you're not the owner, do not show it.
-    const isPrivate = payload.playlist.visibility === "private";
-    if (isPrivate && !payload.canModify) {
-      setError("Playlist not found or unavailable."); // avoid leaking existence
-      setData(null);
-      setVideos([]);
-      return;
-    }
-
-    setData(payload);
-    setVideos(payload.videos || []);
-
-    // prime edit fields (only really used if canModify is true)
-    setEditTitle(payload.playlist.playlist_title || "");
-    setEditDescription(payload.playlist.playlist_description || "");
-    setEditVisibility(
-      (payload.playlist.visibility as "public" | "private") || "public"
-    );
-  } catch (err) {
-    console.error(err);
-    setError("Something went wrong while loading the playlist.");
-    setData(null);
-    setVideos([]);
-  } finally {
-    setLoading(false);
   }
-}
 
   async function handleDeletePlaylist() {
     if (!token || !playlistId) return;
@@ -317,7 +310,7 @@ async function getPlaylist() {
         body: JSON.stringify({ playlist: playlistId }),
       });
 
-      await req.json(); // assuming success if no error
+      await req.json();
       router.replace("/playlists");
     } catch (err) {
       console.error(err);
@@ -363,10 +356,9 @@ async function getPlaylist() {
     }
   }
 
-useEffect(() => {
-  getPlaylist();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [token, playlistId]);
+  useEffect(() => {
+    void getPlaylist();
+  }, [token, playlistId]);
 
   if (loading) {
     return <PlaylistSkeleton />;
@@ -375,7 +367,7 @@ useEffect(() => {
   if (!data) {
     return (
       <main className="min-h-screen bg-neutral-950 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-10 pb-10">
+        <div className="mx-auto max-w-6xl px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
             className="mb-4 cursor-pointer inline-flex items-center gap-1 text-sm text-neutral-300 hover:text-white"
@@ -384,28 +376,34 @@ useEffect(() => {
             <ArrowLeftIcon className="h-4 w-4" />
             Back
           </button>
-          <h1 className="text-2xl font-bold mb-3 flex items-center gap-2">
-            <ListBulletIcon className="h-6 w-6" />
-            Playlist
-          </h1>
-          {error ? (
-            <p className="text-sm text-red-400">{error}</p>
-          ) : (
-            <p className="text-sm text-neutral-400">
-              Playlist not found or unavailable.
-            </p>
-          )}
+
+          <div className="rounded-xl border border-white/10 bg-neutral-900/40 p-6">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight flex items-center gap-2">
+              <ListBulletIcon className="h-6 w-6" />
+              Playlist
+            </h1>
+            {error ? (
+              <p className="mt-3 text-sm text-red-400">{error}</p>
+            ) : (
+              <p className="mt-3 text-sm text-neutral-400">
+                Playlist not found or unavailable.
+              </p>
+            )}
+          </div>
         </div>
       </main>
     );
   }
 
   const { playlist, canModify } = data;
+  const firstVideoHref =
+    videos.length > 0
+      ? `/videos/watch/${videos[0].id}/${playlistId}/${slugify(videos[0].videos_title)}`
+      : "#";
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-10 pb-10">
-        {/* Back */}
+    <main className="min-h-screen bg-neutral-950 text-white overflow-x-hidden">
+      <div className="mx-auto max-w-6xl px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <button
           type="button"
           className="mb-4 cursor-pointer inline-flex items-center gap-1 text-sm text-neutral-300 hover:text-white"
@@ -415,156 +413,194 @@ useEffect(() => {
           Back
         </button>
 
-        {/* Header row */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <div className="relative h-20 w-20 rounded-md overflow-hidden bg-neutral-900">
-              <img
-                src={thumbnailSrc}
-                alt={playlist.playlist_title}
-                fill
-                unoptimized
-                className="object-cover h-full"
-              />
-            </div>
-            <div>
-              <div className="flex items-center gap-3 mb-1">
-                <h1 className="text-xl sm:text-2xl font-bold">
-                  {playlist.playlist_title}
-                </h1>
-                <VisibilityBadge visibility={playlist.visibility} />
+        <div className="grid grid-cols-1 xl:grid-cols-[340px_minmax(0,1fr)] gap-6">
+          <aside className="xl:sticky xl:top-6 self-start">
+            <section className="overflow-hidden rounded-2xl border border-white/10 bg-neutral-900/40">
+              <div className="relative aspect-video bg-black">
+                <Image
+                  src={thumbnailSrc}
+                  alt={playlist.playlist_title}
+                  fill
+                  unoptimized
+                  className="object-cover"
+                />
               </div>
-              <p className="text-xs text-neutral-400">
-                {videoCount} video{videoCount !== 1 ? "s" : ""} • Updated{" "}
-                {timeSince(playlist.updated_at)}
-              </p>
-            </div>
-          </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-3 self-start sm:self-center">
-            {canModify && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(true)}
-                  className="cursor-pointer inline-flex items-center gap-1 rounded-full border border-neutral-700 px-3 py-1.5 text-xs font-semibold text-neutral-100 hover:bg-neutral-800"
-                >
-                  <PencilSquareIcon className="h-4 w-4" />
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeletePlaylist}
-                  disabled={deleting}
-                  className="cursor-pointer inline-flex items-center gap-1 rounded-full border border-red-500/70 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-600/20 disabled:opacity-60"
-                >
-                  <TrashIcon className="h-4 w-4" />
-                  {deleting ? "Deleting…" : "Delete"}
-                </button>
-              </>
+              <div className="p-4 sm:p-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight break-words">
+                    {playlist.playlist_title}
+                  </h1>
+                  <VisibilityBadge visibility={playlist.visibility} />
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-400">
+                  <span>{videoCount} video{videoCount !== 1 ? "s" : ""}</span>
+                  <span>•</span>
+                  <span>{abbreviateViews(totalViews)} total views</span>
+                  <span>•</span>
+                  <span>Updated {timeSince(playlist.updated_at)}</span>
+                </div>
+
+                <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                  {videos.length > 0 && (
+                    <Link
+                      href={firstVideoHref}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90"
+                    >
+                      <PlayIcon className="h-5 w-5 fill-current" />
+                      Play
+                    </Link>
+                  )}
+
+                  <button
+                    type="button"
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-neutral-900/60 px-5 py-3 text-sm font-semibold text-neutral-200 hover:bg-neutral-800"
+                  >
+                    <ChatBubbleLeftRightIcon className="h-5 w-5" />
+                    Comments
+                  </button>
+                </div>
+
+                {playlist.playlist_description && (
+                  <div className="mt-5 text-sm text-neutral-200 whitespace-pre-line leading-7">
+                    {playlist.playlist_description}
+                  </div>
+                )}
+
+                {canModify && (
+                  <div className="mt-5 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(true)}
+                      className="cursor-pointer inline-flex items-center gap-2 rounded-full border border-white/10 bg-neutral-900/60 px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-800"
+                    >
+                      <PencilSquareIcon className="h-4 w-4" />
+                      Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDeletePlaylist}
+                      disabled={deleting}
+                      className="cursor-pointer inline-flex items-center gap-2 rounded-full border border-red-500/40 bg-red-500/10 px-4 py-2 text-xs font-semibold text-red-300 hover:bg-red-500/15 disabled:opacity-60"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                      {deleting ? "Deleting…" : "Delete"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </section>
+          </aside>
+
+          <section className="min-w-0">
+            {error && (
+              <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {error}
+              </div>
             )}
-          </div>
-        </div>
 
-        {/* Description card */}
-        {playlist.playlist_description && (
-          <div className="mb-6 rounded-xl border border-neutral-800 bg-neutral-900/50 p-4 text-sm text-neutral-200">
-            {playlist.playlist_description}
-          </div>
-        )}
+            {videos.length === 0 ? (
+              <div className="rounded-xl border border-white/10 bg-neutral-900/40 p-6 text-center text-sm text-neutral-300">
+                This playlist has no videos yet.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {videos.map((video, index) => {
+                  const durationText = formatDuration(video.duration);
+                  const videoHref = `/videos/watch/${video.id}/${playlistId}/${slugify(
+                    video.videos_title,
+                  )}`;
 
-        {/* Error */}
-        {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
+                  return (
+<Link
+  key={video.id}
+  href={videoHref}
+  className="group block rounded-lg border border-white/10 bg-neutral-900/40 hover:bg-neutral-900/60 transition p-3 sm:p-4"
+>
+  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+    <div className="flex items-center gap-2 sm:hidden text-xs text-neutral-400">
+      <span>{index + 1}.</span>
+      <span>{video.channel}</span>
+    </div>
 
-        {/* Videos grid */}
-        {videos.length === 0 ? (
-          <div className="mt-6 rounded-xl border border-dashed border-neutral-700 bg-neutral-900/40 p-6 text-center text-sm text-neutral-300">
-            This playlist has no videos yet.
-          </div>
-        ) : (
-          <div className="grid gap-3 gap-y-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {videos.map((video) => {
-              const durationText = formatDuration(video.duration);
-              const videoHref = `/videos/watch/${
-                video.id
-              }/${playlistId}/${slugify(video.videos_title)}`;
+    <div className="hidden sm:flex w-6 flex-shrink-0 justify-center pt-6 text-sm text-neutral-400">
+      {index + 1}
+    </div>
 
-              return (
-                <Link
-                  key={video.id}
-                  href={videoHref}
-                  className="flex flex-col group"
-                >
-                  <div className="relative w-full overflow-hidden rounded-md bg-neutral-900">
-                    <div className="relative w-full aspect-video">
-                      <img
-                        src={
-                          video.thumbnail && video.thumbnail.trim() !== ""
-                            ? video.thumbnail
-                            : "/images/channel/background.jpg"
-                        }
-                        alt={video.videos_title}
-                        fill
-                        unoptimized
-                        className="object-cover transition-transform duration-200 group-hover:scale-105"
-                      />
-                    </div>
-                    {/* Duration pill */}
-                    {durationText && (
-                      <span className="absolute bottom-1 right-1 rounded-sm bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                        {durationText}
-                      </span>
-                    )}
-                  </div>
+    <div className="w-full sm:w-56 md:w-64 flex-shrink-0">
+      <div className="relative aspect-video overflow-hidden rounded-md bg-black">
+        <Image
+          src={
+            video.thumbnail && video.thumbnail.trim() !== ""
+              ? video.thumbnail
+              : "/images/channel/background.jpg"
+          }
+          alt={video.videos_title}
+          fill
+          unoptimized
+          className="object-cover"
+        />
 
-                  <div className="mt-2 flex gap-2">
-                    {/* Channel avatar */}
-                    <div className="mt-1 h-8 w-8 min-w-[2rem] rounded-full overflow-hidden bg-neutral-800">
-                      {video.channel_image ? (
-                        <img
-                          src={video.channel_image}
-                          alt={video.channel}
-                          width={32}
-                          unoptimized
-                          height={32}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="h-full w-full flex items-center justify-center text-[10px] font-semibold bg-neutral-700 text-white">
-                          {video.channel
-                            ?.split(" ")
-                            .map((w) => w[0])
-                            .join("")
-                            .slice(0, 2)
-                            .toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex-1">
-                      <h2 className="text-sm font-semibold leading-snug line-clamp-2 transition">
-                        {video.videos_title}
-                      </h2>
-                      <p className="mt-0.5 text-[11px] text-neutral-400 line-clamp-2">
-                        {truncate(video.description, 80)}
-                      </p>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
-                        <span className="flex items-center gap-1">
-                          {abbreviateViews(video.numOfViews)} views •{" "}
-                          {timeSince(video.uploadtime)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+        {durationText && (
+          <span className="absolute bottom-2 right-2 rounded-md bg-black/80 px-2 py-1 text-[11px] font-semibold text-white">
+            {durationText}
+          </span>
         )}
       </div>
+    </div>
 
-      {/* EDIT MODAL */}
+    <div className="min-w-0 flex-1">
+      <h2 className="text-sm sm:text-lg font-semibold leading-snug line-clamp-2 break-words">
+        {video.videos_title}
+      </h2>
+
+      <p className="mt-1 hidden sm:block text-xs sm:text-sm text-neutral-400 truncate">
+        {video.channel}
+      </p>
+
+      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-500">
+        <span>{abbreviateViews(video.numOfViews)} views</span>
+        <span>•</span>
+        <span>{timeSince(video.uploadtime)}</span>
+      </div>
+
+      {video.description && (
+        <p className="mt-2 text-xs sm:text-sm text-neutral-300 line-clamp-2 break-words">
+          {truncate(video.description, 140)}
+        </p>
+      )}
+    </div>
+
+    <div className="hidden sm:flex pt-4 text-neutral-400">
+      <button
+        type="button"
+        className="rounded-full p-2 hover:bg-white/10"
+        onClick={(e) => e.preventDefault()}
+        aria-label="More options"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="h-5 w-5 fill-current"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="5" r="1.8" />
+          <circle cx="12" cy="12" r="1.8" />
+          <circle cx="12" cy="19" r="1.8" />
+        </svg>
+      </button>
+    </div>
+  </div>
+</Link>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
+
       {isEditing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
           <div className="w-full max-w-md rounded-2xl bg-neutral-950 border border-neutral-800 p-5">

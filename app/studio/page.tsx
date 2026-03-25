@@ -41,6 +41,10 @@ export default function DashboardPage() {
   const [confirmVideo, setConfirmVideo] = useState<Video | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const openVideo = (video: Video) => {
+    router.push(viewSlug(video));
+  };
+
   // ----------------------------
   // Load stats + videos
   // ----------------------------
@@ -202,21 +206,32 @@ export default function DashboardPage() {
               className="grid grid-cols-1 rounded-lg border border-neutral-800 bg-neutral-900 p-3 flex gap-3"
             >
               <div className="w-full flex-shrink-0">
-                <div className="w-full aspect-video bg-neutral-800 rounded overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={video.thumbnail}
-                    alt={video.videos_title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => openVideo(video)}
+                  className="block w-full cursor-pointer"
+                  aria-label={`Open ${video.videos_title}`}
+                >
+                  <div className="w-full aspect-video bg-neutral-800 rounded overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={video.thumbnail}
+                      alt={video.videos_title}
+                      className="w-full h-full object-contain hover:opacity-90 transition"
+                    />
+                  </div>
+                </button>
               </div>
 
               <div className="flex-1 flex flex-col justify-between gap-2">
                 <div>
-                  <p className="text-lg font-semibold line-clamp-2">
+                  <button
+                    type="button"
+                    onClick={() => openVideo(video)}
+                    className="text-left text-lg font-semibold line-clamp-2 hover:text-neutral-200 cursor-pointer"
+                  >
                     {video.videos_title}
-                  </p>
+                  </button>
                   <p className="text-sm text-neutral-400 mt-1">
                     {video.numOfViews} views •{" "}
                     {video.isLive === "1" ? "Live" : "Video"} •{" "}
@@ -229,7 +244,7 @@ export default function DashboardPage() {
 
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   <button
-                    onClick={() => router.push(viewSlug(video))}
+                    onClick={() => openVideo(video)}
                     className="inline-flex items-center px-4 py-2 rounded-full bg-white text-black hover:bg-white/80 text-sm font-semibold cursor-pointer"
                   >
                     View
@@ -287,18 +302,31 @@ export default function DashboardPage() {
                   className="border-t border-neutral-800 hover:bg-neutral-800/60"
                 >
                   <td className="p-3 align-middle">
-                    <div className="w-32 aspect-video bg-neutral-800 rounded overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={video.thumbnail}
-                        alt={video.videos_title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openVideo(video)}
+                      className="block cursor-pointer"
+                      aria-label={`Open ${video.videos_title}`}
+                    >
+                      <div className="w-32 aspect-video bg-neutral-800 rounded overflow-hidden">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={video.thumbnail}
+                          alt={video.videos_title}
+                          className="w-full h-full object-contain hover:opacity-90 transition"
+                        />
+                      </div>
+                    </button>
                   </td>
 
                   <td className="p-3 font-medium align-middle">
-                    {video.videos_title}
+                    <button
+                      type="button"
+                      onClick={() => openVideo(video)}
+                      className="text-left hover:text-neutral-200 cursor-pointer"
+                    >
+                      {video.videos_title}
+                    </button>
                   </td>
 
                   <td className="p-3 text-neutral-300 align-middle">
@@ -316,13 +344,6 @@ export default function DashboardPage() {
 
                   <td className="p-3 align-middle">
                     <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        onClick={() => router.push(viewSlug(video))}
-                        className="inline-flex items-center px-4 py-2 rounded-full bg-white text-black hover:bg-white/80 text-sm font-semibold cursor-pointer"
-                      >
-                        View
-                      </button>
-
                       <button
                         onClick={() =>
                           router.push(

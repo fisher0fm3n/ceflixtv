@@ -2,12 +2,7 @@
 
 import "cropperjs/dist/cropper.css";
 
-import React, {
-  useEffect,
-  useState,
-  useRef,
-  ChangeEvent,
-} from "react";
+import React, { useEffect, useState, useRef, ChangeEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Cropper, { ReactCropperElement } from "react-cropper";
 import {
@@ -68,10 +63,11 @@ export default function EditVideoPage() {
   // Channel / video fields
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [tags, setTags] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
   const [privacy, setPrivacy] = useState<string | undefined>();
   const [privacyVal, setPrivacyVal] = useState<(typeof privacyTypes2)[number]>(
-    privacyTypes2[0]
+    privacyTypes2[0],
   );
 
   const [videoData, setVideoData] = useState<VideoData | null>(null);
@@ -238,7 +234,7 @@ export default function EditVideoPage() {
           channel: channelId,
           description,
           privacy: privacyVal.id,
-          tags,
+          tags: tags.join(","),
           video_id: videoId,
           video_title: name,
           token,
@@ -297,7 +293,12 @@ export default function EditVideoPage() {
       setName(v.videos_title || "");
       setThumbnail(v.thumbnail || "");
       setDescription(v.description || "");
-      setTags(v.tags || "");
+      setTags(
+        (v.tags || "")
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+      );
 
       const privIdx = v.active === 0 ? 1 : 0;
       const priv = privacyTypes2[privIdx] || privacyTypes2[0];
@@ -309,6 +310,44 @@ export default function EditVideoPage() {
       setLoading(false);
     }
   }
+
+  const addTag = (rawValue: string) => {
+    const value = rawValue.trim();
+    if (!value) return;
+
+    setTags((prev) => {
+      const exists = prev.some(
+        (tag) => tag.toLowerCase() === value.toLowerCase(),
+      );
+      if (exists) return prev;
+      return [...prev, value];
+    });
+
+    setTagInput("");
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setTags((prev) => prev.filter((tag) => tag !== tagToRemove));
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addTag(tagInput);
+      return;
+    }
+
+    if (e.key === "," || e.key === "Tab") {
+      e.preventDefault();
+      addTag(tagInput);
+      return;
+    }
+
+    if (e.key === "Backspace" && !tagInput.trim() && tags.length > 0) {
+      e.preventDefault();
+      setTags((prev) => prev.slice(0, -1));
+    }
+  };
 
   // -----------------------------
   // Effects
@@ -397,9 +436,7 @@ export default function EditVideoPage() {
             <div className="grid grid-cols-1 gap-4">
               {/* Name */}
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Name
-                </label>
+                <label className="block text-sm font-medium mb-1">Name</label>
                 <input
                   type="text"
                   value={name}
@@ -426,16 +463,51 @@ export default function EditVideoPage() {
                 <label className="block text-sm font-medium mb-1">
                   Video Tags{" "}
                   <span className="text-[11px] text-neutral-400">
-                    (comma separated)
+                    (press Enter or + to add)
                   </span>
                 </label>
-                <input
-                  type="text"
-                  value={tags}
-                  onChange={(e) => setTags(e.target.value)}
-                  className="w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-red-600"
-                  placeholder="e.g. faith, worship, inspiration"
-                />
+
+                <div className="rounded-md bg-neutral-950 border border-neutral-700 px-3 py-3 focus-within:ring-1 focus-within:ring-red-600">
+                  {tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center gap-2 rounded-full bg-neutral-800 border border-neutral-700 px-3 py-1 text-xs text-neutral-200"
+                        >
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => removeTag(tag)}
+                            className="cursor-pointer text-neutral-400 hover:text-white"
+                            aria-label={`Remove ${tag}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={handleTagKeyDown}
+                      className="flex-1 bg-transparent text-sm outline-none"
+                      placeholder="Type a tag and press Enter"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => addTag(tagInput)}
+                      className="cursor-pointer inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-700 hover:bg-red-600 text-white text-lg leading-none"
+                      aria-label="Add tag"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Privacy */}
@@ -630,10 +702,7 @@ export default function EditVideoPage() {
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {languages.map((item) => (
-                  <div
-                    key={item.id}
-                    className="relative flex flex-row"
-                  >
+                  <div key={item.id} className="relative flex flex-row">
                     <div className="text-white bg-neutral-800 border border-neutral-700 p-3 rounded-lg w-full">
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="text-sm font-semibold">
