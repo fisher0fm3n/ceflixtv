@@ -6,7 +6,7 @@ const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
 
 const CLOUDINARY_PREFIX =
-  "https://res.cloudinary.com/raves-music/image/fetch/w_850/";
+  "https://res.cloudinary.com/raves-music/image/fetch/c_fill,g_north,w_1200,h_630,q_auto,f_auto/";
 
 // --- Types just for SEO ---
 type SeoVideo = {
@@ -17,7 +17,7 @@ type SeoVideo = {
 };
 
 type PageProps = {
-  params: Promise<{ slug: string[] }>; // 👈 match the channel pattern
+  params: Promise<{ slug: string[] }>;
 };
 
 // --- Helpers ---
@@ -31,8 +31,6 @@ function formatTitle(title: string) {
 
 function withCloudinaryOg(src: string | null): string {
   if (!src) return "";
-  const lower = src.toLowerCase();
-  if (lower.includes("cloudinary") || lower.includes("cloudfront")) return src;
   return `${CLOUDINARY_PREFIX}${encodeURIComponent(src)}`;
 }
 
@@ -45,7 +43,7 @@ async function fetchVideoForSeo(videoId: string): Promise<SeoVideo | null> {
         "Application-Key": APP_KEY,
       },
       body: JSON.stringify({ video: videoId }),
-      next: { revalidate: 60 }, // cache SEO a bit
+      next: { revalidate: 60 },
     });
 
     const json = await res.json();
@@ -63,9 +61,8 @@ const defaultMetadata: Metadata = {
     "Watch. Share. Shine – Only on CeFlix Live TV. Showcase your talents and watch your dreams take center stage on CeFlix Live TV.",
 };
 
-// ✅ SEO via generateMetadata – note the `await params`
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params; // 👈 IMPORTANT: unwrap params, like channel page
+  const { slug } = await params;
   const slugArray = Array.isArray(slug) ? slug : [slug];
   const videoId = slugArray[0];
 
@@ -78,7 +75,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return defaultMetadata;
   }
 
-  const baseUrl = "https://ceflix.org"; // use your real domain
+  const baseUrl = "https://ceflix.org";
   const prettySlug = formatTitle(video.videos_title);
   const canonicalUrl = `${baseUrl}/player/${videoId}/${prettySlug}`;
   const ogImageUrl = withCloudinaryOg(video.thumbnail);
@@ -96,7 +93,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       url: canonicalUrl,
-      images: ogImageUrl ? [{ url: ogImageUrl }] : undefined,
+      images: ogImageUrl
+        ? [
+            {
+              url: ogImageUrl,
+              width: 1200,
+              height: 630,
+              alt: video.videos_title,
+            },
+          ]
+        : undefined,
     },
     twitter: {
       card: "summary_large_image",
@@ -107,8 +113,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-// ✅ Page component also gets params as a Promise (like channel page)
 export default async function PlayerPageWrapper({ params }: PageProps) {
-  await params; // we don't actually need the slug here, client uses useParams
+  await params;
   return <PlayerPageClient />;
 }

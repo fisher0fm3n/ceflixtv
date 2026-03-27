@@ -192,7 +192,7 @@ export default function UploadPage() {
         const catRes = await catReq.json();
 
         if (chRes.status) setChannels(chRes.data as Channel[]);
-        if (catRes.status) setCategories(catRes.data as Category[]);
+        // if (catRes.status) setCategories(catRes.data as Category[]);
 
         let defaultChannelId =
           chRes.status && chRes.data.length > 0 ? String(chRes.data[0].id) : "";
@@ -440,7 +440,6 @@ export default function UploadPage() {
       description,
       tags: tags.join(","),
       channelId,
-      categoryId,
       privacyTitle: privacyVal?.title,
       streamLink,
       datetime: datetime.toISOString(),
@@ -791,6 +790,21 @@ export default function UploadPage() {
                     </button>
                   </div>
 
+                                      <div className="space-y-1">
+                      <label className="text-sm font-semibold">Channel</label>
+                      <select
+                        className="mt-2 w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-red-600"
+                        value={channelId}
+                        onChange={(e) => setChannelId(e.target.value)}
+                      >
+                        {channels.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.channel}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
                   {/* Video Type dropdown (Short / Video) */}
                   {select === 0 && (
                     <div className="mt-4 space-y-1">
@@ -1072,22 +1086,8 @@ export default function UploadPage() {
 
                   {/* Channel + Category */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-neutral-800">
-                    <div className="space-y-1">
-                      <label className="text-sm font-semibold">Channel</label>
-                      <select
-                        className="mt-2 w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-red-600"
-                        value={channelId}
-                        onChange={(e) => setChannelId(e.target.value)}
-                      >
-                        {channels.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.channel}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
 
-                    {categories.length > 0 && (
+                    {/* {categories.length > 0 && (
                       <div className="space-y-1">
                         <label className="text-sm font-semibold">
                           Category
@@ -1104,7 +1104,7 @@ export default function UploadPage() {
                           ))}
                         </select>
                       </div>
-                    )}
+                    )} */}
                   </div>
 
                   {/* Tags */}

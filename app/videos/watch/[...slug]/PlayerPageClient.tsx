@@ -2390,7 +2390,7 @@ export default function PlayerPage() {
                             fill
                             unoptimized
                             sizes="(max-width: 1024px) 50vw, 160px"
-                            className="object-cover"
+                            className="object-contain"
                           />
                           <span className="absolute bottom-1 right-1 rounded-sm bg-black/80 px-1.5 py-0.5 text-[11px] font-semibold">
                             {durationFmt(item.duration)}
@@ -2450,7 +2450,7 @@ export default function PlayerPage() {
                         fill
                         unoptimized
                         sizes="(max-width: 1024px) 50vw, 160px"
-                        className="object-cover"
+                        className="object-contain"
                       />
                       <span className="absolute bottom-1 right-1 rounded-sm bg-black/80 px-1.5 py-0.5 text-[11px] font-semibold">
                         {durationFmt(item.duration)}

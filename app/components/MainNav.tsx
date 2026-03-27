@@ -3,15 +3,16 @@
 import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, Transition, Dialog } from "@headlessui/react";
+import { Menu, Transition } from "@headlessui/react";
 import {
   Bars3Icon,
   XMarkIcon,
   MagnifyingGlassIcon,
-  ChevronDownIcon,
   UserCircleIcon,
   ArrowRightOnRectangleIcon,
   ArrowUpTrayIcon,
+  PlusIcon,
+  RadioIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "./AuthProvider";
 import Image from "next/image";
@@ -23,7 +24,7 @@ function cx(...cls: (string | false | null | undefined)[]) {
 }
 
 type MainNavProps = {
-  onToggleSideNav?: () => void; // toggles sidebar
+  onToggleSideNav?: () => void;
   sideCollapsed?: boolean;
 };
 
@@ -35,7 +36,12 @@ export default function MainNav({
   const router = useRouter();
   const { user, token, logout, initialized } = useAuth();
 
-  if (pathname.startsWith("/login") || pathname.startsWith("/password/reset") || pathname.startsWith("/register")) return null;
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/password/reset") ||
+    pathname.startsWith("/register")
+  )
+    return null;
 
   const loggedIn = Boolean(token && user);
   const displayName =
@@ -50,7 +56,6 @@ export default function MainNav({
     const q = searchTerm.trim();
     if (!q) return;
 
-    // encode, then turn spaces into +
     const encoded = encodeURIComponent(q).replace(/%20/g, "+");
     router.push(`/search?q=${encoded}`);
   };
@@ -71,14 +76,13 @@ export default function MainNav({
     <header
       className={cx(
         "fixed w-full top-0 z-40 transition-colors duration-400",
-        "bg-neutral-950/40 backdrop-blur"
+        "bg-neutral-950/40 backdrop-blur",
       )}
     >
       <div className="px-4 sm:px-6 lg:px-auto lg:pl-[0.8rem] lg:pr-8">
         <div className="h-16 flex items-center gap-4">
           {/* LEFT: menu + brand */}
           <div className="flex items-center gap-3 shrink-0 min-w-0">
-            {/* Mobile hamburger -> opens mobile nav sheet */}
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
@@ -88,22 +92,15 @@ export default function MainNav({
               <Bars3Icon className="h-6 w-6" />
             </button>
 
-            {/* Desktop sidebar toggle */}
             <button
               type="button"
               onClick={handleToggleSide}
               className="cursor-pointer hidden lg:inline-flex items-center justify-center rounded-md p-2 mr-1 text-white/90 hover:bg-white/10"
               aria-label="Toggle sidebar"
             >
-              <Bars3Icon
-                className={cx(
-                  "h-6 w-6 transition-transform"
-                  // sideCollapsed ? "rotate-180" : ""
-                )}
-              />
+              <Bars3Icon className="h-6 w-6 transition-transform" />
             </button>
 
-            {/* Brand */}
             <Link href="/" className="flex items-center gap-2 shrink-0">
               <Image
                 src={logo}
@@ -114,8 +111,7 @@ export default function MainNav({
             </Link>
           </div>
 
-          {/* CENTER: big search bar */}
-          {/* CENTER: big search bar */}
+          {/* CENTER: search */}
           <div className="flex-1 flex justify-end lg:justify-center">
             <div className="hidden sm:flex items-center gap-2 w-full max-w-3xl pl-4 pr-2 py-2 rounded-full bg-neutral-900 border border-neutral-800">
               <MagnifyingGlassIcon className="h-5 w-5 text-neutral-400" />
@@ -132,7 +128,6 @@ export default function MainNav({
                   }
                 }}
               />
-              {/* Search button */}
               <button
                 type="button"
                 onClick={handleSearch}
@@ -142,7 +137,6 @@ export default function MainNav({
               </button>
             </div>
 
-            {/* Mobile search: simple icon, goes to /search */}
             <button
               type="button"
               className="sm:hidden inline-flex items-center justify-center rounded-full p-2 bg-white/10 text-white hover:bg-white/15"
@@ -156,27 +150,66 @@ export default function MainNav({
           {/* RIGHT: auth/profile */}
           <div className="flex items-center gap-3 shrink-0">
             {initialized && loggedIn && (
-              <Link
-                href="/upload"
-                className="cursor-pointer inline-flex px-4 py-2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/15"
-                aria-label="Upload video"
-              >
-                <ArrowUpTrayIcon className="h-5 w-5 md:mr-2" />
-                <span className="text-sm font-semibold hidden md:block">
-                  Upload
-                </span>
-              </Link>
+              <Menu as="div" className="relative">
+                <Menu.Button
+                  className="cursor-pointer inline-flex px-4 py-2 items-center justify-center gap-2 rounded-full bg-white/10 text-white hover:bg-white/15"
+                  aria-label="Create"
+                >
+                  <PlusIcon className="h-5 w-5" />
+                  <span className="text-sm font-semibold hidden md:block">
+                    Create
+                  </span>
+                </Menu.Button>
+
+                <Transition
+                  as={Fragment}
+                  enter="transition ease-out duration-150"
+                  enterFrom="opacity-0 scale-95 translate-y-1"
+                  enterTo="opacity-100 scale-100 translate-y-0"
+                  leave="transition ease-in duration-100"
+                  leaveFrom="opacity-100 scale-100 translate-y-0"
+                  leaveTo="opacity-0 scale-95 translate-y-1"
+                >
+                  <Menu.Items className="absolute right-0 mt-2 w-52 origin-top-right rounded-xl bg-neutral-900/95 border border-white/10 shadow-2xl focus:outline-none py-1">
+                    <Menu.Item>
+                      {({ active }) => (
+                        <Link
+                          href="/upload"
+                          className={cx(
+                            "flex items-center gap-3 px-3 py-2 text-sm text-white/90",
+                            active && "bg-white/10",
+                          )}
+                        >
+                          <ArrowUpTrayIcon className="h-5 w-5" />
+                          <span>Upload video</span>
+                        </Link>
+                      )}
+                    </Menu.Item>
+
+                    <Menu.Item>
+                      {({ active }) => (
+                        <Link
+                          href="/streaming"
+                          className={cx(
+                            "flex items-center gap-3 px-3 py-2 text-sm text-white/90",
+                            active && "bg-white/10",
+                          )}
+                        >
+                          <RadioIcon className="h-5 w-5" />
+                          <span>Go live</span>
+                        </Link>
+                      )}
+                    </Menu.Item>
+                  </Menu.Items>
+                </Transition>
+              </Menu>
             )}
+
             {initialized && loggedIn ? (
               <>
-                {/* Desktop profile dropdown */}
                 <Menu as="div" className="relative hidden lg:block">
-                  <Menu.Button className="cursor-pointer inline-flex h-9 items-center gap-2 rounded-full bg-white/10 px-2 pr-3 text-sm text-white hover:bg-white/15">
+                  <Menu.Button className="cursor-pointer inline-flex items-center gap-2 rounded-full text-sm text-white hover:bg-white/15">
                     <ProfileAvatar src={user?.profile_pic} />
-                    <span className="max-w-[120px] truncate">
-                      {displayName}
-                    </span>
-                    <ChevronDownIcon className="h-4 w-4" />
                   </Menu.Button>
 
                   <Transition
@@ -209,7 +242,7 @@ export default function MainNav({
                               onClick={() => logout()}
                               className={cx(
                                 "cursor-pointer flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400",
-                                active && "bg-white/5"
+                                active && "bg-white/5",
                               )}
                             >
                               <ArrowRightOnRectangleIcon className="h-4 w-4" />
@@ -222,7 +255,6 @@ export default function MainNav({
                   </Transition>
                 </Menu>
 
-                {/* Mobile profile button */}
                 <button
                   type="button"
                   onClick={() => setMobileOpen(true)}
@@ -254,13 +286,8 @@ export default function MainNav({
         </div>
       </div>
 
-      {/* MOBILE NAV SHEET */}
       <Transition show={mobileOpen} as={Fragment}>
-        <Dialog
-          as="div"
-          className="relative z-50 lg:hidden"
-          onClose={setMobileOpen}
-        >
+        <div className="relative z-50 lg:hidden">
           <Transition.Child
             as={Fragment}
             enter="transition-opacity ease-out duration-150"
@@ -270,10 +297,15 @@ export default function MainNav({
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="fixed inset-0 bg-black/60" />
+            <button
+              type="button"
+              aria-label="Close navigation"
+              className="fixed inset-0 bg-black/60"
+              onClick={() => setMobileOpen(false)}
+            />
           </Transition.Child>
 
-          <div className="fixed inset-0">
+          <div className="fixed inset-0 pointer-events-none">
             <Transition.Child
               as={Fragment}
               enter="transition transform duration-200"
@@ -283,7 +315,7 @@ export default function MainNav({
               leaveFrom="translate-x-0"
               leaveTo="-translate-x-full"
             >
-              <Dialog.Panel className="fixed left-0 top-0 h-full w-full max-w-[360px] bg-neutral-900 text-white border-r border-white/10 shadow-2xl overflow-y-auto">
+              <div className="pointer-events-auto fixed left-0 top-0 h-full w-full max-w-[360px] bg-neutral-900 text-white border-r border-white/10 shadow-2xl overflow-y-auto">
                 {/* header */}
                 <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
                   <Link
@@ -309,15 +341,12 @@ export default function MainNav({
 
                 {/* body */}
                 <nav className="px-2 py-3 space-y-1 text-[15px]">
-                  {/* Primary nav – same as SideNav */}
                   {mainNavItems.map((item) => (
                     <MobileRow
                       key={item.href}
-                      href={item.href}
+                      item={item}
                       onClick={() => setMobileOpen(false)}
-                    >
-                      {item.label}
-                    </MobileRow>
+                    />
                   ))}
 
                   <hr className="border-white/10 my-2" />
@@ -341,7 +370,7 @@ export default function MainNav({
                         onClick={() => setMobileOpen(false)}
                       >
                         Ceflix Studio
-                      </MobileRow> 
+                      </MobileRow>
                       <MobileRow
                         href="/settings"
                         onClick={() => setMobileOpen(false)}
@@ -380,38 +409,12 @@ export default function MainNav({
                     )
                   )}
                 </nav>
-              </Dialog.Panel>
+              </div>
             </Transition.Child>
           </div>
-        </Dialog>
+        </div>
       </Transition>
     </header>
-  );
-}
-
-/* ---------- Small helper subcomponents ---------- */
-
-function NavLink({
-  href,
-  active,
-  children,
-}: {
-  href: string;
-  active?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className={cx(
-        "px-3 py-1.5 rounded-full transition text-sm",
-        active
-          ? "font-semibold text-white bg-neutral-800"
-          : "text-neutral-200 hover:bg-white/10"
-      )}
-    >
-      {children}
-    </Link>
   );
 }
 
@@ -429,7 +432,7 @@ function MenuItemLink({
           href={href}
           className={cx(
             "flex w-full items-center px-3 py-2 text-sm text-white/90",
-            active && "bg-white/10"
+            active && "bg-white/10",
           )}
         >
           {children}
@@ -440,21 +443,52 @@ function MenuItemLink({
 }
 
 function MobileRow({
+  item,
   href,
   onClick,
   children,
+  icon: CustomIcon,
 }: {
-  href: string;
+  item?: {
+    href: string;
+    label: string;
+    icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+    activeIcon?: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  };
+  href?: string;
   onClick?: () => void;
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  icon?: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 }) {
+  const pathname = usePathname();
+
+  const linkHref = item?.href ?? href ?? "#";
+  const label = item?.label ?? children;
+
+  const active =
+    linkHref === "/"
+      ? pathname === "/"
+      : pathname === linkHref || pathname.startsWith(`${linkHref}/`);
+
+  const Icon = item
+    ? active
+      ? item.activeIcon || item.icon
+      : item.icon
+    : CustomIcon || null;
+
   return (
     <Link
-      href={href}
+      href={linkHref}
       onClick={onClick}
-      className="block w-full px-3 py-2 rounded-md text-left hover:bg-white/10"
+      className={cx(
+        "flex w-full items-center gap-3 px-3 py-2 rounded-md text-left transition",
+        active
+          ? "bg-white/10 text-white font-semibold"
+          : "text-white/85 hover:bg-white/10",
+      )}
     >
-      {children}
+      {Icon ? <Icon className="h-5 w-5 shrink-0" /> : null}
+      <span>{label}</span>
     </Link>
   );
 }
@@ -469,7 +503,7 @@ function ProfileAvatar({
   const className =
     size === "lg"
       ? "h-10 w-10 rounded-full bg-white/10 flex items-center justify-center overflow-hidden"
-      : "h-7 w-7 rounded-full bg-white/10 flex items-center justify-center overflow-hidden";
+      : "h-8 w-8 rounded-full bg-white/10 flex items-center justify-center overflow-hidden";
 
   if (src) {
     return (

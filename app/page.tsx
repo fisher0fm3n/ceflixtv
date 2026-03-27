@@ -269,12 +269,12 @@ export default function HomePage() {
           else void countViewGuest(videoId);
         }}
       />
-      <div className="overflow-hidden">
+      {/* <div className="overflow-hidden">
         <HeroSlider slides={slides} autoAdvanceMs={8000} />
       </div>
       <section className="mt-6">
         <ChannelSlider title={"Live Stations"} items={stations} />
-      </section>
+      </section> */}
       <section className="mt-6">
         <ShortsShelf />
       </section>
