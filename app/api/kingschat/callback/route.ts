@@ -1,4 +1,3 @@
-// app/auth/kingschat/callback/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -17,7 +16,6 @@ export async function POST(req: NextRequest) {
       accessToken = (form.get("accessToken") as string) ?? null;
       refreshToken = (form.get("refreshToken") as string) ?? null;
     } else {
-      // fallback: try formData anyway
       const form = await req.formData().catch(() => null);
       if (form) {
         accessToken = (form.get("accessToken") as string) ?? null;
@@ -25,42 +23,27 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log("Incoming KingsChat callback:");
-    console.log("content-type:", contentType);
-    console.log("accessToken present?", !!accessToken);
-    console.log("refreshToken present?", !!refreshToken);
+    console.log("[KC callback] Incoming KingsChat callback:");
+    console.log("[KC callback] content-type:", contentType);
+    console.log("[KC callback] accessToken present?", !!accessToken);
+    console.log("[KC callback] refreshToken present?", !!refreshToken);
 
     if (!accessToken) {
-      console.error("No accessToken in POST body");
+      console.error("[KC callback] No accessToken in POST body");
       return new NextResponse(
         "Missing accessToken in KingsChat callback body",
         { status: 400 }
       );
     }
 
-    // OPTIONAL: call KingsChat profile here if you want
-    // const kcResp = await fetch(
-    //   "https://connect.kingsch.at/developer/api/profile",
-    //   {
-    //     method: "GET",
-    //     headers: {
-    //       Accept: "application/json",
-    //       Authorization: `Bearer ${accessToken}`,
-    //     },
-    //   }
-    // );
-    // const profile = await kcResp.json();
-    // console.log("KingsChat profile:", profile);
-
-    // Set cookies
     const res = NextResponse.redirect(
-      new URL("https://ceflix.org/auth/kingschat/callback", req.url), // will hit page.tsx as GET
+      new URL("/auth/kingschat/callback", req.url),
       { status: 303 }
     );
 
     res.cookies.set("kc_access_token", accessToken, {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60,
@@ -69,7 +52,7 @@ export async function POST(req: NextRequest) {
     if (refreshToken) {
       res.cookies.set("kc_refresh_token", refreshToken, {
         httpOnly: true,
-        secure: true,
+        secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
         maxAge: 60 * 60 * 24 * 30,
@@ -78,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     return res;
   } catch (err) {
-    console.error("Error in KingsChat callback route:", err);
+    console.error("[KC callback] Error in KingsChat callback route:", err);
     return new NextResponse("Internal server error", { status: 500 });
   }
 }
