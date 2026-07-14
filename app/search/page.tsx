@@ -152,6 +152,7 @@ function SearchPageContent() {
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const lastFetchKeyRef = useRef<string | null>(null);
   const [searchInput, setSearchInput] = useState(queryFromUrl);
 
   useEffect(() => {
@@ -218,12 +219,20 @@ function SearchPageContent() {
 
   async function getSearchResults(term: string, currentToken?: string | null) {
     if (!term) {
+      lastFetchKeyRef.current = null;
       setVideos([]);
       setChannels([]);
       setPlaylists([]);
       setError(null);
       return;
     }
+
+    const fetchKey = `${term}::${sortOption}::${currentToken ?? ""}`;
+    if (lastFetchKeyRef.current === fetchKey) {
+      return;
+    }
+
+    lastFetchKeyRef.current = fetchKey;
 
     abortControllerRef.current?.abort();
     const controller = new AbortController();
@@ -314,6 +323,7 @@ function SearchPageContent() {
     } catch (e: any) {
       if (e?.name === "AbortError") return;
 
+      lastFetchKeyRef.current = null;
       console.error(e);
       setError("Something went wrong while searching.");
       setVideos([]);
