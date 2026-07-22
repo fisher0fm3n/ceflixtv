@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const SITE_ORIGIN = "https://ceflix.org";
+
 export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get("content-type") || "";
@@ -37,7 +39,7 @@ export async function POST(req: NextRequest) {
     }
 
     const res = NextResponse.redirect(
-      new URL("/auth/kingschat/callback", req.url),
+      new URL("/auth/kingschat/callback", SITE_ORIGIN),
       { status: 303 }
     );
 
