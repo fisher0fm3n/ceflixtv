@@ -144,33 +144,45 @@ export function autoQualityIndex(
   // An explicit data-saver setting outranks anything we could infer.
   if (ctx.saveData) return 0;
 
+  // Where an input tells us nothing, settle for the rung single-URL clients
+  // already get rather than guessing upward.
+  const defaultIdx = qualities.findIndex((q) => q.label === DEFAULT_LABEL);
+  const unknownCap = defaultIdx === -1 ? last : defaultIdx;
+
   // Display ceiling: the smallest rung that still covers the rendered size.
   // 0.9 leaves a little slack so a 1280px player isn't nudged to 1080p.
-  let displayCap = last;
+  let displayCap: number;
   const width = ctx.displayWidth ?? 0;
-  const dpr = ctx.devicePixelRatio || 1;
+
+  // Retina counts for something, but not its full ratio: taking dpr at face
+  // value puts every 700px player on a laptop at 1080p, which is most of the
+  // egress for a difference few people can see at that size.
+  const dpr = Math.min(Math.max(ctx.devicePixelRatio || 1, 1), 1.5);
 
   if (width > 0) {
     const targetHeight = ((width * dpr) / 16) * 9;
     const idx = qualities.findIndex((q) => q.height >= targetHeight * 0.9);
     displayCap = idx === -1 ? last : idx;
+  } else {
+    displayCap = unknownCap;
   }
 
-  // Bandwidth ceiling: 60% of the reported downlink, since `downlink` is a
-  // rounded estimate and the connection has other work to do.
+  // Bandwidth ceiling: 80% of the reported downlink. These are progressive
+  // MP4s, so the player buffers as far ahead as it likes rather than riding a
+  // live edge — the rung's bitrate only has to fit the link on average, and
+  // the remaining fifth covers `downlink` being a rounded estimate.
   let bandwidthCap: number;
   const downlink = ctx.downlinkMbps ?? 0;
 
   if (downlink > 0) {
-    const usableKbps = downlink * 1000 * 0.6;
+    const usableKbps = downlink * 1000 * 0.8;
     let idx = -1;
     for (let i = 0; i < qualities.length; i++) {
       if (qualities[i].bitrate_kbps <= usableKbps) idx = i;
     }
     bandwidthCap = idx === -1 ? 0 : idx;
   } else {
-    const fallback = qualities.findIndex((q) => q.label === DEFAULT_LABEL);
-    bandwidthCap = fallback === -1 ? last : fallback;
+    bandwidthCap = unknownCap;
   }
 
   return Math.max(0, Math.min(displayCap, bandwidthCap));

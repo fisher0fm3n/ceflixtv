@@ -89,7 +89,7 @@ function ensureQualityComponent() {
       }) as HTMLElement;
 
       host.appendChild(this.labelEl_);
-      this.updateLabel(options?.selectedLabel ?? null);
+      this.updateLabel(options?.activeQuality?.label ?? null);
     }
 
     buildCSSClass() {
@@ -247,7 +247,12 @@ export default function VideoJsPlayer({
     const list = qualityListRef.current;
     if (list.length < 2) return;
 
-    const ceiling = autoQualityIndex(list, readAutoContext(containerRef.current));
+    // Measure the player element, not the wrapper: in fullscreen it is the one
+    // that grows to the screen.
+    const el: HTMLElement | null =
+      playerRef.current?.el?.() ?? containerRef.current;
+
+    const ceiling = autoQualityIndex(list, readAutoContext(el));
     const target = list[Math.max(0, ceiling - autoPenaltyRef.current)];
     if (!target || target.label === activeLabelRef.current) return;
 
@@ -384,6 +389,27 @@ export default function VideoJsPlayer({
 
     player.on("timeupdate", () => {
       onProgress?.(player.currentTime() || 0, player.duration() || 0);
+      autoRecoverRef.current(player);
+    });
+
+    // Rebuffering is the only real feedback a progressive MP4 gives us about
+    // the connection, so Auto leans on it. One stall is noise; two is a rung
+    // too high.
+    player.on("waiting", () => {
+      if (selectionRef.current !== AUTO_LABEL) return;
+
+      // A source swap makes the player wait by definition — that is us, not
+      // the network.
+      if (Date.now() - lastSwapAtRef.current < 4000) return;
+
+      lastStallAtRef.current = Date.now();
+      stallCountRef.current += 1;
+
+      if (stallCountRef.current >= 2) {
+        stallCountRef.current = 0;
+        autoPenaltyRef.current += 1;
+        syncAutoRef.current();
+      }
     });
 
     player.on("loadedmetadata", () => {
@@ -451,6 +477,39 @@ export default function VideoJsPlayer({
     }
   }, [effectiveSrc, poster, autoplay, muted]);
 
+  // Auto re-evaluates whenever an input moves: the real player width once
+  // mounted (the initial pick had to guess from the viewport), a resize or
+  // fullscreen change, or the connection itself.
+  useEffect(() => {
+    // Stall history belongs to the source that produced it.
+    autoPenaltyRef.current = 0;
+    stallCountRef.current = 0;
+    lastStallAtRef.current = 0;
+
+    if (!playerRef.current) return;
+
+    syncAutoRef.current();
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => syncAutoRef.current(), 400);
+    };
+
+    const conn = (navigator as any).connection ?? null;
+
+    window.addEventListener("resize", schedule);
+    document.addEventListener("fullscreenchange", schedule);
+    conn?.addEventListener?.("change", schedule);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener("resize", schedule);
+      document.removeEventListener("fullscreenchange", schedule);
+      conn?.removeEventListener?.("change", schedule);
+    };
+  }, [effectiveSrc, qualityList]);
+
   // Add / refresh / remove the control-bar quality menu.
   //
   // `effectiveSrc` is a dependency so this re-runs in the same commit that
@@ -475,11 +534,15 @@ export default function VideoJsPlayer({
       return;
     }
 
+    const onSelect = (next: string) => selectRef.current(next);
+
     if (existing) {
       existing.options_.qualities = qualityList;
-      existing.options_.selectedLabel = selectedLabel;
-      existing.options_.onSelect = (q: Quality) => applyQualityRef.current(q);
-      existing.updateLabel(selectedLabel);
+      existing.options_.selection = selection;
+      existing.options_.activeQuality = activeQuality;
+      existing.options_.onSelect = onSelect;
+      // The button always names the rung being played, Auto or not.
+      existing.updateLabel(activeLabel);
       existing.update(); // rebuilds the items, refreshing the checkmark
       return;
     }
@@ -494,14 +557,10 @@ export default function VideoJsPlayer({
 
     controlBar.addChild(
       QUALITY_COMPONENT,
-      {
-        qualities: qualityList,
-        selectedLabel,
-        onSelect: (q: Quality) => applyQualityRef.current(q),
-      },
+      { qualities: qualityList, selection, activeQuality, onSelect },
       fullscreenIndex >= 0 ? fullscreenIndex : children.length,
     );
-  }, [qualityList, selectedLabel, effectiveSrc]);
+  }, [qualityList, selection, activeLabel, activeQuality, effectiveSrc]);
 
   // Dispose on unmount
   useEffect(() => {
