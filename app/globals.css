@@ -325,6 +325,49 @@ html, body {
   overflow: hidden;
 }
 
+/* ================================
+   Quality menu (control bar)
+   Scoped to .vjs-ceflix so it applies wherever VideoJsPlayer renders.
+   ================================ */
+
+/* The button is textual ("720p"), so drop the inherited icon glyph. */
+.vjs-ceflix .vjs-quality-button .vjs-icon-placeholder:before {
+  content: none;
+}
+
+.vjs-ceflix .vjs-quality-button .vjs-quality-label {
+  display: inline-block;
+  padding: 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+
+/* Keeps the menu from being clipped by the control bar on narrow players */
+.vjs-ceflix .vjs-quality-button .vjs-menu {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.vjs-ceflix .vjs-quality-button .vjs-menu-content {
+  max-height: 14em;
+  min-width: 6.5em;
+}
+
+/* video.js lowercases menu text, which would render "1080p hd" */
+.vjs-ceflix .vjs-quality-button .vjs-menu-item {
+  text-transform: none;
+  padding: 0.5em 0.8em;
+  font-size: 12px;
+}
+
+.vjs-ceflix .vjs-quality-button .vjs-menu-item.vjs-selected {
+  background: #ef4444;
+  color: #fff;
+}
+
 /* Mobile: always show controls, slightly taller for touch */
 @media (max-width: 768px) {
   .ceflix-player .vjs-control-bar {

@@ -25,6 +25,7 @@ import { ListBulletIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useAuth } from "../../../components/AuthProvider";
 import ShareModal from "../../../components/ShareModal";
 import VideoJsPlayer from "@/app/components/VideoJsPlayer";
+import { Quality, normalizeQualities } from "@/app/lib/quality";
 
 const DEFAULT_AVATAR = "https://ceflix.org/images/avatar.png";
 // const API_BASE = "http://127.0.0.1:8000/api/";
@@ -69,6 +70,7 @@ type VideoData = {
   channel_prefix?: string;
   channel_file?: string;
   subscribers?: string | number;
+  qualities?: Quality[];
 };
 
 type Comment = {
@@ -222,6 +224,7 @@ export default function PlayerPage() {
   const [video, setVideo] = useState<VideoData | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [defaultVideoUrl, setDefaultVideoUrl] = useState<string | null>(null);
+  const [qualities, setQualities] = useState<Quality[]>([]);
   const [languages, setLanguages] = useState<Language[]>([]);
   const [selectedLangSlug, setSelectedLangSlug] = useState<string | null>(null);
 
@@ -302,6 +305,13 @@ export default function PlayerPage() {
   const isLive = useMemo(
     () => !!videoUrl && videoUrl.endsWith(".m3u8"),
     [videoUrl],
+  );
+
+  // Translated audio tracks are single files with no rendition ladder behind
+  // them, so the quality menu has nothing to offer while one is selected.
+  const playerQualities = useMemo(
+    () => (selectedLangSlug || isLive ? [] : qualities),
+    [selectedLangSlug, isLive, qualities],
   );
 
   // More menu (ellipsis) + auto flip
@@ -1014,6 +1024,7 @@ export default function PlayerPage() {
         setVideo(v);
         setVideoUrl(v.url);
         setDefaultVideoUrl(v.url);
+        setQualities(normalizeQualities(v.qualities));
         setLanguages(videoJson.data.languages || []);
         setSelectedLangSlug(null);
 
@@ -1883,6 +1894,7 @@ export default function PlayerPage() {
                 muted={false}
                 playsInline
                 loading={loading}
+                qualities={playerQualities}
                 startTime={resumeTime}
                 onProgress={handleProgress}
                 onLoadedMetadata={handleLoadedMetadata}
