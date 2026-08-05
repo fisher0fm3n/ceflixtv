@@ -1453,7 +1453,10 @@ export default function PlayerPage() {
     );
   }
 
-  if (loadError || !video || !videoUrl) {
+  // A processing video legitimately has no URL yet — the API withholds it
+  // until encoding finishes — so it must reach the player area, where the
+  // processing placeholder renders in place of the player.
+  if (loadError || !video || (!videoUrl && !isProcessing)) {
     return (
       <div className="min-h-screen flex items-center justify-center text-neutral-200">
         {loadError || "Video not found."}
