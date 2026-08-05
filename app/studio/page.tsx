@@ -27,7 +27,14 @@ type Video = {
   isPublic: string;
   created_at: string;
   streamKey: string;
+  /** "1" once the encoder has finished; anything else is still processing. */
+  processingStatus?: string | number;
 };
+
+/** A video is watchable only once the encoder has called back. */
+function isProcessing(video: Video) {
+  return video.isLive !== "1" && String(video.processingStatus ?? "1") !== "1";
+}
 
 export default function DashboardPage() {
   const { token } = useAuth();
@@ -212,13 +219,20 @@ export default function DashboardPage() {
                   className="block w-full cursor-pointer"
                   aria-label={`Open ${video.videos_title}`}
                 >
-                  <div className="w-full aspect-video bg-neutral-800 rounded overflow-hidden">
+                  <div className="relative w-full aspect-video bg-neutral-800 rounded overflow-hidden">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={video.thumbnail}
                       alt={video.videos_title}
                       className="w-full h-full object-contain hover:opacity-90 transition"
                     />
+
+                    {isProcessing(video) ? (
+                      <span className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded bg-black/75 px-2 py-1 text-[11px] font-semibold text-amber-300">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
+                        Processing
+                      </span>
+                    ) : null}
                   </div>
                 </button>
               </div>
@@ -308,13 +322,20 @@ export default function DashboardPage() {
                       className="block cursor-pointer"
                       aria-label={`Open ${video.videos_title}`}
                     >
-                      <div className="w-32 aspect-video bg-neutral-800 rounded overflow-hidden">
+                      <div className="relative w-32 aspect-video bg-neutral-800 rounded overflow-hidden">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={video.thumbnail}
                           alt={video.videos_title}
                           className="w-full h-full object-contain hover:opacity-90 transition"
                         />
+
+                        {isProcessing(video) ? (
+                          <span className="absolute left-1 top-1 inline-flex items-center gap-1 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+                            <span className="h-1 w-1 animate-pulse rounded-full bg-amber-400" />
+                            Processing
+                          </span>
+                        ) : null}
                       </div>
                     </button>
                   </td>

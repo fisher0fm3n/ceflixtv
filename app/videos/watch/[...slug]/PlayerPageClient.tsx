@@ -25,6 +25,7 @@ import { ListBulletIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useAuth } from "../../../components/AuthProvider";
 import ShareModal from "../../../components/ShareModal";
 import VideoJsPlayer from "@/app/components/VideoJsPlayer";
+import ProcessingPlaceholder from "@/app/components/ProcessingPlaceholder";
 import { Quality, normalizeQualities } from "@/app/lib/quality";
 
 const DEFAULT_AVATAR = "https://ceflix.org/images/avatar.png";
@@ -71,6 +72,10 @@ type VideoData = {
   channel_file?: string;
   subscribers?: string | number;
   qualities?: Quality[];
+  /** True while the encoder is still running; url/ios_url are null. */
+  is_processing?: boolean;
+  processing_state?: "processing" | "ready";
+  processing_message?: string | null;
 };
 
 type Comment = {
@@ -225,6 +230,7 @@ export default function PlayerPage() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [defaultVideoUrl, setDefaultVideoUrl] = useState<string | null>(null);
   const [qualities, setQualities] = useState<Quality[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [languages, setLanguages] = useState<Language[]>([]);
   const [selectedLangSlug, setSelectedLangSlug] = useState<string | null>(null);
 
@@ -1022,6 +1028,9 @@ export default function PlayerPage() {
 
         const v: VideoData = videoJson.data.video;
         setVideo(v);
+        // The API withholds playback URLs while the encoder is still running,
+        // so `url` is null here rather than a link that would 403.
+        setIsProcessing(Boolean(v.is_processing));
         setVideoUrl(v.url);
         setDefaultVideoUrl(v.url);
         setQualities(normalizeQualities(v.qualities));
@@ -1108,6 +1117,58 @@ export default function PlayerPage() {
       cancelled = true;
     };
   }, [currentVideoId, token, user, initialPlaylistId]);
+
+  /**
+   * Poll while the encoder is still running.
+   *
+   * Encoding takes anywhere from seconds to several minutes, so rather than
+   * leaving the viewer to guess and refresh, re-check until the API hands back
+   * a playable URL and then swap the placeholder for the player.
+   */
+  useEffect(() => {
+    if (!isProcessing || !currentVideoId) return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const check = async () => {
+      try {
+        const res = await fetch(API_BASE + "video", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Application-Key": APP_KEY,
+          },
+          body: JSON.stringify({ video: currentVideoId }),
+        });
+
+        const json = await res.json();
+        const v = json?.data?.video;
+
+        if (cancelled) return;
+
+        if (json?.status && v && !v.is_processing && v.url) {
+          setVideo(v);
+          setVideoUrl(v.url);
+          setDefaultVideoUrl(v.url);
+          setQualities(normalizeQualities(v.qualities));
+          setIsProcessing(false);
+          return;
+        }
+      } catch {
+        // A failed poll is not worth surfacing — the next one may succeed.
+      }
+
+      if (!cancelled) timer = setTimeout(check, 15_000);
+    };
+
+    timer = setTimeout(check, 15_000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [isProcessing, currentVideoId]);
 
   useEffect(() => {
     if (video?.videos_title)
@@ -1887,20 +1948,27 @@ export default function PlayerPage() {
                   : "relative aspect-video"
               }
             >
-              <VideoJsPlayer
-                src={videoUrl}
-                poster={withCloudinaryPrefix(video.thumbnail)}
-                autoplay
-                muted={false}
-                playsInline
-                loading={loading}
-                qualities={playerQualities}
-                startTime={resumeTime}
-                onProgress={handleProgress}
-                onLoadedMetadata={handleLoadedMetadata}
-                onEnded={handleVideoEnded}
-                className="absolute inset-0"
-              />
+              {isProcessing ? (
+                <ProcessingPlaceholder
+                  poster={withCloudinaryPrefix(video.thumbnail)}
+                  message={video.processing_message}
+                />
+              ) : (
+                <VideoJsPlayer
+                  src={videoUrl}
+                  poster={withCloudinaryPrefix(video.thumbnail)}
+                  autoplay
+                  muted={false}
+                  playsInline
+                  loading={loading}
+                  qualities={playerQualities}
+                  startTime={resumeTime}
+                  onProgress={handleProgress}
+                  onLoadedMetadata={handleLoadedMetadata}
+                  onEnded={handleVideoEnded}
+                  className="absolute inset-0"
+                />
+              )}
             </div>
 
             {/* AUTOPLAY PREVIEW OVERLAY */}
