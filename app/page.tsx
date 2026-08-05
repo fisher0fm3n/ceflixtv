@@ -52,6 +52,24 @@ function readLS<T>(key: string): T | undefined {
   }
 }
 
+/**
+ * Short, stable, non-reversible key fragment for the signed-in user.
+ *
+ * Only used to separate cached feeds per account — never to identify anyone.
+ * Signed-out visitors share the "guest" bucket, which is correct: their feed
+ * is identical.
+ */
+function hashToken(token: string | null): string {
+  if (!token) return "guest";
+
+  let hash = 5381;
+  for (let i = 0; i < token.length; i++) {
+    hash = ((hash << 5) + hash + token.charCodeAt(i)) >>> 0;
+  }
+
+  return hash.toString(36);
+}
+
 function writeLS<T>(key: string, value: T) {
   if (typeof window === "undefined") return;
   try {
@@ -62,8 +80,16 @@ function writeLS<T>(key: string, value: T) {
 }
 
 // ---- fetchers ----
-async function homepageFetcher(url: string) {
-  const res = await fetch(url, { method: "GET" });
+// The token is what makes the feed personal — without it the API can only
+// return trending and fresh content. It is passed through our own route rather
+// than appended to the SWR key's URL so it never lands in a query string.
+async function homepageFetcher([url, token]: [string, string]) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+
   const json = await res.json();
 
   if (!res.ok) {
@@ -74,10 +100,10 @@ async function homepageFetcher(url: string) {
   }
 
   // Support both shapes:
-  // A) { ok: true, data: { data: [], stations: [], homeSlides: [] } }
+  // A) { ok: true, data: { sections: [], stations: [], homeSlides: [] } }
   // B) { homeSlides: [], sections: [], stations: [] }
-  const sections = (json?.data?.data ??
-    json?.data?.sections ??
+  const sections = (json?.data?.sections ??
+    json?.data?.data ??
     json?.sections ??
     []) as Section[];
   const stations = (json?.data?.stations ?? json?.stations ?? []) as any[];
@@ -122,7 +148,12 @@ export default function HomePage() {
   const { token, initialized } = useAuth();
 
   // ---- CACHED: homepage ----
-  const HOME_LS_KEY = "ceflix:homepage:v1";
+  // The feed is now per-user, so the cache key has to be too — a single shared
+  // key would serve one account's rows to the next person on this browser.
+  // Hashed rather than keyed on the token itself so no token material is
+  // written to localStorage.
+  const HOME_LS_KEY = `ceflix:homepage:v2:${hashToken(token)}`;
+
   const homeFallback = useMemo(
     () =>
       readLS<{
@@ -130,20 +161,26 @@ export default function HomePage() {
         stations: any[];
         homeSlides: HeroSlide[];
       }>(HOME_LS_KEY),
-    [],
+    [HOME_LS_KEY],
   );
 
   const {
     data: homeData,
     error: homeErr,
     isLoading: homeLoading,
-  } = useSWR("/api/homepage", homepageFetcher, {
-    fallbackData: homeFallback,
-    revalidateOnFocus: true,
-    dedupingInterval: 60_000,
-    keepPreviousData: true,
-    onSuccess: (data) => writeLS(HOME_LS_KEY, data),
-  });
+  } = useSWR(
+    // Null until auth has been restored, so we don't fetch a signed-out feed
+    // and immediately throw it away once the token arrives.
+    initialized ? (["/api/homepage", token ?? ""] as const) : null,
+    homepageFetcher,
+    {
+      fallbackData: homeFallback,
+      revalidateOnFocus: true,
+      dedupingInterval: 60_000,
+      keepPreviousData: true,
+      onSuccess: (data) => writeLS(HOME_LS_KEY, data),
+    },
+  );
 
   const homeSections = homeData?.sections ?? [];
   const stations = homeData?.stations ?? [];

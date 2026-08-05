@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
+import { useAuth } from "./AuthProvider";
+
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
 const FALLBACK_THUMB = "https://ceflix.org/images/placeholder.png";
@@ -56,6 +58,7 @@ function ShortCard({ item }: { item: ShortItem }) {
 }
 
 export default function ShortsShelf() {
+  const { token } = useAuth();
   const [items, setItems] = useState<ShortItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -96,6 +99,10 @@ export default function ShortsShelf() {
           },
           body: JSON.stringify({
             limit: 6,
+            // Ranks these against the viewer's taste profile and suppresses
+            // clips they have already watched. Empty for signed-out visitors,
+            // who get the recency ordering as before.
+            token: token ?? "",
           }),
         });
 
@@ -126,7 +133,9 @@ export default function ShortsShelf() {
     return () => {
       cancelled = true;
     };
-  }, []);
+    // Refetches on sign-in/out so the shelf switches between the personalised
+    // and generic orderings.
+  }, [token]);
 
   const visibleItems = useMemo(() => {
     return items.slice(0, desktopColumns);

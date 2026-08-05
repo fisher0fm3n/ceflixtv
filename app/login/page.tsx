@@ -9,6 +9,7 @@ import Image from "next/image";
 import logo from "../assets/logo/ceflixplus-logo.png";
 import { KingsChatSignIn } from "@/app/auth/components/KingschatSignIn";
 import Link from "next/link";
+import { shouldPromptForInterests } from "../lib/personalization";
 
 // 🔹 This component actually uses useSearchParams
 function LoginPageContent() {
@@ -35,6 +36,17 @@ function LoginPageContent() {
     if (!res.ok) {
       setErr(res.error || "Unable to sign in. Please try again.");
       return;
+    }
+
+    // First-time users pick interests before landing on the home page. Never
+    // blocks sign-in — a failed check just falls through to the redirect.
+    if (res.token && redirectTo === "/") {
+      const needsInterests = await shouldPromptForInterests(res.token);
+
+      if (needsInterests) {
+        router.push("/interests");
+        return;
+      }
     }
 
     router.push(redirectTo);

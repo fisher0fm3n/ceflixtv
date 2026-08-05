@@ -91,6 +91,13 @@ export default function UploadPage() {
   // file upload
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoFileName, setVideoFileName] = useState("");
+  // Read off the selected file so the API can cap the encoding ladder at the
+  // source resolution — a 720p upload is never encoded to 1080p. Null when the
+  // browser could not report them, in which case the API encodes every rung.
+  const [sourceSize, setSourceSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
 
   // stream upload
   const [streamLink, setStreamLink] = useState("");
@@ -293,6 +300,15 @@ export default function UploadPage() {
       video.muted = true;
 
       video.addEventListener("loadedmetadata", () => {
+        // Captured before the duration guard below: the dimensions are useful
+        // even for a file whose duration the browser cannot read.
+        if (video.videoWidth > 0 && video.videoHeight > 0) {
+          setSourceSize({
+            width: video.videoWidth,
+            height: video.videoHeight,
+          });
+        }
+
         const duration = video.duration;
         if (!duration || !Number.isFinite(duration)) {
           URL.revokeObjectURL(url);
@@ -346,6 +362,8 @@ export default function UploadPage() {
     if (!file) return;
     setVideoFile(file);
     setVideoFileName(file.name);
+    // Cleared so a previous file's dimensions can never be sent with this one.
+    setSourceSize(null);
     generateThumbnailsFromVideo(file);
   };
 
@@ -539,6 +557,14 @@ export default function UploadPage() {
     if (select === 0 && videoFile) {
       formData.append("type", "video");
       formData.append("file", videoFile);
+
+      // Caps the encoding ladder at the source resolution. Omitted when the
+      // browser could not read the dimensions, which the API treats as
+      // "encode every rung" rather than degrading the upload.
+      if (sourceSize) {
+        formData.append("source_width", String(sourceSize.width));
+        formData.append("source_height", String(sourceSize.height));
+      }
     }
 
     if (select === 1) {

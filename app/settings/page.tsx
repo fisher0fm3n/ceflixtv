@@ -11,9 +11,11 @@ import React, {
 } from "react";
 import Image from "next/image";
 import Cropper, { ReactCropperElement } from "react-cropper";
+import Link from "next/link";
 import {
   CameraIcon,
   CheckCircleIcon,
+  ChevronRightIcon,
   ExclamationCircleIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "../components/AuthProvider";
@@ -332,6 +334,51 @@ export default function SettingsPage() {
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
       <div className="divide-y divide-white/5">
+        {/* Personalisation */}
+        <section className="grid max-w-5xl mx-auto grid-cols-1 gap-x-8 gap-y-10 px-4 py-10 sm:px-6 md:grid-cols-3 lg:px-8">
+          <div>
+            <h2 className="text-base font-semibold leading-7 text-white">
+              Personalisation
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-gray-400">
+              Control what your home page is built from and which sections it
+              shows.
+            </p>
+          </div>
+
+          <div className="md:col-span-2 flex flex-col gap-3">
+            <Link
+              href="/interests?mode=edit"
+              className="flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-900/40 px-4 py-3 transition hover:border-neutral-700 hover:bg-neutral-900"
+            >
+              <span>
+                <span className="block text-sm font-medium text-white">
+                  Your Interests
+                </span>
+                <span className="mt-0.5 block text-xs text-neutral-400">
+                  Topics we use to pick your videos
+                </span>
+              </span>
+              <ChevronRightIcon className="h-5 w-5 shrink-0 text-neutral-500" />
+            </Link>
+
+            <Link
+              href="/settings/home-layout"
+              className="flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-900/40 px-4 py-3 transition hover:border-neutral-700 hover:bg-neutral-900"
+            >
+              <span>
+                <span className="block text-sm font-medium text-white">
+                  Home Page
+                </span>
+                <span className="mt-0.5 block text-xs text-neutral-400">
+                  Show, hide and reorder sections
+                </span>
+              </span>
+              <ChevronRightIcon className="h-5 w-5 shrink-0 text-neutral-500" />
+            </Link>
+          </div>
+        </section>
+
         {/* Picture */}
         <section className="grid max-w-5xl mx-auto grid-cols-1 gap-x-8 gap-y-10 px-4 py-10 sm:px-6 md:grid-cols-3 lg:px-8">
           <div>

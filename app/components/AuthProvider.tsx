@@ -20,6 +20,14 @@ type AuthState = {
 type LoginResult = {
   ok: boolean;
   error?: string;
+  /**
+   * The freshly issued token.
+   *
+   * Returned because state and localStorage are both written asynchronously,
+   * so a caller that needs the token immediately after sign-in — the interest
+   * onboarding check, for one — cannot read either yet.
+   */
+  token?: string;
 };
 
 type HydrateInput = {
@@ -125,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         encID: encID || null,
       });
 
-      return { ok: true };
+      return { ok: true, token };
     } catch (e) {
       console.error("Login error", e);
       return { ok: false, error: "Network error" };
