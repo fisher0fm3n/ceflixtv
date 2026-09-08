@@ -12,11 +12,50 @@ import {
 import { useAuth } from "../components/AuthProvider";
 import { slugify, timeSinceUnix } from "@/app/assets/scripts/script";
 
-const EXTERNAL_VIDEO_SEARCH_API =
-  "https://nmt.loveworldapis.com/api/kingsspace/search/external/videos";
-
 const API_BASE = "https://webapi.ceflix.org/api/";
 const APP_KEY = "2567a5ec9705eb7ac2c984033e06189d";
+
+// Video search moved off the external loveworldapis service onto the CeFlix
+// API. That service read this same database but ranked with no recency and
+// OR-matched on the weakest term, so a typo in one word returned every
+// "service" on the platform. Same response shape, so nothing below changes.
+const VIDEO_SEARCH_API = `${API_BASE}search/videos`;
+
+// The service this page used before. Kept only as a fallback for the window
+// where a client build is live but the API route is not (not yet deployed, or
+// its route cache not rebuilt). It has the old ranking faults, so the fallback
+// warns loudly - seeing that warning in production means the API is behind.
+const LEGACY_VIDEO_SEARCH_API =
+  "https://nmt.loveworldapis.com/api/kingsspace/search/external/videos";
+
+async function fetchVideoSearch(
+  term: string,
+  sort: string,
+  signal: AbortSignal,
+): Promise<Response> {
+  const query = `q=${encodeURIComponent(term)}&limit=50&sort=${encodeURIComponent(sort)}`;
+
+  try {
+    const res = await fetch(`${VIDEO_SEARCH_API}?${query}`, {
+      method: "GET",
+      headers: { "Application-Key": APP_KEY },
+      signal,
+    });
+
+    // Only a missing route falls back. A 5xx or 403 is a real problem on
+    // the new endpoint and should surface, not be papered over.
+    if (res.status !== 404) return res;
+
+    console.warn(
+      "[search] /api/search/videos returned 404 - API not deployed or route cache stale. Falling back to legacy search.",
+    );
+  } catch (e: any) {
+    if (e?.name === "AbortError") throw e;
+    console.warn("[search] CeFlix search unreachable, falling back to legacy search.", e);
+  }
+
+  return fetch(`${LEGACY_VIDEO_SEARCH_API}?${query}`, { method: "GET", signal });
+}
 
 type ExternalVideoResult = {
   videoId: number | string;
@@ -245,13 +284,7 @@ function SearchPageContent() {
       const externalSort = mapSortOptionToApiSort(sortOption);
 
       const [videoReq, internalReq] = await Promise.all([
-        fetch(
-          `${EXTERNAL_VIDEO_SEARCH_API}?q=${encodeURIComponent(term)}&limit=50&sort=${encodeURIComponent(externalSort)}`,
-          {
-            method: "GET",
-            signal: controller.signal,
-          },
-        ),
+        fetchVideoSearch(term, externalSort, controller.signal),
         fetch(API_BASE + "search", {
           method: "POST",
           headers: {
@@ -268,7 +301,7 @@ function SearchPageContent() {
       ]);
 
       if (!videoReq.ok) {
-        throw new Error("Failed to fetch videos from external search API.");
+        throw new Error("Failed to fetch videos.");
       }
 
       const videoRes: ExternalVideoApiResponse = await videoReq.json();
@@ -321,7 +354,15 @@ function SearchPageContent() {
         setError("No results found.");
       }
     } catch (e: any) {
-      if (e?.name === "AbortError") return;
+      if (e?.name === "AbortError") {
+        // Defensive twin of the cleanup above, for aborts that come from
+        // getSearchResults superseding itself. Only release the key if it is
+        // still ours - a newer request may already own it.
+        if (lastFetchKeyRef.current === fetchKey) {
+          lastFetchKeyRef.current = null;
+        }
+        return;
+      }
 
       lastFetchKeyRef.current = null;
       console.error(e);
@@ -330,7 +371,10 @@ function SearchPageContent() {
       setChannels([]);
       setPlaylists([]);
     } finally {
-      if (!controller.signal.aborted) {
+      // Only the latest request owns the loading flag. An aborted request
+      // that was NOT superseded (cleanup with no re-run) must still clear it,
+      // or the spinner never goes away.
+      if (abortControllerRef.current === controller) {
         setLoading(false);
       }
     }
@@ -351,7 +395,13 @@ function SearchPageContent() {
     getSearchResults(queryFromUrl, token);
 
     return () => {
+      // Aborting means this key was never satisfied. Clear it here,
+      // synchronously, so the re-run that follows (StrictMode double-invoke,
+      // or a dependency change) actually fetches instead of being deduped
+      // against a request that was just cancelled. The AbortError rejection
+      // arrives too late to do this in `catch`.
       abortControllerRef.current?.abort();
+      lastFetchKeyRef.current = null;
     };
   }, [queryFromUrl, token, initialized, sortOption]);
 
@@ -773,14 +823,30 @@ function SearchPageContent() {
                 const channelHref = channelId
                   ? `/channel/${encodeURIComponent(channelId)}`
                   : "#";
+                const videoHref = `/videos/watch/${encodeURIComponent(videoId)}/${hrefSlug}`;
 
+                // The card used to be one <Link> wrapping a channel <Link>:
+                // an <a> inside an <a>, which is invalid HTML and made React
+                // discard the server render on every load. The card is now a
+                // plain container; the thumbnail, title and channel are real
+                // sibling anchors, and clicks on the rest of the card still
+                // navigate to the video.
                 return (
-                  <Link
+                  <div
                     key={videoId}
-                    href={`/videos/watch/${encodeURIComponent(videoId)}/${hrefSlug}`}
-                    className="flex flex-col sm:flex-row gap-3 sm:gap-4 rounded-lg hover:bg-neutral-900/70 transition p-4 -mx-2"
+                    role="link"
+                    tabIndex={-1}
+                    onClick={(e) => {
+                      // Anchors inside the card handle themselves.
+                      if ((e.target as HTMLElement).closest("a")) return;
+                      router.push(videoHref);
+                    }}
+                    className="flex flex-col sm:flex-row gap-3 sm:gap-4 rounded-lg hover:bg-neutral-900/70 transition p-4 -mx-2 cursor-pointer"
                   >
-                    <div className="relative w-full sm:w-90 aspect-video rounded-md overflow-hidden bg-neutral-900 flex-shrink-0">
+                    <Link
+                      href={videoHref}
+                      className="relative block w-full sm:w-90 aspect-video rounded-md overflow-hidden bg-neutral-900 flex-shrink-0"
+                    >
                       <Image
                         src={v.thumbnail || "/placeholder.png"}
                         alt={title}
@@ -793,11 +859,13 @@ function SearchPageContent() {
                           LIVE
                         </span>
                       )}
-                    </div>
+                    </Link>
 
                     <div className="flex-1 flex flex-col min-w-0">
                       <h2 className="text-base sm:text-lg font-semibold leading-snug mb-1 line-clamp-2">
-                        {title}
+                        <Link href={videoHref} className="hover:underline">
+                          {title}
+                        </Link>
                       </h2>
 
                       <div className="mb-2 py-2">
@@ -858,10 +926,9 @@ function SearchPageContent() {
                             )}
                           </span>
                         )}
-                        {v.category && <span>{v.category}</span>}
                       </div>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </section>
