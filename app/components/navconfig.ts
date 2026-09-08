@@ -8,6 +8,7 @@ import {
   QueueListIcon,
   SignalIcon,
   VideoCameraIcon,
+  UserGroupIcon,
 } from "@heroicons/react/24/outline";
 
 export type NavItem = {
@@ -15,6 +16,8 @@ export type NavItem = {
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   dividerAfter?: boolean;
+  /** Absolute URL on another site — opens in a new tab and is never "active". */
+  external?: boolean;
 };
 
 export const mainNavItems: NavItem[] = [
@@ -31,5 +34,16 @@ export const mainNavItems: NavItem[] = [
     { href: "/streaming", label: "Live Streaming", icon: VideoCameraIcon },
   { href: "/history", label: "History", icon: ClockIcon },
   { href: "/likes", label: "Liked Videos", icon: HandThumbUpIcon },
-  { href: "/playlists", label: "Playlists", icon: QueueListIcon },
+  {
+    href: "/playlists",
+    label: "Playlists",
+    icon: QueueListIcon,
+    dividerAfter: true,
+  },
+  {
+    href: "https://lwccan.ceflix.org/",
+    label: "LoveWorld CCAN",
+    icon: UserGroupIcon,
+    external: true,
+  },
 ];

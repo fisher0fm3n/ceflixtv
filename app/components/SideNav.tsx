@@ -56,8 +56,9 @@ export default function SideNav({
           <aside className="fixed hidden left-0 top-16 z-[999] backdrop-blur lg:flex h-[calc(100vh-4rem)] flex-col bg-neutral-950/80 text-white w-60">
             <nav className="flex-1 py-4">
               {mainNavItems.map((item) => {
-                const active =
-                  item.href === "/"
+                const active = item.external
+                  ? false
+                  : item.href === "/"
                     ? pathname === "/"
                     : pathname.startsWith(item.href);
 
@@ -67,6 +68,9 @@ export default function SideNav({
                   <Fragment key={item.href}>
                     <Link
                       href={item.href}
+                      {...(item.external
+                        ? { target: "_blank", rel: "noopener noreferrer" }
+                        : {})}
                       className={cx(
                         "mx-3 mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition",
                         active
@@ -114,8 +118,9 @@ export default function SideNav({
     >
       <nav className="flex-1 py-4">
         {mainNavItems.map((item) => {
-          const active =
-            item.href === "/"
+          const active = item.external
+            ? false
+            : item.href === "/"
               ? pathname === "/"
               : pathname.startsWith(item.href);
 
@@ -125,6 +130,9 @@ export default function SideNav({
             <Fragment key={item.href}>
               <Link
                 href={item.href}
+                {...(item.external
+                  ? { target: "_blank", rel: "noopener noreferrer" }
+                  : {})}
                 className={cx(
                   "mx-2 mb-1 flex items-center rounded-lg px-3 py-2 text-sm transition",
                   effectiveCollapsed ? "justify-center" : "gap-3",

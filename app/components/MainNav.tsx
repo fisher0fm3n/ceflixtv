@@ -314,6 +314,7 @@ export default function MainNav({
                     <MobileRow
                       key={item.href}
                       href={item.href}
+                      external={item.external}
                       onClick={() => setMobileOpen(false)}
                     >
                       {item.label}
@@ -442,16 +443,19 @@ function MenuItemLink({
 function MobileRow({
   href,
   onClick,
+  external,
   children,
 }: {
   href: string;
   onClick?: () => void;
+  external?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
       onClick={onClick}
+      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
       className="block w-full px-3 py-2 rounded-md text-left hover:bg-white/10"
     >
       {children}
